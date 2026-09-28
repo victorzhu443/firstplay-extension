@@ -267,8 +267,8 @@ var FirstPlay = FirstPlay || {};
 
     // Remote geocoders (Ashby, Duolingo's location) can take several seconds.
     let options = [];
-    for (let i = 0; i < 80 && !options.length; i += 1) {
-      await sleep(100);
+    for (let i = 0; i < 200 && !options.length; i += 1) {
+      await sleep(40);
       options = suggestionsFor(el);
     }
 
@@ -296,7 +296,7 @@ var FirstPlay = FirstPlay || {};
     const hidden = el.dataset.firstplayHidden ? document.getElementById(el.dataset.firstplayHidden) : null;
     const committed = () =>
       normalise(el.value) === normalise(text) && (!hidden || hidden.value !== "");
-    for (let i = 0; i < 30 && !committed(); i += 1) await sleep(100);
+    for (let i = 0; i < 75 && !committed(); i += 1) await sleep(40);
 
     if (!committed()) {
       return { ok: false, why: hidden && hidden.value === ""
@@ -394,8 +394,8 @@ var FirstPlay = FirstPlay || {};
     el.dispatchEvent(new FocusEvent("focusin", { bubbles: true }));
     setNativeValue(el, value);
 
-    for (let i = 0; i < 80; i += 1) {
-      await sleep(100);
+    for (let i = 0; i < 200; i += 1) {
+      await sleep(40);
       const fresh = selectInstanceOf(el) || instance;
       const options = instanceOptions(fresh);
       if (options.length) return options;
@@ -459,10 +459,13 @@ var FirstPlay = FirstPlay || {};
       return { ok: false, why: "react-select exposes no selection method" };
     }
 
-    await sleep(80);
-
-    const shown = displayedValue(el);
+    // Poll the readback instead of napping a fixed 80 ms.
     const expected = optionText(chosen);
+    let shown = displayedValue(el);
+    for (let i = 0; i < 20 && normalise(shown) !== normalise(expected); i += 1) {
+      await sleep(40);
+      shown = displayedValue(el);
+    }
 
     if (normalise(shown) !== normalise(expected)) {
       return { ok: false, why: `selected ${JSON.stringify(expected)} but widget shows ` +
@@ -578,8 +581,8 @@ var FirstPlay = FirstPlay || {};
     // The page's main thread can be slow (a 300 ms timer took 1 s on Duolingo),
     // so the list is polled for well past the time it needs when idle.
     let list = null;
-    for (let i = 0; i < 15 && !list; i += 1) {
-      await sleep(100);
+    for (let i = 0; i < 40 && !list; i += 1) {
+      await sleep(40);
       const id = button.getAttribute("aria-controls");
       list = (id && document.getElementById(id)) || null;
     }
@@ -608,10 +611,10 @@ var FirstPlay = FirstPlay || {};
     const chosenText = picks.map((o) => o.textContent.trim());
     for (const pick of picks) {
       if (pick.getAttribute("aria-selected") !== "true") pick.click();
-      await sleep(120);
+      await sleep(40);
     }
     if (document.getElementById(button.getAttribute("aria-controls") || "")) button.click();
-    await sleep(150);
+    for (let i = 0; i < 20 && !chosenText.every((t) => shown().includes(normalise(t))); i += 1) await sleep(40);
 
     const missing = chosenText.filter((t) => !shown().includes(normalise(t)));
     if (missing.length) {

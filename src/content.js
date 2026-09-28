@@ -70,15 +70,31 @@
     let previous = -1;
     let stableFor = 0;
 
-    for (let attempt = 0; attempt < 20; attempt += 1) {
+    for (let attempt = 0; attempt < 40; attempt += 1) {
       const controls = ns.extractControls();
       stableFor = controls.length === previous && controls.length > 0 ? stableFor + 1 : 0;
-      if (stableFor >= 2) return controls;
+      if (stableFor >= 1) return controls;
       previous = controls.length;
-      await new Promise((r) => setTimeout(r, 500));
+      await new Promise((r) => setTimeout(r, 250));
     }
 
     return ns.extractControls();
+  }
+
+  // The POST goes from the service worker, not here. A fetch from a content
+  // script carries the page's origin and is subject to CORS; the worker has
+  // host permission and is not.
+  function requestPlan(posting, controls) {
+    return chrome.runtime.sendMessage({
+      kind: "buildPlan",
+      posting,
+      controls,
+      page: {
+        company: document.title.split(/[—–|@]/).pop().trim() || null,
+        title: document.title,
+        url: window.location.href,
+      },
+    });
   }
 
   async function run() {
@@ -100,7 +116,15 @@
       return;
     }
 
+    const t0 = performance.now();
+
+    // A Greenhouse plan depends on the API payload, not on the DOM, so the
+    // request goes out now and runs while the page finishes rendering.
+    // Ashby has no API; its plan needs the controls first.
+    const earlyPlan = posting.ats === "greenhouse" ? requestPlan(posting, []) : null;
+
     const controls = await settledControls();
+    const tSettled = performance.now();
 
     if (!controls.length) {
       console.log(
@@ -113,19 +137,8 @@
 
     console.log(`${TAG} ${posting.ats}: ${controls.length} controls read`);
 
-    // The POST goes from the service worker, not here. A fetch from a content
-    // script carries the page's origin and is subject to CORS; the worker has
-    // host permission and is not.
-    const response = await chrome.runtime.sendMessage({
-      kind: "buildPlan",
-      posting,
-      controls,
-      page: {
-        company: document.title.split(/[—–|@]/).pop().trim() || null,
-        title: document.title,
-        url: window.location.href,
-      },
-    });
+    const response = await (earlyPlan || requestPlan(posting, controls));
+    const tPlanned = performance.now();
 
     if (!response || !response.ok) {
       console.warn(`${TAG} ${(response && response.error) || "no response from background"}`);
@@ -158,10 +171,19 @@
     const outcome = await ns.applyPlan(response.plan, { resume: stored["firstplay.resume"] || null });
     window.__firstplayOutcome = outcome;
 
+    const tApplied = performance.now();
+    const secs = (ms) => (ms / 1000).toFixed(1) + "s";
+
     console.log(
       `${TAG} applied: ${outcome.filled} filled, ${outcome.attach} to attach by hand, ` +
         `${outcome.review} outlined for you, ${outcome.failed} known but could not be entered, ` +
         `${outcome.missing} in the plan but not on this page`
+    );
+    const backendNote = response.cached ? " (plan from cache)"
+      : response.elapsed_ms ? ` (backend ${secs(response.elapsed_ms)}${response.model_skipped ? ", model skipped: slow" : ""})` : "";
+    console.log(
+      `${TAG} timing: page settled ${secs(tSettled - t0)} · plan ready ${secs(tPlanned - t0)}${backendNote}` +
+        ` · filled ${secs(tApplied - tPlanned)} · total ${secs(tApplied - t0)}`
     );
 
     if (outcome.failed) {
@@ -181,7 +203,7 @@
 
     return {
       filled: outcome.filled, attach: outcome.attach, review: outcome.review,
-      failed: outcome.failed, missing: outcome.missing,
+      failed: outcome.failed, missing: outcome.missing, seconds: (tApplied - t0) / 1000,
     };
   }
 

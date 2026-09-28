@@ -73,9 +73,29 @@ function countAnswers(profile) {
   );
 }
 
+/** A short, stable key for "this posting, this profile": the plan is a pure function of both. */
+async function planCacheKey(posting, profile) {
+  const text = JSON.stringify([posting.ats, posting.board || posting.org, posting.jobId || posting.postingId, profile]);
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
+  return "firstplay.plan." + Array.from(new Uint8Array(digest)).slice(0, 12).map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
 async function buildPlan({ posting, controls, page }) {
   const profile = await loadProfile();
   const answers = countAnswers(profile);
+
+  // A Greenhouse plan is a pure function of the posting and the profile, so a
+  // re-run of the same page (after clicking Apply, after a reload, after
+  // fixing one field by hand) should not pay the backend again. Session
+  // storage: gone when the browser closes, and the profile hash is in the key,
+  // so an edited profile misses. Ashby plans depend on the DOM and are not cached.
+  const cacheKey = posting.ats === "greenhouse" ? await planCacheKey(posting, profile) : null;
+  if (cacheKey) {
+    const hit = (await chrome.storage.session.get(cacheKey))[cacheKey];
+    if (hit && Date.now() - hit.at < 6 * 60 * 60 * 1000) {
+      return { ok: true, profileAnswers: answers, cached: true, ...hit.payload };
+    }
+  }
 
   let body;
 
@@ -120,6 +140,12 @@ async function buildPlan({ posting, controls, page }) {
   }
 
   const payload = await response.json();
+
+  // Only a plan the model finished is worth remembering; one where it timed
+  // out should be retried next time.
+  if (cacheKey && !payload.model_skipped) {
+    chrome.storage.session.set({ [cacheKey]: { at: Date.now(), payload } }).catch(() => {});
+  }
 
   // Reported so an empty profile is distinguishable from a broken resolver.
   // Without it, "0 to fill, 19 need you" looks identical to a bug, and the

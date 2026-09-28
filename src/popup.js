@@ -94,7 +94,7 @@
       // One frame holds the form; the others report nothing.
       const summary = (results || []).map((r) => r && r.result).find((r) => r && typeof r === "object");
       if (summary) {
-        const parts = [`${summary.filled} filled`];
+        const parts = [`${summary.filled} filled in ${(summary.seconds || 0).toFixed(1)}s`];
         if (summary.failed) parts.push(`${summary.failed} known but not enterable — see orange notes on the page`);
         if (summary.review) parts.push(`${summary.review} need you (amber)`);
         if (summary.attach) parts.push(`${summary.attach} file(s) to attach`);
