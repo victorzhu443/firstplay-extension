@@ -228,12 +228,17 @@ var FirstPlay = FirstPlay || {};
     // on Duolingo the decoy twin beside the typed input. A wider container
     // (a role="group" around a whole section) would hand a field its
     // neighbours' lists in DOM order, and Degree would read School's.
+    // Bounded: at most three levels up, and never a container that also
+    // holds other fields' inputs — an unbounded walk reached the whole form
+    // on Coinbase and handed every select the phone widget's country list.
     let box = el.parentElement;
-    while (box && box !== document.body && !box.querySelector("[aria-controls], [aria-owns]")) {
-      box = box.parentElement;
-    }
-    for (const twin of box && box !== document.body ? box.querySelectorAll("[aria-controls], [aria-owns]") : []) {
-      ids.push(twin.getAttribute("aria-controls"), twin.getAttribute("aria-owns"));
+    for (let hops = 0; box && box !== document.body && hops < 3; hops += 1, box = box.parentElement) {
+      const pointers = box.querySelectorAll("[aria-controls], [aria-owns]");
+      if (!pointers.length) continue;
+      const inputs = box.querySelectorAll('input:not([type="hidden"]), textarea, select');
+      if (inputs.length > 2) break;
+      for (const twin of pointers) ids.push(twin.getAttribute("aria-controls"), twin.getAttribute("aria-owns"));
+      break;
     }
     return ids.filter(Boolean);
   }
@@ -747,9 +752,31 @@ var FirstPlay = FirstPlay || {};
    * @param {object} [context]  `{ resume }` — the stored resume document, if any
    */
   /** Which driver a located control needs — decides its tier below. */
+  /** react-select by its markup alone — the fiber may not be attached yet. */
+  function looksLikeReactSelect(el) {
+    return (el.className || "").includes("select__input") ||
+      /^react-select-/.test(el.id || "") ||
+      !!el.closest(".select__container, .select__control, [class*='select__value-container']");
+  }
+
+  /**
+   * Wait for React to own a control. The plan now arrives before the page
+   * has finished hydrating (the request goes out at first sight of the
+   * posting), and on Coinbase the standard selects were driven before
+   * `__reactFiber` existed: they fell through to the autocomplete path and
+   * were offered the phone widget's country list. Bounded at 3 s.
+   */
+  async function hydrated(el) {
+    for (let i = 0; i < 150; i += 1) {
+      if (selectInstanceOf(el)) return true;
+      await sleep(20);
+    }
+    return false;
+  }
+
   function widgetKind(el) {
     if (!["INPUT", "TEXTAREA", "SELECT"].includes(el.tagName) || el.matches('button[aria-haspopup="listbox"]')) return "listbox";
-    if (isReactSelect(el) && selectInstanceOf(el)) return "react-select";
+    if ((isReactSelect(el) && selectInstanceOf(el)) || looksLikeReactSelect(el)) return "react-select";
     if (el.getAttribute("role") === "combobox" ||
         (el.tagName === "INPUT" && el.getAttribute("aria-haspopup") === "listbox") ||
         el.dataset.firstplayAutocomplete === "1") return "autocomplete";
@@ -852,7 +879,9 @@ var FirstPlay = FirstPlay || {};
     // Tier 1: instant.
     for (const item of work.instant) record(item, await guarded(() => fillControl(item.el, item.entry, item.value)));
 
-    // Tier 2: all react-select lookups at once, then synchronous picks.
+    // Tier 2: all react-select lookups at once, then synchronous picks —
+    // after React owns the controls.
+    if (work["react-select"].length) await hydrated(work["react-select"][0].el);
     const prefetched = await Promise.all(
       work["react-select"].map((item) => guarded(() => reactSelectOptions(item.el, item.value)).then((r) => (Array.isArray(r) ? r : [])))
     );
