@@ -153,7 +153,104 @@ async function buildPlan({ posting, controls, page }) {
   return { ok: true, profileAnswers: answers, ...payload };
 }
 
+/**
+ * Runs IN THE PAGE (main world): press Submit with every way of leaving the
+ * page blocked, and read the form's own validation. Greenhouse validates
+ * client-side before posting, so the messages are the form's verdict on each
+ * field. Nothing can be sent: fetch, XHR, sendBeacon, form.submit and the
+ * submit event are all stopped for the duration, then restored.
+ */
+function dryRunSubmitInPage() {
+  return new Promise((resolve) => {
+    const blocked = [];
+    const F = window.fetch, XO = XMLHttpRequest.prototype.open, XS = XMLHttpRequest.prototype.send;
+    const SB = navigator.sendBeacon, FS = HTMLFormElement.prototype.submit;
+    window.fetch = function (u, o) {
+      const m = ((o && o.method) || "GET").toUpperCase();
+      if (m !== "GET") { blocked.push(`fetch ${m}`); return Promise.reject(new Error("FirstPlay dry run")); }
+      return F.apply(this, arguments);
+    };
+    XMLHttpRequest.prototype.open = function (m) { this.__fpm = m; return XO.apply(this, arguments); };
+    XMLHttpRequest.prototype.send = function () {
+      if ((this.__fpm || "GET").toUpperCase() !== "GET") { blocked.push("xhr " + this.__fpm); this.abort(); return; }
+      return XS.apply(this, arguments);
+    };
+    navigator.sendBeacon = function () { blocked.push("beacon"); return false; };
+    HTMLFormElement.prototype.submit = function () { blocked.push("form.submit"); };
+    const stop = (e) => { blocked.push("submit event"); e.preventDefault(); e.stopImmediatePropagation(); };
+    document.addEventListener("submit", stop, true);
+    const unload = (e) => { e.preventDefault(); e.returnValue = ""; };
+    window.addEventListener("beforeunload", unload);
+
+    const restore = () => {
+      window.fetch = F; XMLHttpRequest.prototype.open = XO; XMLHttpRequest.prototype.send = XS;
+      navigator.sendBeacon = SB; HTMLFormElement.prototype.submit = FS;
+      document.removeEventListener("submit", stop, true); window.removeEventListener("beforeunload", unload);
+    };
+
+    const form = document.querySelector("form");
+    const button = form && (form.querySelector('button[type="submit"], input[type="submit"]') ||
+      Array.from(form.querySelectorAll("button")).find((b) => /submit/i.test(b.innerText)));
+    if (!button) { restore(); resolve({ ok: false, why: "no submit button found" }); return; }
+
+    const collect = () => {
+      const invalid = Array.from(document.querySelectorAll('[aria-invalid="true"]'));
+      const labelOf = (el) => {
+        const byFor = el.id && document.querySelector(`label[for="${CSS.escape(el.id)}"]`);
+        const near = el.closest("div, fieldset");
+        const lab = byFor || (near && near.querySelector("label, legend"));
+        return lab ? lab.innerText.trim().slice(0, 60) : (el.id || el.name || el.tagName);
+      };
+      const messageOf = (el) => {
+        const ids = (el.getAttribute("aria-describedby") || el.getAttribute("aria-errormessage") || "").split(/\s+/).filter(Boolean);
+        for (const id of ids) { const m = document.getElementById(id); if (m && m.innerText.trim()) return m.innerText.trim().slice(0, 80); }
+        const near = el.closest("div, fieldset");
+        const m = near && near.querySelector('[class*="error"], [role="alert"]');
+        return m ? m.innerText.trim().slice(0, 80) : "";
+      };
+      const fields = [];
+      const seen = new Set();
+      for (const el of invalid) {
+        const key = (el.id || el.name || "").replace(/^react-select-|-input$/g, "");
+        const label = labelOf(el);
+        const sig = label + "|" + key;
+        if (seen.has(sig)) continue;
+        seen.add(sig);
+        fields.push({ id: el.id || "", name: el.name || "", label, message: messageOf(el) });
+      }
+      return fields;
+    };
+
+    let done = false;
+    const finish = () => {
+      if (done) return; done = true;
+      const fields = collect();
+      restore();
+      resolve({ ok: true, invalid: fields, blocked, submitButton: button.innerText.trim().slice(0, 40) });
+    };
+    const mo = new MutationObserver(() => { if (document.querySelector('[aria-invalid="true"]')) { mo.disconnect(); setTimeout(finish, 150); } });
+    mo.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ["aria-invalid", "class"] });
+    setTimeout(() => { mo.disconnect(); finish(); }, 4000);
+    button.click();
+  });
+}
+
+async function dryRunCheck(sender) {
+  const results = await chrome.scripting.executeScript({
+    target: { tabId: sender.tab.id, frameIds: [sender.frameId || 0] },
+    world: "MAIN",
+    func: dryRunSubmitInPage,
+  });
+  return (results && results[0] && results[0].result) || { ok: false, why: "no result" };
+}
+
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+  if (message.kind === "dryRunCheck") {
+    dryRunCheck(_sender)
+      .then(sendResponse)
+      .catch((e) => sendResponse({ ok: false, why: e.message }));
+    return true;
+  }
   if (message.kind !== "buildPlan") return false;
 
   buildPlan(message)

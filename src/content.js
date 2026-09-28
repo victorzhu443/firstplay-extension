@@ -201,7 +201,34 @@
     );
     console.log(`${TAG} plan on window.__firstplayPlan, outcome on window.__firstplayOutcome`);
 
+    // The form's own verdict. A dry-run submit — every way of sending is
+    // blocked in the page for the attempt — makes the form mark what it still
+    // considers missing or invalid. That list is compared with the plan: a
+    // field the plan called FILL that the form calls missing is a filler
+    // defect; one the plan never knew is a coverage gap.
+    const check = await chrome.runtime.sendMessage({ kind: "dryRunCheck" }).catch(() => null);
+    let stillRequired = null;
+    if (check && check.ok) {
+      const byKey = new Map(response.plan.entries.map((e) => [e.field_key, e]));
+      const state = (e) => !e ? "not in plan" : e.skipped ? "skipped" : e.satisfied_by ? "sibling"
+        : e.attach ? "attach" : e.needs_review ? "review" : (e.value !== null || e.values.length) ? "FILL" : "review";
+      const rows = check.invalid.map((f) => {
+        const key = f.id.replace(/--\d+$/, (m) => m) ;
+        const entry = byKey.get(key) || byKey.get(f.name) ||
+          [...byKey.values()].find((e) => (e.label || "").toLowerCase().slice(0, 30) === f.label.replace(/\*$/, "").toLowerCase().slice(0, 30));
+        return { form_says: f.message || "required", field: f.label, plan_said: state(entry) };
+      });
+      stillRequired = rows.length;
+      console.log(`${TAG} form check: the form still wants ${rows.length} field(s)`);
+      if (rows.length) console.table(rows);
+      const defects = rows.filter((r) => r.plan_said === "FILL");
+      if (defects.length) console.warn(`${TAG} ${defects.length} field(s) the plan called FILL are empty by the form's own account — filler defect, please report`);
+    } else if (check) {
+      console.log(`${TAG} form check skipped: ${check.why}`);
+    }
+
     return {
+      still_required: stillRequired,
       filled: outcome.filled, attach: outcome.attach, review: outcome.review,
       failed: outcome.failed, missing: outcome.missing, seconds: (tApplied - t0) / 1000,
     };

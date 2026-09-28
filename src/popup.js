@@ -98,6 +98,7 @@
         if (summary.failed) parts.push(`${summary.failed} known but not enterable — see orange notes on the page`);
         if (summary.review) parts.push(`${summary.review} need you (amber)`);
         if (summary.attach) parts.push(`${summary.attach} file(s) to attach`);
+        if (summary.still_required != null) parts.push(`form still wants ${summary.still_required}`);
         status.textContent = parts.join(" · ");
         status.className = summary.failed ? "status warn" : "status ok";
       } else {
