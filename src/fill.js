@@ -886,9 +886,30 @@ var FirstPlay = FirstPlay || {};
     return document.getElementById("race");
   }
 
+  /**
+   * Do not write into a form React has not taken over yet. Greenhouse's
+   * standard form hydrates lazily and not at all while its tab is hidden;
+   * a fill that lands first is wiped when hydration re-renders (Schonfeld,
+   * round 3: 9 green outlines, then none). So: if the tab is hidden, wait
+   * for it to be shown — postings opened in background tabs fill the moment
+   * they are looked at — and then wait for the selects to be owned.
+   */
+  async function pageReady() {
+    if (document.hidden) {
+      await new Promise((resolve) => {
+        const onShow = () => { if (!document.hidden) { document.removeEventListener("visibilitychange", onShow); resolve(); } };
+        document.addEventListener("visibilitychange", onShow);
+      });
+    }
+    const selects = document.querySelectorAll(".select__input");
+    if (selects.length) await hydrated(selects[selects.length - 1]);
+  }
+
   async function applyPlan(plan, context = {}) {
     const outcome = { filled: 0, attach: 0, review: 0, failed: 0, missing: 0, details: [] };
     const work = { instant: [], "react-select": [], autocomplete: [], listbox: [] };
+
+    await pageReady();
 
     const raceEntry = plan.entries.find((e) => e.field_key === "race" && e.value && !e.needs_review && !e.skipped);
     if (raceEntry && (await revealRace(raceEntry))) outcome.details.push({ label: "Hispanic/Latino", state: "answered from your stored race" });

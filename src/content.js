@@ -170,6 +170,8 @@
     const stored = await chrome.storage.local.get("firstplay.resume");
     const resume = stored["firstplay.resume"] || null;
 
+    if (document.hidden) console.log(`${TAG} this tab is in the background — the fill starts when you switch to it`);
+
     // The fill runs in the page's world (see background.js): React's fibers,
     // which the select driver needs, are invisible from this isolated world.
     const inPage = await chrome.runtime.sendMessage({ kind: "applyPlan", plan: response.plan, resume })
