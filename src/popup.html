@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<style>
+  :root { color-scheme: light dark; --fg: #1a1a1a; --muted: #666; --bg: #fff;
+          --line: #e2e2e2; --ok: #0a7c3f; --warn: #a15c00; }
+  @media (prefers-color-scheme: dark) {
+    :root { --fg: #e8e8e8; --muted: #9a9a9a; --bg: #1c1c1c; --line: #333;
+            --ok: #4ade80; --warn: #fbbf24; }
+  }
+  body { font: 13px/1.45 -apple-system, system-ui, sans-serif; color: var(--fg);
+         background: var(--bg); margin: 0; padding: 14px; width: 340px; }
+  h1 { font-size: 13px; margin: 0 0 10px; }
+  p  { color: var(--muted); margin: 0 0 10px; }
+  textarea { width: 100%; height: 130px; font: 11px/1.4 ui-monospace, monospace;
+             border: 1px solid var(--line); border-radius: 6px; padding: 7px;
+             background: var(--bg); color: var(--fg); box-sizing: border-box; }
+  button { font: 12px inherit; padding: 6px 12px; border-radius: 6px;
+           border: 1px solid var(--line); background: var(--bg); color: var(--fg);
+           cursor: pointer; }
+  button:hover { border-color: var(--muted); }
+  .row { display: flex; gap: 8px; align-items: center; margin-top: 9px; }
+  .status { font-size: 12px; }
+  .ok { color: var(--ok); } .warn { color: var(--warn); }
+  code { font-size: 11px; background: color-mix(in srgb, var(--fg) 8%, transparent);
+         padding: 1px 4px; border-radius: 3px; }
+</style>
+</head>
+<body>
+  <h1>FirstPlay Autofill</h1>
+  <p id="state" class="status">Checking…</p>
+
+  <div class="row" style="margin:0 0 12px">
+    <button id="fill" style="font-weight:600">Fill this page</button>
+    <span id="fillStatus" class="status"></span>
+  </div>
+  <p>
+    Runs automatically on job-boards.greenhouse.io and jobs.ashbyhq.com. For an
+    application embedded on a company's own site, click the button — it acts on
+    this tab only, for this click only.
+  </p>
+
+  <p style="margin-top:4px"><strong>Your resume</strong> — attached to every application for you.</p>
+  <div class="row" style="margin:0 0 4px">
+    <input id="resumeFile" type="file" accept=".pdf,.doc,.docx,.txt,.rtf" style="font-size:12px;max-width:240px" />
+    <button id="removeResume" title="Forget the stored resume">✕</button>
+  </div>
+  <p id="resumeStatus" class="status" style="margin-bottom:12px"></p>
+
+  <p>Paste your profile — the contents of<br /><code>~/.config/firstplay/profile.json</code></p>
+  <textarea id="profile" spellcheck="false" placeholder="{ &quot;facts&quot;: { … } }"></textarea>
+
+  <div class="row">
+    <button id="save">Save profile</button>
+    <span id="saved" class="status"></span>
+  </div>
+
+  <p style="margin-top:12px">
+    Stored only in this browser. It is sent to your local backend to resolve a
+    form and is never stored there.
+  </p>
+
+  <script src="popup.js"></script>
+</body>
+</html>

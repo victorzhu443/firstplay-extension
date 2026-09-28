@@ -1,0 +1,802 @@
+/**
+ * Writing a plan into the page.
+ *
+ * Everything here was shaped by reading a live Greenhouse form rather than
+ * assumed, and three of those readings overturned the obvious implementation:
+ *
+ *   1. **Fields are found by `id`, not `name`.** 17 of 19 plan fields on a real
+ *      posting resolved by id; `name` was absent on most.
+ *
+ *   2. **An API field name is not always the DOM id.** The board API calls one
+ *      EEOC field `race`; the page renders it as `hispanic_ethnicity`. Matching
+ *      on the key alone left a protected field unfilled with no error at all,
+ *      so there is a label fallback.
+ *
+ *   3. **There are no `<select>` elements.** Every dropdown is react-select — a
+ *      text input with `role="combobox"`, no hidden input carrying the value,
+ *      and no listbox in the DOM until it opens. Assigning `.value` does
+ *      nothing, because React owns the value and re-renders over it. It has to
+ *      be driven the way a person drives it: focus, type, wait for the filtered
+ *      option, commit.
+ *
+ * And one hard limit: **`input[type=file]` cannot be set by script.** Browsers
+ * forbid it deliberately. A résumé is always attached by hand, so it is
+ * reported rather than attempted.
+ *
+ * Classic script — see the note in extract.js.
+ */
+var FirstPlay = FirstPlay || {};
+
+(function (ns) {
+  "use strict";
+
+  const OUTLINE_FILLED = "2px solid #0a7c3f";
+  const OUTLINE_REVIEW = "2px solid #d97706";
+  const OUTLINE_ATTACH = "2px dashed #2563eb";
+
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+  function normalise(text) {
+    return (text || "").toLowerCase().replace(/[^\w\s+#&]+/g, " ").replace(/\s+/g, " ").trim();
+  }
+
+  const US_STATES = {
+    al: "alabama", ak: "alaska", az: "arizona", ar: "arkansas", ca: "california", co: "colorado",
+    ct: "connecticut", de: "delaware", fl: "florida", ga: "georgia", hi: "hawaii", id: "idaho",
+    il: "illinois", in: "indiana", ia: "iowa", ks: "kansas", ky: "kentucky", la: "louisiana",
+    me: "maine", md: "maryland", ma: "massachusetts", mi: "michigan", mn: "minnesota",
+    ms: "mississippi", mo: "missouri", mt: "montana", ne: "nebraska", nv: "nevada",
+    nh: "new hampshire", nj: "new jersey", nm: "new mexico", ny: "new york", nc: "north carolina",
+    nd: "north dakota", oh: "ohio", ok: "oklahoma", or: "oregon", pa: "pennsylvania",
+    ri: "rhode island", sc: "south carolina", sd: "south dakota", tn: "tennessee", tx: "texas",
+    ut: "utah", vt: "vermont", va: "virginia", wa: "washington", wv: "west virginia",
+    wi: "wisconsin", wy: "wyoming", dc: "district of columbia", us: "united states",
+    usa: "united states",
+  };
+
+  /** "ithaca ny" -> "ithaca new york", so a stored place can meet a geocoder's wording. */
+  function expandPlaces(normalised) {
+    return normalised.split(" ").map((w) => US_STATES[w] || w).join(" ");
+  }
+
+  /**
+   * The one option a wanted value unambiguously names, among what a menu
+   * actually offers. Exact text first; otherwise a prefix match only when
+   * exactly one option has it. Anything else is nobody's answer: the filler
+   * must select what the menu provides, or leave the field and say so.
+   */
+  function pickOption(options, textOf, value) {
+    const wanted = normalise(value);
+    const wantedPlace = expandPlaces(wanted);
+    const texts = options.map((o) => normalise(textOf(o)));
+
+    // Geocoders repeat an entry (Scale AI offered "Ithaca, New York, United
+    // States" twice among six); identical texts are one answer, so
+    // uniqueness is judged on distinct texts and the first copy is taken.
+    const unique = (hits) => {
+      const distinct = new Set(hits.map((o) => texts[options.indexOf(o)]));
+      return distinct.size === 1 ? hits[0] : null;
+    };
+
+    let hits = options.filter((o, i) => texts[i] === wanted || texts[i] === wantedPlace);
+    if (hits.length) return unique(hits);
+
+    hits = options.filter((o, i) => texts[i].startsWith(wanted) || texts[i].startsWith(wantedPlace));
+    return hits.length ? unique(hits) : null;
+  }
+
+  /**
+   * React tracks the last value it rendered and skips its handler when a plain
+   * assignment leaves that tracker untouched. Going through the prototype's
+   * setter and dispatching `input` is what makes React observe the change.
+   */
+  function setNativeValue(el, value) {
+    const prototype = el instanceof HTMLTextAreaElement
+      ? HTMLTextAreaElement.prototype
+      : HTMLInputElement.prototype;
+    const setter = Object.getOwnPropertyDescriptor(prototype, "value").set;
+
+    setter.call(el, value);
+    el.dispatchEvent(new Event("input", { bubbles: true }));
+  }
+
+  /** Every control on the page that could be the field `entry` refers to. */
+  /**
+   * The control a person interacts with for a field whose id sits on a hidden
+   * input. Greenhouse's education block (measured on Duolingo, 2026-09-27)
+   * keeps `educations[0].degree_id` as a hidden value and renders the widget
+   * next to the label `<id>--label`; the widget is what has to be driven.
+   */
+  function visibleWidgetFor(hidden) {
+    const label = document.getElementById(`${hidden.id}--label`);
+    const box = (label && label.parentElement) || hidden.parentElement;
+    if (!box) return hidden;
+
+    // Duolingo's combobox renders TWO search inputs: the first carries the
+    // ARIA attributes but has tabindex="-1" and never receives typing; the
+    // second is the one a person types into. Every scripted attempt at the
+    // first showed nothing; the second works with the native setter. Prefer
+    // focusable inputs, and the last of them.
+    const inputs = Array.from(
+      box.querySelectorAll('input:not([type="hidden"]), textarea, select')
+    ).filter((el) => el.tabIndex >= 0 && el.offsetParent !== null);
+    const typed = inputs.length ? inputs[inputs.length - 1] : null;
+    const button = box.querySelector('button[aria-haspopup="listbox"]');
+
+    if (typed) {
+      // A text input beside a listbox trigger is an autocomplete, even when
+      // the ARIA lives on its decoy twin. Remember the hidden input: its value
+      // is the real proof that a suggestion was taken.
+      if (box.querySelector('[aria-haspopup="listbox"], [role="listbox"]')) {
+        typed.dataset.firstplayAutocomplete = "1";
+        typed.dataset.firstplayHidden = hidden.id;
+      }
+      return typed;
+    }
+    return button || hidden;
+  }
+
+  const GREENHOUSE_EDUCATION_IDS = [
+    [/^educations\[(\d+)\]\.school_name_id$/, "school--$1"],
+    [/^educations\[(\d+)\]\.degree_id$/, "degree--$1"],
+    [/^educations\[(\d+)\]\.discipline_id$/, "discipline--$1"],
+    [/^educations\[(\d+)\]\.start_date\.month$/, "start-month--$1"],
+    [/^educations\[(\d+)\]\.start_date\.year$/, "start-year--$1"],
+    [/^educations\[(\d+)\]\.end_date\.month$/, "end-month--$1"],
+    [/^educations\[(\d+)\]\.end_date\.year$/, "end-year--$1"],
+  ];
+
+  function renderedIdFor(key) {
+    for (const [pattern, replacement] of GREENHOUSE_EDUCATION_IDS) {
+      if (pattern.test(key)) return key.replace(pattern, replacement);
+    }
+    return null;
+  }
+
+  function locate(entry) {
+    const key = entry.field_key;
+
+    const rendered = key && renderedIdFor(key);
+    const byRendered = rendered && document.getElementById(rendered);
+    if (byRendered) return byRendered;
+
+    const byId = key && document.getElementById(key);
+    if (byId && (byId.type || "").toLowerCase() === "hidden") return visibleWidgetFor(byId);
+    if (byId) return byId;
+
+    const byName = key && document.querySelector(`[name="${CSS.escape(key)}"]`);
+    if (byName) return byName;
+
+    // An Ashby option group is keyed by the id prefix its options share.
+    if (key && /-labeled-(checkbox|radio)$/.test(key)) {
+      const first = document.querySelector(`[id^="${CSS.escape(key)}-"]`);
+      if (first) return first;
+    }
+
+    // Ashby prefixes radio-group names with a per-page-load UUID —
+    // `d5e6e981-…__systemfield_eeoc_gender` on one load, a different UUID on
+    // the next. Only the `_systemfield_…` suffix is stable, so a key that
+    // carries one is matched on the suffix. Within a single load the exact
+    // match above already succeeds; this is what keeps a plan valid if the
+    // page re-renders between reading and filling.
+    const marker = key ? key.indexOf("_systemfield_") : -1;
+    if (marker >= 0) {
+      const suffix = key.slice(marker);
+      const bySuffix = document.querySelector(`[name$="${CSS.escape(suffix)}"]`);
+      if (bySuffix) return bySuffix;
+    }
+
+    // The fallback that catches race -> hispanic_ethnicity. Matched on the
+    // label's text, which is the one thing the API and the DOM agree on.
+    const wanted = normalise(entry.label);
+    if (!wanted) return null;
+
+    for (const label of document.querySelectorAll("label")) {
+      if (normalise(label.innerText) !== wanted) continue;
+      const forId = label.getAttribute("for");
+      if (forId) {
+        const target = document.getElementById(forId);
+        if (target) return target;
+      }
+      const nested = label.querySelector("input, textarea, select");
+      if (nested) return nested;
+
+      // Ashby: the label's `for` names an id nothing carries, and the control
+      // is a sibling inside the same field container.
+      const container = label.closest('[class*="fieldEntry"], [class*="field-entry"]');
+      const inContainer = container &&
+        container.querySelector('input:not([type="hidden"]), textarea, select');
+      if (inContainer) return inContainer;
+    }
+
+    return null;
+  }
+
+  /**
+   * An autocomplete: an input with role=combobox whose suggestions arrive
+   * after typing. Measured on Ashby's Location field (2026-09-27): the native
+   * setter plus an `input` event brings a remote suggestion list
+   * (`#aria-controls` of `[role=option]`) about 2 s later; clicking a
+   * suggestion writes its full text ("Ithaca, New York, United States") into
+   * the input and closes the list. Typing alone leaves the field unconfirmed.
+   */
+  /** Options currently offered to an autocomplete input, wherever the list is attached. */
+  /** The listbox ids a field's own inputs point at — its list, never another field's. */
+  function listIdsFor(el) {
+    const box = el.closest('[role="group"]') || el.parentElement.parentElement || el.parentElement;
+    const ids = [el.getAttribute("aria-controls"), el.getAttribute("aria-owns")];
+    for (const twin of box ? box.querySelectorAll("[aria-controls], [aria-owns]") : []) {
+      ids.push(twin.getAttribute("aria-controls"), twin.getAttribute("aria-owns"));
+    }
+    return ids.filter(Boolean);
+  }
+
+  /**
+   * Options currently offered to an autocomplete input, read only from the
+   * list its own field points at. An earlier "whatever listbox is open"
+   * fallback returned the School/Degree/Discipline lists to the Location
+   * field on a live Duolingo run, before the geocoder had answered — so the
+   * wait ended early with another field's options.
+   */
+  function suggestionsFor(el) {
+    for (const id of listIdsFor(el)) {
+      const list = document.getElementById(id);
+      const options = list ? Array.from(list.querySelectorAll('[role="option"]')) : [];
+      if (options.length) return options;
+    }
+    return [];
+  }
+
+  /**
+   * An autocomplete: an input whose suggestions arrive after typing. Measured
+   * on Ashby's Location field and Duolingo's School/Degree/Discipline
+   * (2026-09-27): the native setter plus an `input` event brings the list
+   * (remote on Ashby, ~2 s; local on Duolingo), clicking a suggestion writes
+   * its text into the input and, on Duolingo, the chosen id into the hidden
+   * field. Typing alone leaves the field unconfirmed.
+   */
+  async function fillAutocomplete(el, value) {
+    // When the page's window is not focused — always the case right after
+    // the popup was clicked, and in a background tab — `focus()` moves
+    // activeElement but fires no focus events, and a widget that opens on
+    // focus never opens (measured on Duolingo: no suggestions until a
+    // `focusin` was dispatched by hand). React listens to focusin.
+    el.focus();
+    el.dispatchEvent(new FocusEvent("focusin", { bubbles: true }));
+    setNativeValue(el, value);
+
+    // Remote geocoders (Ashby, Duolingo's location) can take several seconds.
+    let options = [];
+    for (let i = 0; i < 80 && !options.length; i += 1) {
+      await sleep(100);
+      options = suggestionsFor(el);
+    }
+
+    if (!options.length) {
+      return { ok: false, why: listIdsFor(el).length ? "no suggestions appeared" : "no suggestion list found" };
+    }
+
+    const chosen = pickOption(options, (o) => o.textContent, value);
+    if (!chosen) {
+      return {
+        ok: false,
+        why: `no suggestion is exactly ${JSON.stringify(value)}; offered: ` +
+          options.slice(0, 5).map((o) => o.textContent.trim()).join(" | "),
+      };
+    }
+    const text = chosen.textContent.trim();
+
+    chosen.click();
+
+    // Proof the suggestion was taken, not merely typed: the input reads the
+    // suggestion's text AND, where the field is backed by a hidden input
+    // (Duolingo writes the chosen id there), that hidden value is set. The
+    // typed text alone can equal the suggestion by construction. The widget
+    // commits on its own schedule, so poll rather than sleep.
+    const hidden = el.dataset.firstplayHidden ? document.getElementById(el.dataset.firstplayHidden) : null;
+    const committed = () =>
+      normalise(el.value) === normalise(text) && (!hidden || hidden.value !== "");
+    for (let i = 0; i < 30 && !committed(); i += 1) await sleep(100);
+
+    if (!committed()) {
+      return { ok: false, why: hidden && hidden.value === ""
+        ? `clicked ${JSON.stringify(text)} but the form did not record a choice`
+        : `chose ${JSON.stringify(text)} but the field reads ${JSON.stringify(el.value)}` };
+    }
+
+    return { ok: true, chose: text };
+  }
+
+  function isReactSelect(el) {
+    return el.getAttribute("role") === "combobox" ||
+      (el.className || "").includes("select__input");
+  }
+
+  /**
+   * The react-select component instance behind an input, found by walking the
+   * React fiber tree upward until a node whose stateNode has `openMenu`.
+   *
+   * Reaching into React internals is not a first choice. It is the *only*
+   * choice here, and the evidence for that was gathered on a live Greenhouse
+   * form rather than assumed: five different synthetic approaches — mousedown
+   * on the control, on the input, keydown ArrowDown/Space/Enter, and calling
+   * the control's own React onMouseDown through its props — all left
+   * aria-expanded="false". So did `instance.openMenu()` and `setState`. The
+   * reason is that `menuIsOpen` is a *controlled* prop (false, not undefined):
+   * Greenhouse's wrapper owns the open state and re-asserts it on every render,
+   * so nothing short of a trusted pointer event opens that menu — and a content
+   * script cannot produce one.
+   */
+  function selectInstanceOf(input) {
+    const key = Object.keys(input).find((k) => k.startsWith("__reactFiber"));
+    let fiber = key ? input[key] : null;
+
+    for (let hops = 0; fiber && hops < 40; hops += 1, fiber = fiber.return) {
+      const node = fiber.stateNode;
+      if (node && typeof node.openMenu === "function") return node;
+    }
+
+    return null;
+  }
+
+  /** Options of a react-select, flattening any grouped options. */
+  function instanceOptions(instance) {
+    const raw = Array.isArray(instance.props.options) ? instance.props.options : [];
+
+    return raw.flatMap((o) => (Array.isArray(o.options) ? o.options : [o]));
+  }
+
+  /** The `loadOptions` of an async react-select, found above the input in the fiber tree. */
+  function optionLoaderOf(input) {
+    const key = Object.keys(input).find((k) => k.startsWith("__reactFiber"));
+    let fiber = key ? input[key] : null;
+
+    for (let hops = 0; fiber && hops < 40; hops += 1, fiber = fiber.return) {
+      const props = fiber.memoizedProps || {};
+      if (typeof props.loadOptions === "function") return props.loadOptions;
+    }
+
+    return null;
+  }
+
+  /**
+   * Options of an async react-select for a search term. Greenhouse's
+   * education widgets (school, degree, discipline) load from the board API
+   * on demand and keep `props.options` empty until then, so typing into the
+   * input from a script shows nothing; calling the loader directly does.
+   */
+  async function loadedOptions(input, term) {
+    const loader = optionLoaderOf(input);
+    if (!loader) return [];
+
+    let result;
+    try {
+      result = await Promise.race([
+        Promise.resolve(loader(term, () => {})),
+        sleep(8000).then(() => null),
+      ]);
+    } catch (e) {
+      return [];
+    }
+
+    const items = Array.isArray(result) ? result : (result && (result.options || result.items)) || [];
+    return items.flatMap((o) => (Array.isArray(o.options) ? o.options : [o]));
+  }
+
+  /**
+   * Options a react-select produces in response to typing — Greenhouse's
+   * candidate-location geocoder has no `loadOptions`; it fills
+   * `props.options` a few seconds after `onInputChange`. Measured on Scale AI
+   * (2026-09-27): focusin + native setter + `input`, then poll the instance.
+   */
+  async function typedOptions(el, instance, value) {
+    el.focus();
+    el.dispatchEvent(new FocusEvent("focusin", { bubbles: true }));
+    setNativeValue(el, value);
+
+    for (let i = 0; i < 80; i += 1) {
+      await sleep(100);
+      const fresh = selectInstanceOf(el) || instance;
+      const options = instanceOptions(fresh);
+      if (options.length) return options;
+    }
+
+    return [];
+  }
+
+  function optionText(option) {
+    return String(option.label !== undefined ? option.label : option.value);
+  }
+
+  /** What a react-select currently displays as its chosen value. */
+  function displayedValue(el) {
+    const container = el.closest(".select__container") || el.parentElement;
+    const single = container && container.querySelector(
+      '.select__single-value, [class*="single-value"]'
+    );
+
+    return single ? single.textContent.trim() : null;
+  }
+
+  /**
+   * Choose `value` in a react-select.
+   *
+   * Selection does not need the menu: `selectOption` is react-select's own
+   * method and fires the wrapper's onChange exactly as a click on an option
+   * would — verified on a live form, where a synthetic click on an already-open
+   * option also worked. Opening the menu is the only thing that resists
+   * synthesis, so this path never opens it.
+   *
+   * The value is read back afterwards. A selection the widget silently
+   * rejected must surface as a failure, not as a green outline over a blank.
+   */
+  async function fillReactSelect(el, value) {
+    const instance = selectInstanceOf(el);
+
+    if (!instance) return { ok: false, why: "not a react-select instance" };
+
+    let options = instanceOptions(instance);
+    if (!options.length) options = await loadedOptions(el, value);
+    if (!options.length) options = await loadedOptions(el, "");
+    if (!options.length) options = await typedOptions(el, instance, value);
+    const chosen = pickOption(options, optionText, value);
+
+    if (!chosen) {
+      return {
+        ok: false,
+        why: `no option matching ${JSON.stringify(value)} among ` +
+          options.slice(0, 6).map(optionText).join(" | "),
+      };
+    }
+
+    if (typeof instance.selectOption === "function") {
+      instance.selectOption(chosen);
+    } else if (typeof instance.props.onChange === "function") {
+      instance.props.onChange(chosen, {
+        action: "select-option", option: chosen, name: instance.props.name,
+      });
+    } else {
+      return { ok: false, why: "react-select exposes no selection method" };
+    }
+
+    await sleep(80);
+
+    const shown = displayedValue(el);
+    const expected = optionText(chosen);
+
+    if (normalise(shown) !== normalise(expected)) {
+      return { ok: false, why: `selected ${JSON.stringify(expected)} but widget shows ` +
+        JSON.stringify(shown) };
+    }
+
+    return { ok: true, chose: expected };
+  }
+
+  /** Tick the checkbox or radio whose label matches `value`. */
+  /** The inputs that together form one choice question. */
+  function choiceCandidates(el) {
+    const prefix = ((el.id || "").match(/^(.*-labeled-(?:checkbox|radio))-\d+$/) || [])[1];
+    if (prefix) return Array.from(document.querySelectorAll(`[id^="${CSS.escape(prefix)}-"]`));
+    if (el.name) return Array.from(document.querySelectorAll(`[name="${CSS.escape(el.name)}"]`));
+    return [el];
+  }
+
+  function fillChoiceInput(el, value) {
+    const wanted = normalise(value);
+    const candidates = choiceCandidates(el);
+
+    // A lone checkbox is a yes/no question: "Yes" ticks it, "No" leaves it
+    // clear. Its label is the question, so matching option text would never
+    // hit. Measured on Ashby: "Are you authorized to work lawfully…" is one
+    // checkbox in its own container.
+    if (candidates.length === 1 && (el.type || "").toLowerCase() === "checkbox") {
+      const yes = /^(yes|true|y)$/.test(wanted);
+      const no = /^(no|false|n)$/.test(wanted);
+      if (!yes && !no) return { ok: false, why: `${JSON.stringify(value)} is not yes/no` };
+      if (el.checked !== yes) el.click();
+      return { ok: true, chose: yes ? "checked" : "left unchecked" };
+    }
+
+    const textOf = (candidate) => {
+      const label = candidate.id
+        ? document.querySelector(`label[for="${CSS.escape(candidate.id)}"]`)
+        : candidate.closest("label");
+      return label ? label.innerText : candidate.value;
+    };
+    const chosen = pickOption(candidates, textOf, value);
+    if (chosen) {
+      chosen.click();
+      return { ok: true, chose: textOf(chosen).trim() };
+    }
+
+    return { ok: false, why: `no option is exactly ${JSON.stringify(value)}` };
+  }
+
+  function outline(el, style, title) {
+    const target = el.closest(".select__control") || el;
+    target.style.outline = style;
+    target.style.outlineOffset = "1px";
+    if (title) target.title = title;
+  }
+
+  /**
+   * A visible note beside a field whose answer is known but could not be
+   * written. An amber outline and a console row were not enough: on a live
+   * Duolingo form the table said FILL, the field stayed empty, and the whole
+   * extension looked broken. The applicant should see the value to pick.
+   */
+  function badge(el, text) {
+    const anchor = el.closest('[role="group"]') || el.closest(".select__container") || el;
+    const existing = anchor.parentElement && anchor.parentElement.querySelector(".firstplay-badge");
+    if (existing) existing.remove();
+
+    const note = document.createElement("div");
+    note.className = "firstplay-badge";
+    note.textContent = text;
+    note.style.cssText =
+      "margin:4px 0 8px;padding:4px 8px;font:12px/1.4 system-ui,sans-serif;" +
+      "color:#7c2d12;background:#ffedd5;border:1px solid #fdba74;border-radius:4px;";
+    anchor.insertAdjacentElement("afterend", note);
+  }
+
+  /**
+   * Apply a plan to the page.
+   *
+   * Never touches a submit control, and never fills a field the plan did not
+   * mark as fillable.
+   *
+   * @returns {Promise<object>} counts and per-field outcomes
+   */
+  /**
+   * A dropdown built from a button and a listbox — neither a <select> nor a
+   * react-select. Measured on Duolingo's careers site (2026-09-27): the plan's
+   * field id sits on a <div role="group"> whose <button aria-haspopup="listbox"
+   * aria-controls=ID> opens #ID full of <li role="option">. A synthetic click
+   * opens it, clicking an option closes it, and the chosen text then appears
+   * inside the group; nothing else on the page holds the value, so that text
+   * is the readback.
+   */
+  async function fillListbox(el, value, extraValues = []) {
+    const button = el.matches('button[aria-haspopup="listbox"]')
+      ? el
+      : el.querySelector('button[aria-haspopup="listbox"]');
+    // Readback is the text of the group the button sits in, which is where
+    // the chosen value is shown when the plan id was on the group itself or
+    // on a hidden input beside the button.
+    const shown = () => normalise((button && button.closest('[role="group"]') || el).textContent);
+
+    if (!button) return { ok: false, why: `not a form control (<${el.tagName.toLowerCase()}>)` };
+
+    // Clicking the already-selected option *deselects* it on this widget
+    // (measured: "No" -> "Select..."), so a field that already shows the
+    // wanted value is left alone rather than re-clicked.
+    const wanted = normalise(value);
+    if (!extraValues.length && shown() === wanted) return { ok: true, chose: value };
+
+    button.click();
+
+    // The page's main thread can be slow (a 300 ms timer took 1 s on Duolingo),
+    // so the list is polled for well past the time it needs when idle.
+    let list = null;
+    for (let i = 0; i < 15 && !list; i += 1) {
+      await sleep(100);
+      const id = button.getAttribute("aria-controls");
+      list = (id && document.getElementById(id)) || null;
+    }
+
+    const options = list ? Array.from(list.querySelectorAll('[role="option"]')) : [];
+    if (!options.length) return { ok: false, why: "listbox did not open" };
+
+    const chosen = pickOption(options, (o) => o.textContent, value);
+
+    if (!chosen) {
+      button.click();
+      return {
+        ok: false,
+        why: `no option matching ${JSON.stringify(value)} among ` +
+          options.slice(0, 6).map((o) => o.textContent.trim()).join(" | "),
+      };
+    }
+
+    // Multi-select lists (aria-multiselectable, measured on Duolingo's
+    // self-identification block) stay open after each click; a click on an
+    // already-selected option deselects it, so those are skipped.
+    const picks = [chosen].concat(
+      extraValues.map((v) => options.find((o) => normalise(o.textContent) === normalise(v)))
+        .filter(Boolean)
+    );
+    const chosenText = picks.map((o) => o.textContent.trim());
+    for (const pick of picks) {
+      if (pick.getAttribute("aria-selected") !== "true") pick.click();
+      await sleep(120);
+    }
+    if (document.getElementById(button.getAttribute("aria-controls") || "")) button.click();
+    await sleep(150);
+
+    const missing = chosenText.filter((t) => !shown().includes(normalise(t)));
+    if (missing.length) {
+      return {
+        ok: false,
+        why: `chose ${JSON.stringify(chosenText.join(", "))} but the field shows ` +
+          JSON.stringify((button.closest('[role="group"]') || el).textContent.trim().slice(0, 40)),
+      };
+    }
+
+    return { ok: true, chose: chosenText.join(", ") };
+  }
+
+  /** Write one value into one located control, whatever kind it is. */
+  async function fillControl(el, entry, value) {
+    let result;
+
+    const extras = entry.values.length > 1 ? entry.values.slice(1) : [];
+
+    if (!["INPUT", "TEXTAREA", "SELECT"].includes(el.tagName) ||
+        el.matches('button[aria-haspopup="listbox"]')) {
+      result = await fillListbox(el, value, extras);
+      return result;
+    } else if (isReactSelect(el) && selectInstanceOf(el)) {
+      result = await fillReactSelect(el, value);
+    } else if (el.getAttribute("role") === "combobox" ||
+               (el.tagName === "INPUT" && el.getAttribute("aria-haspopup") === "listbox") ||
+               el.dataset.firstplayAutocomplete === "1") {
+      result = await fillAutocomplete(el, value);
+    } else if (["checkbox", "radio"].includes((el.type || "").toLowerCase())) {
+      result = fillChoiceInput(el, value);
+    } else if (el.tagName === "SELECT") {
+      const option = Array.from(el.options)
+        .find((o) => normalise(o.textContent) === normalise(value));
+      if (option) {
+        el.value = option.value;
+        el.dispatchEvent(new Event("change", { bubbles: true }));
+        result = { ok: true, chose: option.textContent.trim() };
+      } else {
+        result = { ok: false, why: "no matching option" };
+      }
+    } else {
+      setNativeValue(el, value);
+      el.dispatchEvent(new Event("change", { bubbles: true }));
+      result = { ok: true, chose: value };
+    }
+
+    // Multi-select: tick the rest too. On react-select this only makes sense
+    // when the widget is isMulti — a second selectOption on a single-select
+    // would replace the first choice rather than add to it.
+    if (result.ok && entry.values.length > 1) {
+      const instance = isReactSelect(el) ? selectInstanceOf(el) : null;
+      const canAdd = !isReactSelect(el) || (instance && instance.props.isMulti);
+      if (canAdd) {
+        for (const extra of entry.values.slice(1)) {
+          if (isReactSelect(el)) await fillReactSelect(el, extra);
+          else fillChoiceInput(el, extra);
+        }
+      }
+    }
+
+    return result;
+  }
+
+  /**
+   * Put a stored document into a file input.
+   *
+   * A script cannot set a *path* on a file input, but it can build a File
+   * from bytes and assign a DataTransfer's files. Measured on Scale AI's
+   * resume input (2026-09-27): the page showed the filename and fired its own
+   * presigned S3 upload — indistinguishable from a manual attach. The bytes
+   * come from the extension's local storage, where the applicant put them
+   * once through the popup; nothing leaves the browser except to the form.
+   */
+  function fillFile(el, doc) {
+    const bytes = Uint8Array.from(atob(doc.data), (c) => c.charCodeAt(0));
+    const file = new File([bytes], doc.name, { type: doc.type || "application/octet-stream" });
+    const transfer = new DataTransfer();
+    transfer.items.add(file);
+
+    try {
+      el.files = transfer.files;
+    } catch (e) {
+      return { ok: false, why: `file input refused the file: ${e.message}` };
+    }
+    el.dispatchEvent(new Event("input", { bubbles: true }));
+    el.dispatchEvent(new Event("change", { bubbles: true }));
+
+    if (!el.files.length || el.files[0].name !== doc.name) {
+      return { ok: false, why: "file input did not keep the file" };
+    }
+    return { ok: true, chose: doc.name };
+  }
+
+  /**
+   * Apply a plan to the page.
+   *
+   * @param {object} plan  the backend's FillPlan
+   * @param {object} [context]  `{ resume }` — the stored resume document, if any
+   */
+  async function applyPlan(plan, context = {}) {
+    const outcome = { filled: 0, attach: 0, review: 0, failed: 0, missing: 0, details: [] };
+
+    for (const entry of plan.entries) {
+      const el = locate(entry);
+
+      if (!el) {
+        // Expected for a sibling control the page does not render — Greenhouse
+        // offers a resume textarea in its API that Figma's form omits.
+        if (!entry.satisfied_by) {
+          outcome.missing += 1;
+          outcome.details.push({ label: entry.label, state: "not on page" });
+        }
+        continue;
+      }
+
+      const wantsReview = entry.needs_review || (entry.value === null && !entry.values.length);
+
+      // Skipped by a standing decision, or answered by a sibling / made
+      // inapplicable by an earlier answer: nothing is written. A sibling entry
+      // can still carry a leftover value — on Duolingo "If so, are you
+      // eligible for OPT?" carried "Yes" from the work-authorisation theme and
+      // was written in green while the plan said "not applicable".
+      if (entry.skipped || entry.satisfied_by) continue;
+
+      if ((el.type || "").toLowerCase() === "file") {
+        if (context.resume) {
+          const attached = fillFile(el, context.resume);
+          if (attached.ok) {
+            outline(el, OUTLINE_FILLED, `FirstPlay: attached ${attached.chose}`);
+            outcome.filled += 1;
+            outcome.details.push({ label: entry.label, state: "attached", value: attached.chose });
+            continue;
+          }
+          outcome.details.push({ label: entry.label, state: "failed", why: attached.why });
+        }
+        // No stored resume (or the input refused it): say what to drag in.
+        outline(el, OUTLINE_ATTACH, `FirstPlay: attach ${entry.value || "your file"}`);
+        badge(el, "FirstPlay: attach your resume here — or upload it once in the " +
+                  "extension popup and it will be attached for you next time.");
+        outcome.attach += 1;
+        outcome.details.push({ label: entry.label, state: "attach by hand",
+                               value: entry.value });
+        continue;
+      }
+
+      if (wantsReview) {
+        outline(el, OUTLINE_REVIEW,
+                `FirstPlay: needs you — ${entry.reason || "no stored answer"}`);
+        outcome.review += 1;
+        continue;
+      }
+
+      const value = entry.values.length ? entry.values[0] : entry.value;
+      let result;
+
+      try {
+        result = await fillControl(el, entry, value);
+      } catch (e) {
+        // One control that throws must not stop the rest of the form. Seen on
+        // Duolingo: the plan's id landed on a <div>, the input setter threw,
+        // and every field after it in plan order went unfilled.
+        result = { ok: false, why: `threw ${e && e.message}` };
+      }
+
+      if (result.ok) {
+        outline(el, OUTLINE_FILLED, `FirstPlay: ${entry.reason || entry.source}`);
+        outcome.filled += 1;
+      } else {
+        outline(el, OUTLINE_REVIEW, `FirstPlay: could not fill — ${result.why}`);
+        badge(el, `FirstPlay knows this one: ${value} — please pick it (${result.why})`);
+        outcome.failed += 1;
+        outcome.details.push({ label: entry.label, state: "failed", why: result.why,
+                               value });
+      }
+    }
+
+    return outcome;
+  }
+
+  ns.applyPlan = applyPlan;
+  ns.fillFile = fillFile;
+  ns.selectInstanceOf = selectInstanceOf;
+  ns.displayedValue = displayedValue;
+  ns.locate = locate;
+  ns.setNativeValue = setNativeValue;
+  ns.fillReactSelect = fillReactSelect;
+})(FirstPlay);
