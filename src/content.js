@@ -220,6 +220,9 @@
       });
       stillRequired = rows.length;
       console.log(`${TAG} form check: the form still wants ${rows.length} field(s)`);
+      // Plain lines as well as the table: a pasted console log or a log
+      // reader never carries console.table's contents.
+      for (const r of rows) console.log(`${TAG}   form wants: ${r.field} ⇐ plan said ${r.plan_said}${r.form_says ? ` (${r.form_says})` : ""}`);
       if (rows.length) console.table(rows);
       const defects = rows.filter((r) => r.plan_said === "FILL");
       if (defects.length) console.warn(`${TAG} ${defects.length} field(s) the plan called FILL are empty by the form's own account — filler defect, please report`);

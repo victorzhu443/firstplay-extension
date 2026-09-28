@@ -34,7 +34,27 @@ var FirstPlay = FirstPlay || {};
   const OUTLINE_REVIEW = "2px solid #d97706";
   const OUTLINE_ATTACH = "2px dashed #2563eb";
 
-  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  /**
+   * A wait that keeps its word in a background tab. Chrome throttles timers
+   * in hidden pages (to one a second, then one a minute), so a fill in a tab
+   * the applicant has switched away from would crawl or stall. Message ports
+   * are not throttled — React's own scheduler relies on that — so when the
+   * page is hidden the wait is a chain of MessageChannel ticks until the
+   * deadline, each tick yielding to the event loop so fetches and renders
+   * still land. When visible, a plain timer.
+   */
+  function sleep(ms) {
+    if (document.visibilityState === "visible") return new Promise((r) => setTimeout(r, ms));
+    const deadline = performance.now() + ms;
+    return new Promise((resolve) => {
+      const channel = new MessageChannel();
+      channel.port1.onmessage = () => {
+        if (performance.now() >= deadline) { channel.port1.close(); resolve(); }
+        else channel.port2.postMessage(0);
+      };
+      channel.port2.postMessage(0);
+    });
+  }
 
   function normalise(text) {
     return (text || "").toLowerCase().replace(/[^\w\s+#&]+/g, " ").replace(/\s+/g, " ").trim();
