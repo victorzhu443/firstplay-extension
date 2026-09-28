@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "FirstPlay Autofill",
-  "version": "0.4.14",
+  "version": "0.4.15",
   "description": "Fills job application forms from your own stored answers. Reviews before you submit; never submits for you.",
   "permissions": [
     "storage",

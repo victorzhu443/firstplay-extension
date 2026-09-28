@@ -225,8 +225,13 @@
       const byKey = new Map(response.plan.entries.map((e) => [e.field_key, e]));
       const state = (e) => !e ? "not in plan" : e.skipped ? "skipped" : e.satisfied_by ? "sibling"
         : e.attach ? "attach" : e.needs_review ? "review" : (e.value !== null || e.values.length) ? "FILL" : "review";
+      // The renderer's ids differ from the plan's keys for a few fields.
+      const RENDERED_TO_KEY = { "candidate-location": "location", "school--0": "educations[0].school_name_id",
+        "degree--0": "educations[0].degree_id", "discipline--0": "educations[0].discipline_id",
+        "start-month--0": "educations[0].start_date.month", "start-year--0": "educations[0].start_date.year",
+        "end-month--0": "educations[0].end_date.month", "end-year--0": "educations[0].end_date.year" };
       const rows = check.invalid.map((f) => {
-        const key = f.id.replace(/--\d+$/, (m) => m) ;
+        const key = RENDERED_TO_KEY[f.id] || f.id;
         const entry = byKey.get(key) || byKey.get(f.name) ||
           [...byKey.values()].find((e) => (e.label || "").toLowerCase().slice(0, 30) === f.label.replace(/\*$/, "").toLowerCase().slice(0, 30));
         return { form_says: f.message || "required", field: f.label, plan_said: state(entry) };

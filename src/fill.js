@@ -157,6 +157,10 @@ var FirstPlay = FirstPlay || {};
   }
 
   const GREENHOUSE_EDUCATION_IDS = [
+    // The location block's submitted name is `location`; the standard
+    // renderer's control is `candidate-location` (Mill, Clockwork, Garda,
+    // Verkada all left "Location (City)" wanting until this line).
+    [/^location$/, "candidate-location"],
     [/^educations\[(\d+)\]\.school_name_id$/, "school--$1"],
     [/^educations\[(\d+)\]\.degree_id$/, "degree--$1"],
     [/^educations\[(\d+)\]\.discipline_id$/, "discipline--$1"],
