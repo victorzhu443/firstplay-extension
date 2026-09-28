@@ -799,9 +799,40 @@ var FirstPlay = FirstPlay || {};
    * @param {object} plan  the backend's FillPlan
    * @param {object} [context]  `{ resume }` — the stored resume document, if any
    */
+  /**
+   * Greenhouse's two-question EEO block. The API lists one compliance field,
+   * `race`, but 7 of 9 surveyed boards render `hispanic_ethnicity` (Yes / No
+   * / Decline) first and mount `race` only after it is answered. The
+   * Hispanic answer is a deterministic reading of the applicant's own stored
+   * race — "Hispanic or Latino" is Yes, a decline stays a decline, anything
+   * else is No — so this is replay, not judgement; no model is involved.
+   * Returns the `race` entry's control once revealed, or null.
+   */
+  async function revealRace(raceEntry) {
+    if (document.getElementById("race")) return document.getElementById("race");
+    const hispanic = document.getElementById("hispanic_ethnicity");
+    if (!hispanic) return null;
+
+    const stored = normalise(raceEntry.value || "");
+    const answer = /hispanic|latin/.test(stored) ? "Yes"
+      : /decline|prefer not|do not wish/.test(stored) ? "Decline To Self Identify"
+      : "No";
+
+    await hydrated(hispanic);
+    const result = await fillReactSelect(hispanic, answer);
+    if (!result.ok) return null;
+    outline(hispanic, OUTLINE_FILLED, `FirstPlay: from your stored race — ${answer}`);
+
+    for (let i = 0; i < 100 && !document.getElementById("race"); i += 1) await sleep(20);
+    return document.getElementById("race");
+  }
+
   async function applyPlan(plan, context = {}) {
     const outcome = { filled: 0, attach: 0, review: 0, failed: 0, missing: 0, details: [] };
     const work = { instant: [], "react-select": [], autocomplete: [], listbox: [] };
+
+    const raceEntry = plan.entries.find((e) => e.field_key === "race" && e.value && !e.needs_review && !e.skipped);
+    if (raceEntry && (await revealRace(raceEntry))) outcome.details.push({ label: "Hispanic/Latino", state: "answered from your stored race" });
 
     for (const entry of plan.entries) {
       const el = locate(entry);
