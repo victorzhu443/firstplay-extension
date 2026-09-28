@@ -516,14 +516,24 @@ var FirstPlay = FirstPlay || {};
     }
 
     // Poll the readback instead of napping a fixed 80 ms.
+    // Readback: what the widget shows, or — when the page is hidden and its
+    // rendering lags — what the widget holds. `selectValue` is what react-
+    // select submits; the DOM catches up when the tab is visible again.
     const expected = optionText(chosen);
+    const held = () => {
+      const fresh = selectInstanceOf(el) || instance;
+      const state = (fresh.state && fresh.state.selectValue) || [];
+      const value = fresh.props && fresh.props.value;
+      const values = Array.isArray(state) && state.length ? state : (Array.isArray(value) ? value : value ? [value] : []);
+      return values.some((v) => normalise(optionText(v)) === normalise(expected));
+    };
     let shown = displayedValue(el);
-    for (let i = 0; i < 20 && normalise(shown) !== normalise(expected); i += 1) {
+    for (let i = 0; i < 50 && normalise(shown) !== normalise(expected) && !held(); i += 1) {
       await sleep(40);
       shown = displayedValue(el);
     }
 
-    if (normalise(shown) !== normalise(expected)) {
+    if (normalise(shown) !== normalise(expected) && !held()) {
       return { ok: false, why: `selected ${JSON.stringify(expected)} but widget shows ` +
         JSON.stringify(shown) };
     }
@@ -933,7 +943,8 @@ var FirstPlay = FirstPlay || {};
         outcome.filled += 1;
       } else {
         outline(el, OUTLINE_REVIEW, `FirstPlay: could not fill — ${result.why}`);
-        badge(el, `FirstPlay knows this one: ${value} — please pick it (${result.why})`);
+        // Drawing the note must never abort the run.
+        try { badge(el, `FirstPlay knows this one: ${value} — please pick it (${result.why})`); } catch (e) { /* ignore */ }
         outcome.failed += 1;
         outcome.details.push({ label: entry.label, state: "failed", why: result.why, value });
       }
