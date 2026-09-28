@@ -527,13 +527,20 @@ var FirstPlay = FirstPlay || {};
       const values = Array.isArray(state) && state.length ? state : (Array.isArray(value) ? value : value ? [value] : []);
       return values.some((v) => normalise(optionText(v)) === normalise(expected));
     };
+    // The phone-country select shows only the dial code ("+1") for the option
+    // "United States +1": a display that is a non-empty part of the chosen
+    // option's text counts as the option shown.
+    const displays = (shownText) => {
+      const a = normalise(shownText), b = normalise(expected);
+      return !!a && (a === b || (a.length >= 2 && b.includes(a)));
+    };
     let shown = displayedValue(el);
-    for (let i = 0; i < 50 && normalise(shown) !== normalise(expected) && !held(); i += 1) {
+    for (let i = 0; i < 50 && !displays(shown) && !held(); i += 1) {
       await sleep(40);
       shown = displayedValue(el);
     }
 
-    if (normalise(shown) !== normalise(expected) && !held()) {
+    if (!displays(shown) && !held()) {
       return { ok: false, why: `selected ${JSON.stringify(expected)} but widget shows ` +
         JSON.stringify(shown) };
     }
