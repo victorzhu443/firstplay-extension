@@ -787,7 +787,11 @@ var FirstPlay = FirstPlay || {};
    * were offered the phone widget's country list. Bounded at 3 s.
    */
   async function hydrated(el) {
-    for (let i = 0; i < 150; i += 1) {
+    // Bounded at 20 s, returning at once when the instance exists (the
+    // foreground case). In a hidden tab Greenhouse does not hydrate at all
+    // (NISC: 0 of 12 selects owned by React minutes after load), so a fill
+    // there reports the selects as not enterable rather than guessing.
+    for (let i = 0; i < 1000; i += 1) {
       if (selectInstanceOf(el)) return true;
       await sleep(20);
     }
@@ -795,6 +799,7 @@ var FirstPlay = FirstPlay || {};
   }
 
   function widgetKind(el) {
+    if (el.tagName === "FIELDSET" && el.querySelector('input[type="radio"], input[type="checkbox"]')) return "instant";
     if (!["INPUT", "TEXTAREA", "SELECT"].includes(el.tagName) || el.matches('button[aria-haspopup="listbox"]')) return "listbox";
     if ((isReactSelect(el) && selectInstanceOf(el)) || looksLikeReactSelect(el)) return "react-select";
     if (el.getAttribute("role") === "combobox" ||
@@ -943,6 +948,7 @@ var FirstPlay = FirstPlay || {};
     }
 
     for (const [i, item] of work["react-select"].entries()) {
+      if (!selectInstanceOf(item.el)) await hydrated(item.el);
       record(item, await guarded(() => fillReactSelect(item.el, item.value, prefetched[i])));
       if (item.entry.values.length > 1) await guarded(() => fillControl(item.el, item.entry, item.value));
     }
