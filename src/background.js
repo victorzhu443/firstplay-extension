@@ -235,6 +235,27 @@ function dryRunSubmitInPage() {
   });
 }
 
+/**
+ * Apply the plan IN THE PAGE'S WORLD. Content scripts live in an isolated
+ * world that shares the DOM but not the properties page scripts attach to
+ * nodes — and React's fiber (`__reactFiber$…`), which the react-select
+ * driver needs, is such a property. From the isolated world every standard
+ * Greenhouse select reported "not a react-select instance" (Coinbase,
+ * Chicago Trading, NISC, Clockwork, 2026-09-28) while the same page showed
+ * the instances to a page-world probe. So fill.js is injected into the main
+ * world and applyPlan runs there; the outcome comes back as the result.
+ */
+async function applyPlanInPage(sender, plan, resume) {
+  const target = { tabId: sender.tab.id, frameIds: [sender.frameId || 0] };
+  await chrome.scripting.executeScript({ target, world: "MAIN", files: ["src/fill.js"] });
+  const results = await chrome.scripting.executeScript({
+    target, world: "MAIN",
+    func: (p, r) => window.FirstPlay.applyPlan(p, { resume: r }),
+    args: [plan, resume || null],
+  });
+  return (results && results[0] && results[0].result) || null;
+}
+
 async function dryRunCheck(sender) {
   const results = await chrome.scripting.executeScript({
     target: { tabId: sender.tab.id, frameIds: [sender.frameId || 0] },
@@ -245,6 +266,12 @@ async function dryRunCheck(sender) {
 }
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+  if (message.kind === "applyPlan") {
+    applyPlanInPage(_sender, message.plan, message.resume)
+      .then((outcome) => sendResponse({ ok: !!outcome, outcome }))
+      .catch((e) => sendResponse({ ok: false, why: e.message }));
+    return true;
+  }
   if (message.kind === "dryRunCheck") {
     dryRunCheck(_sender)
       .then(sendResponse)
