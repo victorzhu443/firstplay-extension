@@ -690,6 +690,19 @@ var FirstPlay = FirstPlay || {};
 
     const extras = entry.values.length > 1 ? entry.values.slice(1) : [];
 
+    // A fieldset of radios or checkboxes (Greenhouse renders "How did you
+    // hear about us?" this way on some boards): choose among its inputs.
+    if (el.tagName === "FIELDSET") {
+      const candidates = Array.from(el.querySelectorAll('input[type="radio"], input[type="checkbox"]'));
+      if (!candidates.length) return { ok: false, why: "fieldset holds no choices" };
+      const textOf = (c) => { const l = c.id ? document.querySelector(`label[for="${CSS.escape(c.id)}"]`) : c.closest("label"); return l ? l.innerText : c.value; };
+      const chosen = pickOption(candidates, textOf, value);
+      if (!chosen) return { ok: false, why: `no choice is exactly ${JSON.stringify(value)}; offered: ` + candidates.slice(0, 6).map((c) => textOf(c).trim()).join(" | ") };
+      if (!chosen.checked) chosen.click();
+      for (const extra of extras) { const more = pickOption(candidates, textOf, extra); if (more && !more.checked) more.click(); }
+      return { ok: chosen.checked, chose: textOf(chosen).trim() };
+    }
+
     if (!["INPUT", "TEXTAREA", "SELECT"].includes(el.tagName) ||
         el.matches('button[aria-haspopup="listbox"]')) {
       result = await fillListbox(el, value, extras);
