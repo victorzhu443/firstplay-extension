@@ -952,10 +952,16 @@ First-visit plan median 0.9 s.
 checkbox received "Ithaca, NY" from the location theme; Siftstack's "Do
 you have any offers?" received the stored "None" through a stored theme
 that bypassed the guard computed themes had. Both: a yes/no control now
-takes yes or no and nothing else; re-runs clean. Espa and Fanvue: the
-geocoder answered after the 1.5 s retry had fired with a comma-suffixed
-term; 0.4.37 waits 3.5 s, strips punctuation, and warms the geocoder
-early. Backend DECISIONS §46–§47.
+takes yes or no and nothing else; re-runs clean. Espa and Fanvue were
+first read as a retry-timing defect (0.4.37 waits 3.5 s on a geocoder,
+strips punctuation, and types the stored location as soon as the form
+renders). The re-run failed the same way in 0.9 s, so it was not timing:
+both are plain Location geocoders that answer "Ithaca, NY" with
+"Netherlands | New Zealand | West" while thirty other employers' geocoders
+answer Ithaca — an employer-scoped geocoder, restricted to where the
+company hires. The widget worked; the form's answer set excludes the
+value. 0.4.38 reports that as a mismatch for the applicant, with what was
+offered, not as a filler failure. Backend DECISIONS §46–§47.
 
 ### What the log says in one paragraph
 
