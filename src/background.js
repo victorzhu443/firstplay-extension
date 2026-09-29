@@ -322,6 +322,7 @@ const TERM_CONTROLS = [
   [/^educations\[0\]\.school_name_id$/, "school--0"],
   [/^educations\[0\]\.degree_id$/, "degree--0"],
   [/^educations\[0\]\.discipline_id$/, "discipline--0"],
+  [/^_systemfield_location$/, "_systemfield_location"],   // Ashby's geocoder
 ];
 
 function rememberLookupTerms(payload) {

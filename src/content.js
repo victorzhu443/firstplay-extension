@@ -142,7 +142,7 @@
     const controls = await settledControls();
     // Warm the education lookups with the last plan's terms while this
     // plan is still being built (fill.js `warm`). Fire and forget.
-    if (posting.ats === "greenhouse" && !document.hidden) {
+    if (posting.ats === "greenhouse" || posting.ats === "ashby") {
       chrome.runtime.sendMessage({ kind: "warmLookups" })
         .then((r) => { if (r && r.started && r.started.length) console.log(`${TAG} warming lookups: ${r.started.join(", ")}`); })
         .catch(() => {});

@@ -329,10 +329,18 @@ var FirstPlay = FirstPlay || {};
     // filters a fixed list by substring: "Cornell University" matched
     // nothing where its option is "Cornell", and the old 8 s wait ended in
     // "no suggestions appeared" (Sierra, 9.2 s in this one pick).
-    const terms = [value];
-    const words = String(value).trim().split(/\s+/);
-    if (words.length > 2) terms.push(words.slice(0, 2).join(" "));
-    if (words.length > 1) terms.push(words[0]);
+    // A remote geocoder (Ashby's Location) answers in 0.4–3.3 s; a local
+    // list answers in a frame. The full term gets the long wait; shortened
+    // terms (punctuation stripped — "Ithaca," matched nothing) get a short
+    // one. Espa: the retry fired at 1.5 s while the geocoder was still
+    // working, and its late answer was read against the wrong term.
+    const isGeocoder = /location|city/i.test(el.getAttribute("aria-label") || "") ||
+      !!el.closest('[data-field-path="_systemfield_location"]') || el.id === "candidate-location";
+    const clean = (t) => t.replace(/[,.;:]+$/, "").trim();
+    const terms = [String(value)];
+    const words = clean(String(value)).split(/\s+/);
+    if (words.length > 2) terms.push(clean(words.slice(0, 2).join(" ")));
+    if (words.length > 1) terms.push(clean(words[0]));
     let options = [];
     for (const [round, term] of terms.entries()) {
       if (round > 0) {
@@ -340,8 +348,9 @@ var FirstPlay = FirstPlay || {};
         setNativeValue(el, term);
         el.dispatchEvent(new Event("input", { bubbles: true }));
       }
+      const budget = round === 0 && isGeocoder ? 175 : 75;   // × 20 ms
       options = suggestionsFor(el);
-      for (let i = 0; i < 75 && !options.length; i += 1) {
+      for (let i = 0; i < budget && !options.length; i += 1) {
         await sleep(20);
         options = suggestionsFor(el);
       }
@@ -496,6 +505,20 @@ var FirstPlay = FirstPlay || {};
     const started = [];
     for (const [id, term] of Object.entries(terms || {})) {
       if (!term) continue;
+      // Ashby's Location: a remote geocoder that takes 0.4–3.3 s. Typing the
+      // stored location as soon as the form renders means its suggestions
+      // are already open when the plan arrives and the pick is a click.
+      if (id === "_systemfield_location") {
+        const container = document.querySelector('[data-field-path="_systemfield_location"]');
+        const box = container && container.querySelector('input[role="combobox"], input');
+        if (!box || box.value) continue;
+        box.focus();
+        box.dispatchEvent(new FocusEvent("focusin", { bubbles: true }));
+        setNativeValue(box, term);
+        box.dispatchEvent(new Event("input", { bubbles: true }));
+        started.push(id);
+        continue;
+      }
       const el = document.getElementById(id);
       if (!el || !optionLoaderOf(el)) continue;
       started.push(id);
