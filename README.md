@@ -918,6 +918,45 @@ names slow lookups in the console.
 unseen boards. Fill 0.1–0.4 s without a geocoder, ~0.8–0.9 s with one.
 Backend DECISIONS §45. Next: Ashby, same protocol.
 
+**39. Ashby, from first principles, and one hundred applications
+(2026-09-29, backend PR #22, extension 0.4.29–0.4.37 on PR #10).**
+*Why.* Victor: "figure out what carries over and what doesn't, and build
+from first principles how to fill out Ashby forms in under 1 second", then
+"test with 100 different applications drawn from Simplify".
+*What we found before writing code.* The codebase said Ashby had no form
+API. Reading the page's network calls and its front-end bundle showed one
+public GraphQL operation, `ApiJobPosting`, whose response carries every
+field's type, title, path, options and required flag; replayed from Python
+with no auth. Every control's `id` and `name` equal the field's path and
+its container carries `data-field-path`: an exact join. Two things that do
+not carry over: the page autosaves every value to Ashby as a draft, and
+Ashby validates only on its server — a Submit click goes straight to the
+network with required fields empty (the dry run's block stopped it; the
+page said "We couldn't submit your application").
+*What we changed.* Plans built from the API at first sight and cached
+(0.4.29); location by `data-field-path`; a watcher for the in-page move
+from posting to `/application`; no submit click on Ashby, a local required
+check from the API's flags instead (0.4.36); Ashby tabs fill while hidden
+(0.4.34) with unthrottled waits (0.4.35); each run writes its record on the
+page (0.4.33); an autocomplete retries shorter terms (0.4.30); the
+geocoder gets 3.5 s and is typed before the plan arrives (0.4.37).
+*Baseline vs after, Sierra's 23-field form.* DOM path: 14 filled, 1 could
+not be entered, 9.3 s. API path: 16 filled, 0 failures, 33 ms.
+*The hundred.* 100 organisations from the Simplify intern and new-grad
+lists, all live: 702 fields filled, 246 left for the applicant, 4
+could-not-enter on the first pass and 0 after the fixes on re-run, 20
+forms with nothing left to do. Fill median 88 ms (74 ms without a
+geocoder), 83 of 100 under one second, worst 3.5 s (Notion's geocoder).
+First-visit plan median 0.9 s.
+*What went wrong.* Color Health's "Are you based in the Bay Area?"
+checkbox received "Ithaca, NY" from the location theme; Siftstack's "Do
+you have any offers?" received the stored "None" through a stored theme
+that bypassed the guard computed themes had. Both: a yes/no control now
+takes yes or no and nothing else; re-runs clean. Espa and Fanvue: the
+geocoder answered after the 1.5 s retry had fired with a comma-suffixed
+term; 0.4.37 waits 3.5 s, strips punctuation, and warms the geocoder
+early. Backend DECISIONS §46–§47.
+
 ### What the log says in one paragraph
 
 Two classes of defect account for nearly everything that ever went wrong on
