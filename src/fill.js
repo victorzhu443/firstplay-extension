@@ -486,7 +486,12 @@ var FirstPlay = FirstPlay || {};
     if (!instance) return [];
     let options = instanceOptions(instance);
     if (!options.length) options = await loadedOptions(el, value);
-    if (!options.length) options = await loadedOptions(el, "");
+    // A typeahead's lookup can come back empty for a moment (Pacific Fusion:
+    // the school search returned nothing once, then "Cornell University" on
+    // the next call). Retry the term before touching the default page — the
+    // default page is the alphabet's start and never holds the answer.
+    if (!options.length) { await sleep(300); options = await loadedOptions(el, value); }
+    if (!options.length && !optionLoaderOf(el)) options = await loadedOptions(el, "");
     return options;
   }
 
@@ -497,7 +502,10 @@ var FirstPlay = FirstPlay || {};
 
     let options = prefetched && prefetched.length ? prefetched : instanceOptions(instance);
     if (!options.length) options = await loadedOptions(el, value);
-    if (!options.length) options = await loadedOptions(el, "");
+    if (!options.length) { await sleep(300); options = await loadedOptions(el, value); }
+    if (!options.length && optionLoaderOf(el)) {
+      return { ok: false, why: `the form's lookup returned nothing for ${JSON.stringify(value)} — try again` };
+    }
     if (!options.length) options = await typedOptions(el, instance, value);
     const chosen = pickOption(options, optionText, value);
 
