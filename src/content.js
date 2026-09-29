@@ -286,7 +286,14 @@
     // flags filled fields as required (0.4.24).
     if (document.hidden) await pause(150);
     else await new Promise((resolve) => requestAnimationFrame(() => setTimeout(resolve, 100)));
-    const check = await chrome.runtime.sendMessage({ kind: "dryRunCheck" }).catch(() => null);
+    // Ashby validates only on its server: a click on Submit Application
+    // goes straight to the network (the dry run's block stopped it, and the
+    // page said "We couldn't submit your application"), and no field is
+    // ever marked invalid client-side. So Ashby is never clicked. The form
+    // definition says which fields are required; the check is local.
+    const check = posting.ats === "ashby"
+      ? localRequiredCheck(response.plan)
+      : await chrome.runtime.sendMessage({ kind: "dryRunCheck" }).catch(() => null);
     let stillRequired = null;
     let wantRows = [];
     if (check && check.ok) {
@@ -341,6 +348,30 @@
       filled: outcome.filled, attach: outcome.attach, review: outcome.review,
       failed: outcome.failed, missing: outcome.missing, seconds: (tApplied - t0) / 1000,
     };
+  }
+
+  /**
+   * What an Ashby form still wants, from the plan's required flags and the
+   * page's current values — never from a submit click. Returns the same shape
+   * as the dry run so the diff below reads it unchanged.
+   */
+  function localRequiredCheck(plan) {
+    const invalid = [];
+    for (const entry of plan.entries) {
+      if (!entry.required || entry.skipped || entry.satisfied_by) continue;
+      const container = document.querySelector(`[data-field-path="${CSS.escape(entry.field_key)}"]`);
+      if (!container) continue;
+      const file = container.querySelector('input[type="file"]');
+      const control = container.querySelector('input:not([type="hidden"]):not([type="radio"]):not([type="checkbox"]):not([type="file"]), textarea, select');
+      const choices = container.querySelectorAll('input[type="radio"], input[type="checkbox"]');
+      let holds;
+      if (file) holds = (file.files && file.files.length > 0) || /\.(pdf|docx?|rtf|txt)\b/i.test(container.innerText);
+      else if (control) holds = (control.value || "").trim() !== "";
+      else if (choices.length) holds = Array.from(choices).some((c) => c.checked);
+      else holds = false;
+      if (!holds) invalid.push({ id: entry.field_key, name: entry.field_key, label: entry.label || entry.field_key, message: "required (Ashby form definition)" });
+    }
+    return { ok: true, invalid, blocked: [], submitButton: "(not clicked — Ashby)" };
   }
 
   let inFlight = null;
