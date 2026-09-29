@@ -168,7 +168,20 @@
     // The resume lives in extension storage, put there once through the
     // popup; content scripts may read chrome.storage directly.
     const stored = await chrome.storage.local.get("firstplay.resume");
-    const outcome = await ns.applyPlan(response.plan, { resume: stored["firstplay.resume"] || null });
+    const resume = stored["firstplay.resume"] || null;
+
+    // The fill runs in the page's world (see background.js): React's fibers,
+    // which the select driver needs, are invisible from this isolated world.
+    const inPage = await chrome.runtime.sendMessage({ kind: "applyPlan", plan: response.plan, resume })
+      .catch((e) => ({ ok: false, why: e && e.message }));
+    let outcome;
+    if (inPage && inPage.ok && inPage.outcome) {
+      outcome = inPage.outcome;
+    } else {
+      console.warn(`${TAG} could not run the fill in the page's world (${(inPage && inPage.why) || "no result"}); ` +
+        `falling back — dropdowns may not take values`);
+      outcome = await ns.applyPlan(response.plan, { resume });
+    }
     window.__firstplayOutcome = outcome;
 
     const tApplied = performance.now();
