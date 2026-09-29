@@ -769,6 +769,79 @@ details not in the profile, 5 pay expectations, 4 clearances. The decision
 record is backend DECISIONS §39; the next platform is Ashby, on the same
 protocol.
 
+**34. Widening the profile-answer gate (2026-09-28, backend PR #21).**
+*Why.* The hundred-board run left 184 wants. Sorted by hand, about 50 were
+bounded decisions from facts the applicant already holds — term
+availability, class standing, clearance, career fairs, prior internships,
+GPA scale — that the model gate never reached: it refused multi-selects,
+its state carried neither today's date nor the term calendar, and four
+facts were not in the profile at all.
+*What went wrong when we tried.* Three things, each caught by running the
+real model on the boards that had exposed the questions. A Noul asked
+"would the applicant tick this option?" on a clearance list with a silent
+profile said "Never held a clearance" at 0.90 — a guess, exactly on the
+threshold. The term question sat at p=0.50 on "Spring 2027" because the
+availability note said "any term acceptable" while the earliest start was
+May 2027. And "Not Applicable" scored 0.15 as a proposition even when the
+profile said the applicant holds no clearance, because a model does not read
+"not applicable" as a thing one ticks.
+*How we found it.* `try_posting` in-process against the frozen postings
+with the real profile and the real Jev, printing per-option beliefs; then
+the same with a temporary profile copy carrying the four new facts, so the
+facts path was exercised without writing guesses into Victor's profile.
+*What we changed.* Multi-selects with at most 12 options are asked as one
+Noul per option (tick at ≥0.90, no at ≤0.10, anything between leaves the
+whole field as a suggestion); batches are cut by question count, not
+request count. The Noul wording makes silence a no ("the profile says
+nothing that bears on it"). The state gains today's date, class standing
+derived from the education dates, and an availability note with the months
+each term starts. When every concrete option is a confident no and exactly
+one option means none, that one is chosen by elimination. Four facts join
+onboarding: security clearance, career fair, prior internships, GPA scale.
+*How we verified it.* Eleven unit tests with a Noul-aware fake; then live:
+General Matter's three-term question went from review to Summer 2027 at
+0.89; Compeer's academic status to Junior at 1.00; QuEra's highest education
+obtained to "Some College, No Degree" at 0.87; with the facts present,
+BTI's clearance to No at 1.00, Perpay's career fair to No at 0.97, Klaviyo's
+prior internships to 1 at 0.94, Radix's GPA range to 0.0–4.0 at 0.89, and
+Rocket Lab's clearance list to Not Applicable at 0.93 by elimination.
+Optiver's eleven offices stayed with the applicant (the profile is silent on
+offices, and the model now says so), and Varda's "seeking a Spring
+internship?" stayed at 0.56 for an applicant whose profile says any term
+after May 2027 is fine — a genuinely open question. Ten fresh held-out
+boards (round 8) produced ten model decisions, every one traceable to a
+stored fact, and one policy catch: Maven Securities' UK-worded "support or
+adjustments during the recruitment process" was classified as screening and
+answered "No" by the gate; it is disability-adjacent and is now a protected
+pattern, memory-only. The multi-select path still awaits its first pass
+through the installed extension, which needs the Chrome window on screen.
+
+**35. 0.4.20 — the plan cache and the worker's lifetime (2026-09-28, PR #10).**
+*Why.* The first try at seeing entry 34's multi-select through the
+installed extension produced nothing usable, and the console said why
+twice over.
+*What went wrong.* `plan ready 2.2s (plan from cache)`: the session cache
+is keyed on posting and profile, so twelve minutes on General Matter tested
+the plan built *before* the gate was widened. And `could not run the fill
+in the page's world (the message channel closed before a response was
+received); falling back`, `filled 756.7s`: the content script had asked the
+service worker to run the page-world fill while the tab was hidden; the
+worker sat in the visibility wait, MV3 stopped it, the channel closed, and
+the fill fell back to the isolated world — 15 selects "known but could not
+be entered", the exact failure of entry 28, back through a different door.
+*How we found it.* Reading the `timing:` and warning lines on the page after
+the window was covered for twelve minutes; no probe needed.
+*What we changed.* The backend now publishes an `engine` fingerprint (a hash
+of its autofill package) on the plan response and health route, and the
+cache key carries it, so a backend change is never served a stale plan. The
+content script waits for visibility itself before asking the worker, so the
+worker's call lasts seconds rather than minutes, and it asks once more when
+the channel closed before falling back.
+*How we verified it.* Syntax-checked and pushed; the live pass — a posting
+opened in a background tab, switched to after a few minutes, filled in the
+page world with no fallback warning — is the reload test in PR #10 and
+awaits the next time the window is on screen.
+
 ### What the log says in one paragraph
 
 Two classes of defect account for nearly everything that ever went wrong on
@@ -963,7 +1036,7 @@ set before moving on to Ashby, Workday and Oracle.
 
 ---
 
-## 7. Notes for whoever edits this next
+## 6. Notes for whoever edits this next
 
 - **Content scripts are classic scripts.** An `export` in one is a syntax
   error at load and the script silently never runs, which looks exactly like
