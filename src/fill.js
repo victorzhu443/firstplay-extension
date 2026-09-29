@@ -609,11 +609,15 @@ var FirstPlay = FirstPlay || {};
     // (or when hidden, where nothing renders). Some widgets never expose a
     // readable display — Lightmatter's gender select ran the whole 2 s wait
     // before the held state was consulted.
+    // A tab covered mid-fill renders nothing, so the display never changes;
+    // Rocket Lab spent 25.6 s in picks that way (thirteen selects, 2 s cap
+    // each). Hidden, the wait is short and the held state decides.
     let frames = 0;
     const settled = () => displays(shown) || (held() && (document.hidden || frames >= 1));
+    const cap = () => (document.hidden ? 12 : 120);
     let shown = displayedValue(el);
     await Promise.resolve();
-    for (; frames < 120 && !settled(); frames += 1) {
+    for (; frames < cap() && !settled(); frames += 1) {
       await sleep(16);
       shown = displayedValue(el);
     }
