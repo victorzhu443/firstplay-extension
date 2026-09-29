@@ -329,7 +329,10 @@
       const path = window.location.pathname;
       if (path === lastPath) return;
       lastPath = path;
-      if (/\/application\/?$/.test(path)) run();
+      // Through the guard: Sierra ran twice when the path changed while
+      // the first run was still filling, and the second run re-typed the
+      // University field over its own answer.
+      if (/\/application\/?$/.test(path)) ns.run();
     }, 500);
   }
 })(FirstPlay);
