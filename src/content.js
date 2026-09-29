@@ -266,6 +266,7 @@
     await new Promise((resolve) => requestAnimationFrame(() => setTimeout(resolve, 100)));
     const check = await chrome.runtime.sendMessage({ kind: "dryRunCheck" }).catch(() => null);
     let stillRequired = null;
+    let wantRows = [];
     if (check && check.ok) {
       const byKey = new Map(response.plan.entries.map((e) => [e.field_key, e]));
       const state = (e) => !e ? "not in plan" : e.skipped ? "skipped" : e.satisfied_by ? "sibling"
@@ -282,6 +283,7 @@
         return { form_says: f.message || "required", field: f.label, plan_said: state(entry) };
       });
       stillRequired = rows.length;
+      wantRows = rows;
       console.log(`${TAG} form check: the form still wants ${rows.length} field(s)`);
       // Plain lines as well as the table: a pasted console log or a log
       // reader never carries console.table's contents.
@@ -292,6 +294,25 @@
     } else if (check) {
       console.log(`${TAG} form check skipped: ${check.why}`);
     }
+
+    // The run's record, on the document for anything that reads the page
+    // (the survey harness, a bug report): counts, tiers, what the form still
+    // wants. No values, no profile.
+    try {
+      document.documentElement.setAttribute("data-firstplay-outcome", JSON.stringify({
+        version: chrome.runtime.getManifest().version,
+        at: new Date().toISOString(),
+        filled: outcome.filled, attach: outcome.attach, review: outcome.review,
+        failed: outcome.failed, missing: outcome.missing,
+        fill_ms: outcome.timing && outcome.timing.total, tiers: outcome.timing || null,
+        slow: outcome.slow || [],
+        plan_ms: Math.round(tPlanned - t0), backend_ms: response.elapsed_ms || 0, cached: !!response.cached,
+        still_required: stillRequired,
+        wants: wantRows.map((r) => ({ field: r.field.slice(0, 60), plan_said: r.plan_said, form_says: (r.form_says || "").slice(0, 60) })),
+        failures: (outcome.details || []).filter((d) => d.state === "failed").map((d) => ({ label: (d.label || "").slice(0, 60), why: (d.why || "").slice(0, 80) })),
+        check_skipped: check && !check.ok ? check.why : null,
+      }));
+    } catch (_e) { /* the record is a convenience */ }
 
     return {
       still_required: stillRequired,
