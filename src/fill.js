@@ -180,6 +180,17 @@ var FirstPlay = FirstPlay || {};
   function locate(entry) {
     const key = entry.field_key;
 
+    // Ashby: every field's container carries data-field-path equal to the
+    // API field's path, which is the plan's key. Exact, no label matching.
+    const ashbyContainer = key && document.querySelector(`[data-field-path="${CSS.escape(key)}"]`);
+    if (ashbyContainer) {
+      const control = ashbyContainer.querySelector(
+        'input:not([type="hidden"]):not([type="radio"]):not([type="checkbox"]), textarea, select, [role="combobox"]'
+      );
+      if (control) return control;
+      if (ashbyContainer.querySelector('input[type="radio"], input[type="checkbox"]')) return ashbyContainer;
+    }
+
     const rendered = key && renderedIdFor(key);
     const byRendered = rendered && document.getElementById(rendered);
     if (byRendered) return byRendered;
@@ -486,7 +497,8 @@ var FirstPlay = FirstPlay || {};
     el.dispatchEvent(new FocusEvent("focusin", { bubbles: true }));
     setNativeValue(el, value);
 
-    for (let i = 0; i < 500; i += 1) {
+    // 3 s: FourKites' geocoder was down and the typed lookup waited 9.7 s.
+    for (let i = 0; i < 190; i += 1) {
       await sleep(16);
       const fresh = selectInstanceOf(el) || instance;
       const options = instanceOptions(fresh);
@@ -793,8 +805,10 @@ var FirstPlay = FirstPlay || {};
 
     // A fieldset of radios or checkboxes (Greenhouse renders "How did you
     // hear about us?" this way on some boards): choose among its inputs.
-    if (el.tagName === "FIELDSET") {
+    if (el.tagName === "FIELDSET" || el.hasAttribute("data-field-path")) {
       const candidates = Array.from(el.querySelectorAll('input[type="radio"], input[type="checkbox"]'));
+      // A lone checkbox in an Ashby container is a yes/no question.
+      if (candidates.length === 1 && candidates[0].type === "checkbox") return fillChoiceInput(candidates[0], value);
       if (!candidates.length) return { ok: false, why: "fieldset holds no choices" };
       const textOf = (c) => { const l = c.id ? document.querySelector(`label[for="${CSS.escape(c.id)}"]`) : c.closest("label"); return l ? l.innerText : c.value; };
       const chosen = pickOption(candidates, textOf, value);
@@ -925,7 +939,7 @@ var FirstPlay = FirstPlay || {};
   }
 
   function widgetKind(el) {
-    if (el.tagName === "FIELDSET" && el.querySelector('input[type="radio"], input[type="checkbox"]')) return "instant";
+    if ((el.tagName === "FIELDSET" || el.hasAttribute("data-field-path")) && el.querySelector('input[type="radio"], input[type="checkbox"]')) return "instant";
     if (!["INPUT", "TEXTAREA", "SELECT"].includes(el.tagName) || el.matches('button[aria-haspopup="listbox"]')) return "listbox";
     if ((isReactSelect(el) && selectInstanceOf(el)) || looksLikeReactSelect(el)) return "react-select";
     if (el.getAttribute("role") === "combobox" ||

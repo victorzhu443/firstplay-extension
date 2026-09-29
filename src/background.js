@@ -107,7 +107,11 @@ async function buildPlan({ posting, controls, page }) {
   // fixing one field by hand) should not pay the backend again. Session
   // storage: gone when the browser closes, and the profile hash is in the key,
   // so an edited profile misses. Ashby plans depend on the DOM and are not cached.
-  const cacheKey = posting.ats === "greenhouse" ? await planCacheKey(posting, profile) : null;
+  // Greenhouse and Ashby plans are both pure functions of an API payload
+  // and the profile (Ashby's form comes from its ApiJobPosting operation,
+  // DECISIONS §46), so both are cached; a DOM-read Ashby plan is not.
+  const cacheKey = posting.ats === "greenhouse" || (posting.ats === "ashby" && !(controls && controls.length))
+    ? await planCacheKey(posting, profile) : null;
   if (cacheKey) {
     const hit = (await chrome.storage.session.get(cacheKey))[cacheKey];
     if (hit && Date.now() - hit.at < 6 * 60 * 60 * 1000) {
@@ -133,17 +137,28 @@ async function buildPlan({ posting, controls, page }) {
     }
     body = { ats: "greenhouse", form, profile };
   } else {
-    body = {
-      ats: "ashby",
-      form: {
-        posting_id: posting.postingId,
-        company: posting.org,
-        title: page.title,
-        apply_url: page.url,
-        controls,
-      },
-      profile,
-    };
+    // Ashby: the form definition from the page's own GraphQL operation.
+    // The DOM extract is the fallback when the operation fails or when an
+    // older content script sent controls only.
+    let jobPosting = null;
+    try {
+      jobPosting = await fetchAshbyPosting(posting.org, posting.postingId);
+    } catch (e) {
+      if (!(controls && controls.length)) throw new Error(`Ashby's form definition could not be fetched (${e.message})`);
+    }
+    body = jobPosting
+      ? { ats: "ashby", form: { ...jobPosting, _org: posting.org }, profile }
+      : {
+          ats: "ashby",
+          form: {
+            posting_id: posting.postingId,
+            company: posting.org,
+            title: page.title,
+            apply_url: page.url,
+            controls,
+          },
+          profile,
+        };
   }
 
   const response = await fetch(`${BACKEND}/api/autofill/plan`, {
@@ -208,8 +223,10 @@ function dryRunSubmitInPage() {
     };
 
     const form = document.querySelector("form");
-    const button = form && (form.querySelector('button[type="submit"], input[type="submit"]') ||
-      Array.from(form.querySelectorAll("button")).find((b) => /submit/i.test(b.innerText)));
+    const buttons = form ? Array.from(form.querySelectorAll('button, input[type="submit"]')) : [];
+    const button = buttons.find((b) => /submit application|^submit$/i.test((b.innerText || b.value || "").trim()))
+      || (form && form.querySelector('button[type="submit"], input[type="submit"]'))
+      || buttons.find((b) => /submit/i.test(b.innerText || ""));
     if (!button) { restore(); resolve({ ok: false, why: "no submit button found" }); return; }
 
     const collect = () => {
@@ -227,6 +244,14 @@ function dryRunSubmitInPage() {
         const m = near && near.querySelector('[class*="error"], [role="alert"]');
         return m ? m.innerText.trim().slice(0, 80) : "";
       };
+      // Ashby marks a failed field with an error message inside its
+      // container rather than aria-invalid on the control.
+      for (const container of document.querySelectorAll("[data-field-path]")) {
+        const message = container.querySelector('[class*="error"], [role="alert"]');
+        if (!message || !message.innerText.trim()) continue;
+        const control = container.querySelector('input:not([type="hidden"]), textarea, select, [role="combobox"]');
+        if (control && !invalid.includes(control)) invalid.push(control);
+      }
       const fields = [];
       const seen = new Set();
       for (const el of invalid) {
@@ -264,6 +289,31 @@ function dryRunSubmitInPage() {
  * the instances to a page-world probe. So fill.js is injected into the main
  * world and applyPlan runs there; the outcome comes back as the result.
  */
+/**
+ * Ashby's application form, from the operation the page itself sends
+ * (`ApiJobPosting`; query text recovered from Ashby's bundle, checked in as
+ * ashby_posting.graphql). Public, no auth. Returns the `jobPosting` object,
+ * whose `applicationForm.sections[].fieldEntries[]` the backend normalises.
+ */
+let ashbyQueryText = null;
+async function fetchAshbyPosting(org, postingId) {
+  if (!ashbyQueryText) ashbyQueryText = await (await fetch(chrome.runtime.getURL("src/ashby_posting.graphql"))).text();
+  const res = await fetch("https://jobs.ashbyhq.com/api/non-user-graphql?op=ApiJobPosting", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "apollographql-client-name": "frontend_non_user" },
+    body: JSON.stringify({
+      operationName: "ApiJobPosting",
+      variables: { organizationHostedJobsPageName: org, jobPostingId: postingId },
+      query: ashbyQueryText,
+    }),
+  });
+  if (!res.ok) throw new Error(`ApiJobPosting ${res.status}`);
+  const json = await res.json();
+  const jobPosting = json && json.data && json.data.jobPosting;
+  if (!jobPosting || !jobPosting.applicationForm) throw new Error("ApiJobPosting returned no applicationForm");
+  return jobPosting;
+}
+
 /** The education terms this plan will look up; the next board warms them before its plan arrives. */
 const TERM_CONTROLS = [
   [/^educations\[0\]\.school_name_id$/, "school--0"],

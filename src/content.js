@@ -118,10 +118,10 @@
 
     const t0 = performance.now();
 
-    // A Greenhouse plan depends on the API payload, not on the DOM, so the
-    // request goes out now and runs while the page finishes rendering.
-    // Ashby has no API; its plan needs the controls first.
-    const earlyPlan = posting.ats === "greenhouse" ? requestPlan(posting, []) : null;
+    // A Greenhouse or Ashby plan depends on an API payload, not on the DOM,
+    // so the request goes out now and runs while the page finishes
+    // rendering (Ashby: the page's own ApiJobPosting operation, §46).
+    const earlyPlan = requestPlan(posting, []);
 
     const controls = await settledControls();
     // Warm the education lookups with the last plan's terms while this
@@ -144,7 +144,11 @@
 
     console.log(`${TAG} ${posting.ats}: ${controls.length} controls read`);
 
-    const response = await (earlyPlan || requestPlan(posting, controls));
+    let response = await earlyPlan;
+    // Ashby's operation failed: fall back to the plan built from the DOM read.
+    if (!(response && response.ok) && posting.ats === "ashby" && controls.length) {
+      response = await requestPlan(posting, controls);
+    }
     const tPlanned = performance.now();
 
     if (!response || !response.ok) {
@@ -314,5 +318,18 @@
   if (!window.__firstplayRan) {
     window.__firstplayRan = true;
     ns.run();
+  }
+
+  // Ashby is a single-page app: "Apply" moves from /<org>/<id> to
+  // /<org>/<id>/application without a load, and this script would never run
+  // again. Watch the path and run once when the application form appears.
+  if (window.location.host.endsWith("ashbyhq.com")) {
+    let lastPath = window.location.pathname;
+    setInterval(() => {
+      const path = window.location.pathname;
+      if (path === lastPath) return;
+      lastPath = path;
+      if (/\/application\/?$/.test(path)) run();
+    }, 500);
   }
 })(FirstPlay);
