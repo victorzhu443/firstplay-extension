@@ -600,10 +600,17 @@ var FirstPlay = FirstPlay || {};
       const a = normalise(shownText), b = normalise(expected);
       return !!a && (a === b || (a.length >= 2 && b.includes(a)));
     };
+    // Visible: the rendered value is the commit signal — the wrapper owns
+    // the value, so the display changes only once the form's state has it.
+    // 0.4.24 accepted the widget's held state first, the dry-run submit ran
+    // before the form had committed, and every select was flagged required
+    // (Pacific Fusion, Rocket Lab, General Matter: false "plan said FILL"
+    // rows over correctly filled fields). Hidden: rendering lags, so the
+    // held state is the only signal there is.
+    const settled = () => displays(shown) || (document.hidden && held());
     let shown = displayedValue(el);
-    // A microtask first — React often has committed by then — then frames.
     await Promise.resolve();
-    for (let i = 0; i < 120 && !displays(shown) && !held(); i += 1) {
+    for (let i = 0; i < 120 && !settled(); i += 1) {
       await sleep(16);
       shown = displayedValue(el);
     }
@@ -1120,6 +1127,8 @@ var FirstPlay = FirstPlay || {};
       record(item, await timed(item, () => pending.catch((e) => ({ ok: false, why: `threw ${e && e.message}` }))));
       if (item.entry.values.length > 1) await guarded(() => fillControl(item.el, item.entry, item.value));
     }
+    // One frame for the form to commit the last pick before anyone reads it.
+    await new Promise((resolve) => requestAnimationFrame(() => setTimeout(resolve, 0)));
     lap("picks");
     for (const item of work.autocomplete) record(item, await timed(item, () => guarded(() => pickAutocomplete(item.el, item.value))));
     lap("autocomplete");

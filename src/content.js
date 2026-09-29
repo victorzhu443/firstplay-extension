@@ -257,6 +257,9 @@
     // considers missing or invalid. That list is compared with the plan: a
     // field the plan called FILL that the form calls missing is a filler
     // defect; one the plan never knew is a coverage gap.
+    // The form commits the last write a frame later; asking it before that
+    // flags filled fields as required (0.4.24).
+    await new Promise((resolve) => requestAnimationFrame(() => setTimeout(resolve, 100)));
     const check = await chrome.runtime.sendMessage({ kind: "dryRunCheck" }).catch(() => null);
     let stillRequired = null;
     if (check && check.ok) {
