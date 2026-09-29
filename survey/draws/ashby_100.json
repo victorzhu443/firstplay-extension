@@ -1,0 +1,702 @@
+[
+ {
+  "org": "koahlabs",
+  "id": "197c931d-3cda-44b3-b26b-470976730808",
+  "title": "Software Engineer - Early Career",
+  "kind": "new-grad",
+  "upd": 1787093902
+ },
+ {
+  "org": "mercor",
+  "id": "11516609-e54b-4087-87c2-e84a8bafbb5a",
+  "title": "Data Science Intern",
+  "kind": "intern",
+  "upd": 1789598702
+ },
+ {
+  "org": "dome-systems-inc",
+  "id": "573303b2-efe1-409d-bf58-968a6a2f82a0",
+  "title": "Product Engineer",
+  "kind": "new-grad",
+  "upd": 1785614581
+ },
+ {
+  "org": "abundant",
+  "id": "4da99916-c29b-49a2-8e2d-1964b1838e11",
+  "title": "Research Intern Fellow",
+  "kind": "intern",
+  "upd": 1789568641
+ },
+ {
+  "org": "revel",
+  "id": "29968ce1-8838-44e8-ac4e-6b1c87ce5314",
+  "title": "Full Stack Software Engineer Intern",
+  "kind": "intern",
+  "upd": 1788908190
+ },
+ {
+  "org": "fs-studio",
+  "id": "cac150cd-3a76-46b1-8e6e-8c93ac5ea0e2",
+  "title": "Teleoperator - Robotics",
+  "kind": "new-grad",
+  "upd": 1785615485
+ },
+ {
+  "org": "reflect-orbital",
+  "id": "c394615d-26c6-4435-ad84-3ca3269c2952",
+  "title": "Ground Software Systems Intern",
+  "kind": "intern",
+  "upd": 1790289181
+ },
+ {
+  "org": "auctor",
+  "id": "9d67c881-3ca7-4616-a059-e94c03e19607",
+  "title": "Software Engineering Intern",
+  "kind": "intern",
+  "upd": 1770275588
+ },
+ {
+  "org": "color-health",
+  "id": "41fa6f16-b2f2-46c6-bdb4-9aae3b9b5b96",
+  "title": "Software Engineer New Grad",
+  "kind": "new-grad",
+  "upd": 1785201759
+ },
+ {
+  "org": "1x",
+  "id": "5b2b4c73-13b5-46ca-8467-8024741a4b57",
+  "title": "AI Residency Intern",
+  "kind": "intern",
+  "upd": 1783463079
+ },
+ {
+  "org": "the-exploration-company",
+  "id": "e23f19f1-b5fa-408a-822c-c6c37631a2fe",
+  "title": "Software Intern - Software",
+  "kind": "intern",
+  "upd": 1788491164
+ },
+ {
+  "org": "marianaminerals",
+  "id": "44c92dd6-55f2-4e44-9360-bf4676466dac",
+  "title": "Machine Learning Engineer",
+  "kind": "new-grad",
+  "upd": 1781140141
+ },
+ {
+  "org": "ema",
+  "id": "ab094389-25ec-417b-b646-06969d166d06",
+  "title": "AI Application Engineer",
+  "kind": "new-grad",
+  "upd": 1787094181
+ },
+ {
+  "org": "n1",
+  "id": "a3e25c84-0846-454a-b2fc-a356c2a713bd",
+  "title": "New Grad Software Engineer - Backend Rust",
+  "kind": "new-grad",
+  "upd": 1773900706
+ },
+ {
+  "org": "coram-ai",
+  "id": "3fa08156-569d-4a69-a918-53e5074dd3a3",
+  "title": "Graduate Software Engineer",
+  "kind": "new-grad",
+  "upd": 1789511761
+ },
+ {
+  "org": "anima",
+  "id": "785441b7-54ea-4840-bf27-b5e8bf71430c",
+  "title": "Product Engineer",
+  "kind": "new-grad",
+  "upd": 1785579662
+ },
+ {
+  "org": "persona.ai",
+  "id": "a68c0823-0b61-4741-9fbc-a1f6d701e4ed",
+  "title": "Electrical Engineer Intern",
+  "kind": "intern",
+  "upd": 1788024089
+ },
+ {
+  "org": "collinear-ai",
+  "id": "ae85fd08-dfd8-42e5-9b3b-9921ba24742b",
+  "title": "Research Scientist Intern - Applied Scientist",
+  "kind": "intern",
+  "upd": 1790000792
+ },
+ {
+  "org": "confido",
+  "id": "69c0e572-b2f4-442f-beb8-1240155c629e",
+  "title": "Software Engineer New Grad",
+  "kind": "new-grad",
+  "upd": 1782944653
+ },
+ {
+  "org": "ami",
+  "id": "0d7332d8-b8e7-40d3-89b6-dfc02b40bfa2",
+  "title": "Computer Vision Scientist Intern - Geometry and 3D Vision",
+  "kind": "intern",
+  "upd": 1787848810
+ },
+ {
+  "org": "interplay",
+  "id": "bdf67758-1f20-4a01-8bb3-ccebfa79e9ac",
+  "title": "AI Intern - AI Labs",
+  "kind": "intern",
+  "upd": 1788994567
+ },
+ {
+  "org": "northwoodspace",
+  "id": "d0cca9dd-ea90-4c3b-94b4-17761932d11c",
+  "title": "Embedded Software Engineer Intern",
+  "kind": "intern",
+  "upd": 1787968697
+ },
+ {
+  "org": "rollout",
+  "id": "ac255ccb-888f-46d9-8d57-5e7334a5ee46",
+  "title": "Founding Software Engineer",
+  "kind": "new-grad",
+  "upd": 1785406681
+ },
+ {
+  "org": "valency",
+  "id": "2bcd9b30-d76b-40ee-afc7-43302ce18fff",
+  "title": "Software Engineer - Full-stack",
+  "kind": "new-grad",
+  "upd": 1789770781
+ },
+ {
+  "org": "megazone",
+  "id": "e2889469-cf20-4227-bf24-2a6e885f8dca",
+  "title": "Software Engineer Co-op",
+  "kind": "intern",
+  "upd": 1789171126
+ },
+ {
+  "org": "gritt",
+  "id": "df9254b5-e323-411a-a36f-57bd24a3de56",
+  "title": "Robotics Planning & Controls Intern",
+  "kind": "intern",
+  "upd": 1788426909
+ },
+ {
+  "org": "neocognition",
+  "id": "f6b58e72-94eb-4090-a84e-d96197ffeb76",
+  "title": "Research Intern",
+  "kind": "intern",
+  "upd": 1784598123
+ },
+ {
+  "org": "idler",
+  "id": "cce9ab39-0ab0-489d-bbf9-4df74c2baeee",
+  "title": "Software Engineer",
+  "kind": "new-grad",
+  "upd": 1787783423
+ },
+ {
+  "org": "valstad",
+  "id": "7ff6d452-969f-43a6-9127-d153025e6aea",
+  "title": "Software Engineer Intern - 3D & Manufacturing Applications",
+  "kind": "intern",
+  "upd": 1785893098
+ },
+ {
+  "org": "sweatpals",
+  "id": "be2f5fa7-2542-40e6-873f-778322bb0522",
+  "title": "Product Manager Intern - Host Squad",
+  "kind": "intern",
+  "upd": 1785577267
+ },
+ {
+  "org": "cyvl",
+  "id": "f44bb1cf-7100-46f7-b3c2-6d2a566d4b0d",
+  "title": "Data Operations Intern - Summer 2027",
+  "kind": "intern",
+  "upd": 1789598702
+ },
+ {
+  "org": "aescape",
+  "id": "5ab3f804-c547-40e3-b496-53f1d3b5048e",
+  "title": "Junior Electrical & Firmware Engineer",
+  "kind": "new-grad",
+  "upd": 1790385481
+ },
+ {
+  "org": "cobot",
+  "id": "6c6995ec-6a29-46e9-b7c4-e02bc44c1950",
+  "title": "Robotics Data Collection Operator Shift Lead - Seattle",
+  "kind": "new-grad",
+  "upd": 1790231051
+ },
+ {
+  "org": "vmax",
+  "id": "7344d5fd-6fa3-4bce-b7bd-e73aa4dd568b",
+  "title": "Research Fellow - Mechanistic Interpretability",
+  "kind": "intern",
+  "upd": 1784597479
+ },
+ {
+  "org": "prior-labs",
+  "id": "09410424-8e94-4747-8155-bbcd0b1d4f6e",
+  "title": "Research Scientist Intern - PhD",
+  "kind": "intern",
+  "upd": 1770304906
+ },
+ {
+  "org": "glide",
+  "id": "7954a0ba-27ef-4e8b-90c7-337001f1ce98",
+  "title": "Full Stack Engineer Mid Level",
+  "kind": "new-grad",
+  "upd": 1785574963
+ },
+ {
+  "org": "h3x-technologies",
+  "id": "d406e4b4-9b48-438c-a2af-b7feb8563a40",
+  "title": "Embedded Controls Intern",
+  "kind": "intern",
+  "upd": 1787343301
+ },
+ {
+  "org": "remarcable-inc",
+  "id": "a4f3aaaa-9469-42e8-a610-450d25eb5da7",
+  "title": "Full Stack Developer Co-op",
+  "kind": "intern",
+  "upd": 1788314883
+ },
+ {
+  "org": "georgian",
+  "id": "2ae71a4b-dd9d-4068-8ef2-81351ee74cab",
+  "title": "AI/ML Engineer Intern",
+  "kind": "intern",
+  "upd": 1784596685
+ },
+ {
+  "org": "voyant-photonics",
+  "id": "ae08246e-3f98-4c39-91cf-bbd76e600f6a",
+  "title": "Electrical Engineer - Analog & Mixed-Signal",
+  "kind": "new-grad",
+  "upd": 1788907701
+ },
+ {
+  "org": "makai-labs",
+  "id": "a350e730-8d80-4528-9d41-497acbd01223",
+  "title": "AI Engineer",
+  "kind": "new-grad",
+  "upd": 1778883121
+ },
+ {
+  "org": "xero",
+  "id": "8f7f41b3-85db-4029-ab1a-70c88c5dc987",
+  "title": "Associate Engineer - Back End",
+  "kind": "new-grad",
+  "upd": 1790230681
+ },
+ {
+  "org": "siftstack",
+  "id": "0d65481e-e762-4d8f-ae38-5040754a5134",
+  "title": "Software Engineer New Grad",
+  "kind": "new-grad",
+  "upd": 1788422873
+ },
+ {
+  "org": "armadin",
+  "id": "8ddb9c3a-3031-42d4-ad68-adcc865e32cf",
+  "title": "Software Engineer Intern - Agent Systems",
+  "kind": "intern",
+  "upd": 1788340996
+ },
+ {
+  "org": "metaview",
+  "id": "d9f94564-9404-4010-8d9a-413d6a1a6c14",
+  "title": "Product Staff Engineer",
+  "kind": "new-grad",
+  "upd": 1788607621
+ },
+ {
+  "org": "chartahealth",
+  "id": "0c76d54d-0ca8-4ab6-b360-c2dbae7b17cf",
+  "title": "Forward Deployed AI Engineer Intern",
+  "kind": "intern",
+  "upd": 1789421078
+ },
+ {
+  "org": "zettabyte-space",
+  "id": "ec96b63a-e11c-4589-ab25-4f1779fb8759",
+  "title": "Software Engineer Intern",
+  "kind": "intern",
+  "upd": 1785580475
+ },
+ {
+  "org": "afterquery",
+  "id": "00cd591f-6894-4259-83b6-36c999351dde",
+  "title": "AI/ML Research Intern",
+  "kind": "intern",
+  "upd": 1789194601
+ },
+ {
+  "org": "liveflow",
+  "id": "93a4d132-b68c-42d7-ace0-7975661130ba",
+  "title": "Graduate Engineer - AI Agents",
+  "kind": "new-grad",
+  "upd": 1778018954
+ },
+ {
+  "org": "uncountable",
+  "id": "b9495eab-c04c-4333-b338-7dabdbddcaae",
+  "title": "Full-Stack Intern",
+  "kind": "intern",
+  "upd": 1774430178
+ },
+ {
+  "org": "ontic",
+  "id": "d50b6bea-876f-43fc-afb9-716efe9eca02",
+  "title": "Associate Software Engineer - Full Stack",
+  "kind": "new-grad",
+  "upd": 1787783903
+ },
+ {
+  "org": "icon",
+  "id": "8de569c7-814f-4ffe-9c21-a92d7b806be2",
+  "title": "Founding Engineer",
+  "kind": "new-grad",
+  "upd": 1778191741
+ },
+ {
+  "org": "maxinsights",
+  "id": "afbc425f-9543-460d-8f78-792a8017d060",
+  "title": "Data Operations Intern",
+  "kind": "intern",
+  "upd": 1787755861
+ },
+ {
+  "org": "retell-ai",
+  "id": "ea775189-0496-43d8-a386-df8148265463",
+  "title": "Software Engineer New Grad - Founders Initiatives",
+  "kind": "new-grad",
+  "upd": 1785740978
+ },
+ {
+  "org": "tracelabs",
+  "id": "7c8ad43b-bb8c-4cc2-8004-25a66d575822",
+  "title": "Researcher",
+  "kind": "new-grad",
+  "upd": 1788319981
+ },
+ {
+  "org": "unlimitedindustries",
+  "id": "fe258c19-7d26-44df-bddf-9c9d0264f102",
+  "title": "Modeling and Analysis Engineer",
+  "kind": "new-grad",
+  "upd": 1788409626
+ },
+ {
+  "org": "npx",
+  "id": "048ca8da-bfb9-4454-8147-ac9497629634",
+  "title": "Software Developer Intern - Digital Transformation",
+  "kind": "intern",
+  "upd": 1779152941
+ },
+ {
+  "org": "astro-mechanica",
+  "id": "f25cc28c-9932-4e4d-a7e8-53a10a7fbd55",
+  "title": "Flight Software Engineer",
+  "kind": "new-grad",
+  "upd": 1771283830
+ },
+ {
+  "org": "voleon",
+  "id": "ef2b0892-1772-4240-a535-4043d66d848e",
+  "title": "Research Intern",
+  "kind": "intern",
+  "upd": 1789598161
+ },
+ {
+  "org": "relay",
+  "id": "5a6ed15f-e610-4d09-9fd7-f18cd639c4e7",
+  "title": "Graduate Software Engineer",
+  "kind": "new-grad",
+  "upd": 1788452113
+ },
+ {
+  "org": "mistral.ai",
+  "id": "de46ba8b-00cb-4618-83df-66e15a78434e",
+  "title": "Applied Scientist / Research Engineer Intern",
+  "kind": "intern",
+  "upd": 1784598708
+ },
+ {
+  "org": "notion",
+  "id": "2b587e66-deac-421a-a824-9415ba78b5a7",
+  "title": "Mobile Software Engineer Intern",
+  "kind": "intern",
+  "upd": 1790289902
+ },
+ {
+  "org": "circleback",
+  "id": "2bb6be67-d1a8-42f7-bb1b-64ee36bf613f",
+  "title": "Software Engineer Intern",
+  "kind": "intern",
+  "upd": 1784107887
+ },
+ {
+  "org": "bedrock-robotics",
+  "id": "cb06dc4f-3e78-4546-897d-b39ba12a9178",
+  "title": "Safety Engineer Intern - Agentic Safety Case Assessment",
+  "kind": "intern",
+  "upd": 1790376160
+ },
+ {
+  "org": "spacial",
+  "id": "67b76194-6cc0-4d37-a3e3-c21a14ff4a26",
+  "title": "Software Engineer Intern",
+  "kind": "intern",
+  "upd": 1784600338
+ },
+ {
+  "org": "moab",
+  "id": "8ab10f9b-2a49-409d-8b20-7ecf1ed92ee4",
+  "title": "Data & AI Analyst",
+  "kind": "new-grad",
+  "upd": 1782944642
+ },
+ {
+  "org": "g2",
+  "id": "64dcc04a-a0e7-493b-b899-dd4c56e561fd",
+  "title": "AI Agent Evaluations Intern",
+  "kind": "intern",
+  "upd": 1790161890
+ },
+ {
+  "org": "gradientrobotics",
+  "id": "543e35d0-bca3-4b3f-bb09-1075355c9232",
+  "title": "Electrical Engineer",
+  "kind": "new-grad",
+  "upd": 1786620961
+ },
+ {
+  "org": "vendelux",
+  "id": "ec44a794-9622-444e-a789-491fa12726dd",
+  "title": "Data Intern",
+  "kind": "intern",
+  "upd": 1786754798
+ },
+ {
+  "org": "zip",
+  "id": "249837b3-106f-4751-a4f2-03a2c5df5faf",
+  "title": "Software Engineer Intern",
+  "kind": "intern",
+  "upd": 1787701141
+ },
+ {
+  "org": "meow",
+  "id": "56e3b840-11a0-4e98-baca-44e8e26b5218",
+  "title": "Software Engineer New Grad",
+  "kind": "new-grad",
+  "upd": 1789685264
+ },
+ {
+  "org": "pluralis-research",
+  "id": "c8f78978-a693-4863-bcc0-66af5c3fd0be",
+  "title": "Research Scientist Intern",
+  "kind": "intern",
+  "upd": 1788239161
+ },
+ {
+  "org": "prelim",
+  "id": "bf4c1a5d-32d5-4f3b-b1d2-42a3e1fd7409",
+  "title": "Software Engineer - Product",
+  "kind": "new-grad",
+  "upd": 1788239161
+ },
+ {
+  "org": "avoca",
+  "id": "fd85e19f-12cf-421e-9ef5-afc4997c071e",
+  "title": "Senior Software Engineer - Product",
+  "kind": "new-grad",
+  "upd": 1785599112
+ },
+ {
+  "org": "espa",
+  "id": "6fa2d441-971f-44c4-9a4e-3304ea041cc8",
+  "title": "Software Engineer Intern",
+  "kind": "intern",
+  "upd": 1782483413
+ },
+ {
+  "org": "klarity-ai",
+  "id": "fc094114-4d6e-4bf5-977f-c5b37d7e33e1",
+  "title": "AI Frontend Engineer",
+  "kind": "new-grad",
+  "upd": 1785597841
+ },
+ {
+  "org": "rhoda-ai",
+  "id": "9a57c8ff-dd2b-4547-a46a-44658a699ba5",
+  "title": "Robot Software Engineer Intern",
+  "kind": "intern",
+  "upd": 1790662917
+ },
+ {
+  "org": "hcompany",
+  "id": "856b1025-791f-46ed-9ea0-a88bb2f32ce5",
+  "title": "Research Scientist Intern - Model Team",
+  "kind": "intern",
+  "upd": 1771946293
+ },
+ {
+  "org": "silnahealth.com",
+  "id": "8ed75986-4032-425b-b82a-fa6010a18656",
+  "title": "AI Deployment Analyst",
+  "kind": "new-grad",
+  "upd": 1788884461
+ },
+ {
+  "org": "zuru",
+  "id": "750dea66-6f5a-4622-80d6-b6289954d3d0",
+  "title": "Data Analyst Intern",
+  "kind": "intern",
+  "upd": 1784596321
+ },
+ {
+  "org": "creatify",
+  "id": "75a1f1ad-13d2-4513-952c-71b6dfcaa84f",
+  "title": "Software Engineer Intern",
+  "kind": "intern",
+  "upd": 1773824945
+ },
+ {
+  "org": "odys-aviation",
+  "id": "d15b1f56-d160-403e-8d12-90f531eb490f",
+  "title": "Robotics & Embedded Systems Intern",
+  "kind": "intern",
+  "upd": 1785602341
+ },
+ {
+  "org": "lambda",
+  "id": "c0116ab6-9ec2-4189-9f07-e9dd284222b6",
+  "title": "Internal Tools & Data Product Analyst",
+  "kind": "new-grad",
+  "upd": 1785618721
+ },
+ {
+  "org": "fanvue.com",
+  "id": "9ba53c5b-dcc7-4e6c-8ecc-0647a62761ce",
+  "title": "Software Engineer Intern",
+  "kind": "intern",
+  "upd": 1789425582
+ },
+ {
+  "org": "anthelioncap",
+  "id": "5e2ea37b-2369-474e-b717-c24c60976e96",
+  "title": "Quant Developer / Quant Research Intern",
+  "kind": "intern",
+  "upd": 1784846702
+ },
+ {
+  "org": "ibotta",
+  "id": "666cac72-9e06-46ee-aea0-576f766338b2",
+  "title": "Data Engineer Intern",
+  "kind": "intern",
+  "upd": 1789425401
+ },
+ {
+  "org": "nova-talent",
+  "id": "14c18114-f371-4ef2-8caa-6c0341777850",
+  "title": "Software Engineer - Early Stage",
+  "kind": "new-grad",
+  "upd": 1786401217
+ },
+ {
+  "org": "ctgt",
+  "id": "f657c2f5-125e-42b6-a68a-646bbea3d155",
+  "title": "Software Engineer Intern",
+  "kind": "intern",
+  "upd": 1783174416
+ },
+ {
+  "org": "nooks",
+  "id": "311d6e70-5cfa-4e80-89f6-fe00ac1f9f53",
+  "title": "Software Engineer New Grad",
+  "kind": "new-grad",
+  "upd": 1785392762
+ },
+ {
+  "org": "hiverge",
+  "id": "ea6edea4-5216-4cdc-b368-909ba91c78a3",
+  "title": "Research Engineer Intern",
+  "kind": "intern",
+  "upd": 1782310684
+ },
+ {
+  "org": "fable",
+  "id": "3fd04c23-a63d-4b40-bfae-feafaa478caf",
+  "title": "Software Engineer Intern",
+  "kind": "intern",
+  "upd": 1789771213
+ },
+ {
+  "org": "surge-ai",
+  "id": "73c5fe8d-0cb6-40e1-a634-d46928702f85",
+  "title": "AI Operations Engineer",
+  "kind": "new-grad",
+  "upd": 1788465082
+ },
+ {
+  "org": "bild-ai",
+  "id": "b333f0f7-0ca6-4509-8697-9303396b5364",
+  "title": "AI/Software Engineer Intern",
+  "kind": "intern",
+  "upd": 1784597893
+ },
+ {
+  "org": "arch.co",
+  "id": "3600530a-7f41-4583-8d92-443f6978c847",
+  "title": "Operations Engineer - Early Careers",
+  "kind": "new-grad",
+  "upd": 1788420786
+ },
+ {
+  "org": "applied",
+  "id": "edc2528d-6e6c-4a67-b871-bfe7d9c890b4",
+  "title": "Research Intern - World-Action Foundation Model - Robotics",
+  "kind": "intern",
+  "upd": 1787781803
+ },
+ {
+  "org": "gecko-robotics",
+  "id": "c097505b-0a28-4a33-a917-268f463641e8",
+  "title": "AI/Machine Learning Engineer Intern",
+  "kind": "intern",
+  "upd": 1789568602
+ },
+ {
+  "org": "faros-ai",
+  "id": "622e1f1e-4a39-4e7c-8526-1189ca588066",
+  "title": "Software Engineer New Grad",
+  "kind": "new-grad",
+  "upd": 1784107079
+ },
+ {
+  "org": "backbone",
+  "id": "cbfce5dc-e2c7-452e-bb23-2dac1198df7d",
+  "title": "Founding Engineer - Applied Research",
+  "kind": "new-grad",
+  "upd": 1784598123
+ },
+ {
+  "org": "julius",
+  "id": "5e0b677a-f677-44de-93c6-f7848ab5a8e6",
+  "title": "Refresh Software Engineer New Grad - Product",
+  "kind": "new-grad",
+  "upd": 1779326096
+ },
+ {
+  "org": "graymatter-robotics",
+  "id": "aa7c2419-7bb9-4080-9403-937c4db01bb6",
+  "title": "Robotics Engineering Intern - Systems & Applications",
+  "kind": "intern",
+  "upd": 1789090118
+ }
+]

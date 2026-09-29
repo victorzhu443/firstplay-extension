@@ -1,0 +1,107 @@
+{"round": "A0-dom-baseline", "org": "cowboyspace", "version": "0.4.28", "path": "dom", "filled": 5, "failed": 0, "review": 0, "fill_ms": 17, "wants": [], "note": "5-field form: name, email, resume, 2 checkboxes"}
+{"round": "A0-dom-baseline", "org": "sierra", "version": "0.4.28", "path": "dom", "filled": 14, "failed": 1, "review": 8, "fill_ms": 9265, "wants": ["unknown \u2014 page hidden before dry-run read"], "note": "University ValueSelect combobox (102 options): autocomplete pick timed out 9.2s \u2014 Ashby-specific widget"}
+{"round": "A1", "org": "sierra", "version": "0.4.30", "path": "api", "filled": 16, "failed": 0, "review": 7, "fill_ms": 33, "total_s": 1.6, "wants": ["essays x2", "junk food", "name pronunciation", "office preference", "AI notetaking consent", "anything else (optional)"], "note": "API path; 16 filled vs 14 on DOM path; University resolved to Cornell; fill 33ms; verified visible: 16 green, all values correct (Cornell, Spring 2028, both multi-selects, resume attached)"}
+{"round": "A1", "org": "koahlabs", "version": "0.4.33", "path": "api", "filled": 5, "failed": 0, "review": 2, "fill_ms": 17, "plan_ms": 2357, "still_required": 0, "wants": [], "note": "7-field form; dry-run ran, form wants nothing"}
+{"round": "A1", "org": "dome-systems-inc", "version": "0.4.35", "path": "api", "filled": 4, "failed": 0, "review": 1, "fill_ms": 126, "plan_ms": 1389, "still_required": 0, "wants": [], "note": "filled hidden"}
+{"round": "A1", "org": "abundant", "version": "0.4.35", "path": "api", "filled": 8, "failed": 0, "review": 1, "fill_ms": 67, "plan_ms": 780, "still_required": 0, "wants": []}
+{"round": "A1", "org": "revel", "version": "0.4.35", "path": "api", "filled": 7, "failed": 0, "review": 1, "fill_ms": 821, "plan_ms": 1010, "still_required": 0, "wants": [], "note": "Location geocoder 756ms"}
+{"round": "A1", "org": "fs-studio", "version": "0.4.35", "path": "api", "filled": 3, "failed": 0, "review": 1, "fill_ms": 66, "plan_ms": 1295, "still_required": 0, "wants": []}
+{"round": "A1", "org": "reflect-orbital", "version": "0.4.35", "path": "api", "filled": 11, "failed": 0, "review": 3, "fill_ms": 111, "plan_ms": 1030, "still_required": 0, "wants": []}
+{"round": "A1", "org": "auctor", "version": "0.4.35", "path": "api", "filled": 5, "failed": 0, "review": 0, "fill_ms": 81, "plan_ms": 753, "still_required": 0, "wants": []}
+{"round": "A1", "org": "color-health", "version": "0.4.35", "path": "api", "filled": 9, "failed": 1, "review": 8, "fill_ms": 66, "plan_ms": 1021, "still_required": null, "wants": [], "failures": ["'Are you based in the San Francisco Bay Area?' <- plan value 'Ithaca, NY' for a yes/no \u2014 backend precision defect"], "note": "boolean guard needed"}
+{"round": "A1", "org": "1x", "version": "0.4.35", "path": "api", "filled": 5, "failed": 0, "review": 2, "fill_ms": 78, "plan_ms": 4630, "still_required": null, "wants": []}
+{"round": "A1", "org": "the-exploration-company", "version": "0.4.35", "path": "api", "filled": 12, "failed": 0, "review": 8, "fill_ms": 1253, "plan_ms": 1067, "still_required": null, "wants": [], "note": "Location geocoder 1185ms"}
+{"round": "A1-note", "org": "sierra", "version": "0.4.35", "note": "dry-run click on Ashby fires ApiSubmitSingleApplicationFormAction + recaptcha immediately (blocked); no client-side validation; page shows 'We couldn't submit your application' \u2014 oracle replaced by local required check (0.4.36)"}
+{"round": "A1", "org": "marianaminerals", "version": "0.4.35", "path": "api", "filled": 9, "failed": 0, "review": 1, "fill_ms": 1076, "plan_ms": 769, "note": "Location geocoder 1014ms"}
+{"round": "A1", "org": "ema", "version": "0.4.35", "path": "api", "filled": 3, "failed": 0, "review": 1, "fill_ms": 43, "plan_ms": 765}
+{"round": "A1", "org": "n1", "version": "0.4.35", "path": "api", "filled": 7, "failed": 0, "review": 2, "fill_ms": 969, "plan_ms": 1501, "note": "Location geocoder 917ms"}
+{"round": "A1", "org": "coram-ai", "version": "0.4.35", "path": "api", "filled": 7, "failed": 0, "review": 0, "fill_ms": 661, "plan_ms": 1006, "note": "Location geocoder 609ms"}
+{"round": "A1", "org": "anima", "version": "0.4.35", "path": "api", "filled": 7, "failed": 0, "review": 2, "fill_ms": 585, "plan_ms": 751, "note": "Location geocoder 535ms"}
+{"round": "A1", "org": "persona.ai", "version": "0.4.35", "path": "api", "filled": 7, "failed": 0, "review": 9, "fill_ms": 49, "plan_ms": 755, "note": "EE internship: 9 bespoke/essay fields"}
+{"round": "A1", "org": "collinear-ai", "version": "0.4.35", "path": "api", "filled": 4, "failed": 0, "review": 2, "fill_ms": 65, "plan_ms": 761}
+{"round": "A1", "org": "confido", "version": "0.4.35", "path": "api", "filled": 9, "failed": 0, "review": 1, "fill_ms": 1703, "plan_ms": 1025, "note": "'What city do you live in?' Location-type autocomplete 1613ms"}
+{"round": "A1", "org": "ami", "version": "0.4.35", "path": "api", "filled": 4, "failed": 0, "review": 1, "fill_ms": 68, "plan_ms": 1018}
+{"round": "A1", "org": "interplay", "version": "0.4.35", "path": "api", "filled": 7, "failed": 0, "review": 7, "fill_ms": 119, "plan_ms": 914}
+{"round": "A1", "org": "northwoodspace", "version": "0.4.35", "path": "api", "filled": 13, "failed": 0, "review": 1, "fill_ms": 101, "plan_ms": 1011}
+{"round": "A1", "org": "rollout", "version": "0.4.35", "path": "api", "filled": 4, "failed": 0, "review": 3, "fill_ms": 68, "plan_ms": 1021}
+{"round": "A1", "org": "valency", "version": "0.4.35", "path": "api", "filled": 7, "failed": 0, "review": 4, "fill_ms": 107, "plan_ms": 1422}
+{"round": "A1", "org": "megazone", "version": "0.4.35", "path": "api", "filled": 10, "failed": 0, "review": 4, "fill_ms": 1136, "plan_ms": 775, "note": "Location geocoder 1003ms"}
+{"round": "A1", "org": "gritt", "version": "0.4.35", "path": "api", "filled": 4, "failed": 0, "review": 0, "fill_ms": 66, "plan_ms": 1032}
+{"round": "A1", "org": "neocognition", "version": "0.4.35", "path": "api", "filled": 5, "failed": 0, "review": 7, "fill_ms": 88, "plan_ms": 525}
+{"round": "A1", "org": "idler", "version": "0.4.35", "path": "api", "filled": 11, "failed": 0, "review": 11, "fill_ms": 92, "plan_ms": 759}
+{"round": "A1", "org": "valstad", "version": "0.4.35", "path": "api", "filled": 7, "failed": 0, "review": 1, "fill_ms": 80, "plan_ms": 756}
+{"round": "A1", "org": "sweatpals", "version": "0.4.35", "path": "api", "filled": 4, "failed": 0, "review": 0, "fill_ms": 81, "plan_ms": 762}
+{"round": "A1", "org": "cyvl", "version": "0.4.35", "path": "api", "filled": 7, "failed": 0, "review": 0, "fill_ms": 75, "plan_ms": 845}
+{"round": "A1", "org": "aescape", "version": "0.4.35", "path": "api", "filled": 9, "failed": 0, "review": 4, "fill_ms": 75, "plan_ms": 860}
+{"round": "A1", "org": "cobot", "version": "0.4.35", "path": "api", "filled": 13, "failed": 0, "review": 2, "fill_ms": 94, "plan_ms": 1025}
+{"round": "A1", "org": "vmax", "version": "0.4.35", "path": "api", "filled": 5, "failed": 0, "review": 3, "fill_ms": 71, "plan_ms": 762}
+{"round": "A1", "org": "prior-labs", "version": "0.4.35", "path": "api", "filled": 8, "failed": 0, "review": 7, "fill_ms": 1097, "plan_ms": 834, "note": "'Where are you currently based?' Location-type autocomplete 1004ms"}
+{"round": "A1", "org": "glide", "version": "0.4.35", "path": "api", "filled": 7, "failed": 0, "review": 1, "fill_ms": 81, "plan_ms": 780}
+{"round": "A1", "org": "h3x-technologies", "version": "0.4.35", "path": "api", "filled": 7, "failed": 0, "review": 4, "fill_ms": 82, "plan_ms": 503}
+{"round": "A1", "org": "remarcable-inc", "version": "0.4.35", "path": "api", "filled": 10, "failed": 0, "review": 5, "fill_ms": 1119, "plan_ms": 783, "note": "Location geocoder 990ms"}
+{"round": "A1", "org": "georgian", "version": "0.4.35", "path": "api", "filled": 7, "failed": 0, "review": 0, "fill_ms": 89, "plan_ms": 790}
+{"round": "A1", "org": "voyant-photonics", "version": "0.4.35", "path": "api", "filled": 6, "failed": 0, "review": 4, "fill_ms": 78, "plan_ms": 1045}
+{"round": "A1", "org": "makai-labs", "version": "0.4.35", "path": "api", "filled": 7, "failed": 0, "review": 3, "fill_ms": 744, "plan_ms": 884, "note": "Location geocoder 659ms"}
+{"round": "A1", "org": "xero", "version": "0.4.35", "path": "api", "filled": 9, "failed": 0, "review": 7, "fill_ms": 2926, "plan_ms": 2138, "note": "Location geocoder 2819ms"}
+{"round": "A1", "org": "siftstack", "version": "0.4.35", "path": "api", "filled": 12, "failed": 1, "review": 2, "fill_ms": 132, "plan_ms": 792, "failures": ["'Do you have any offers\u2026' <- 'None' for a yes/no \u2014 stored theme (timeline) bypassed the guard"]}
+{"round": "A1", "org": "armadin", "version": "0.4.35", "path": "api", "filled": 4, "failed": 0, "review": 0, "fill_ms": 73, "plan_ms": 753}
+{"round": "A1", "org": "metaview", "version": "0.4.35", "path": "api", "filled": 7, "failed": 0, "review": 4, "fill_ms": 887, "plan_ms": 1075, "note": "'Current Location' autocomplete 803ms"}
+{"round": "A1", "org": "chartahealth", "version": "0.4.35", "path": "api", "filled": 8, "failed": 0, "review": 0, "fill_ms": 1138, "plan_ms": 1773, "note": "Location geocoder 1047ms"}
+{"round": "A1", "org": "zettabyte-space", "version": "0.4.35", "path": "api", "filled": 5, "failed": 0, "review": 0, "fill_ms": 72, "plan_ms": 799}
+{"round": "A1", "org": "afterquery", "version": "0.4.35", "path": "api", "filled": 7, "failed": 0, "review": 0, "fill_ms": 623, "plan_ms": 772, "note": "Location geocoder 546ms"}
+{"round": "A1", "org": "liveflow", "version": "0.4.35", "path": "api", "filled": 5, "failed": 0, "review": 1, "fill_ms": 11, "plan_ms": 751}
+{"round": "A1", "org": "uncountable", "version": "0.4.35", "path": "api", "filled": 7, "failed": 0, "review": 1, "fill_ms": 404, "plan_ms": 501, "note": "Current Location autocomplete 389ms"}
+{"round": "A1", "org": "ontic", "version": "0.4.35", "path": "api", "filled": 10, "failed": 0, "review": 0, "fill_ms": 425, "plan_ms": 2050, "note": "Location geocoder 387ms"}
+{"round": "A1", "org": "icon", "version": "0.4.35", "path": "api", "filled": 6, "failed": 0, "review": 2, "fill_ms": 71, "plan_ms": 1050}
+{"round": "A1", "org": "maxinsights", "version": "0.4.35", "path": "api", "filled": 6, "failed": 0, "review": 2, "fill_ms": 82, "plan_ms": 1079}
+{"round": "A1", "org": "retell-ai", "version": "0.4.35", "path": "api", "filled": 7, "failed": 0, "review": 3, "fill_ms": 562, "plan_ms": 1282, "note": "Location geocoder 471ms"}
+{"round": "A1", "org": "tracelabs", "version": "0.4.35", "path": "api", "filled": 6, "failed": 0, "review": 1, "fill_ms": 1070, "plan_ms": 798, "note": "Location autocomplete 986ms"}
+{"round": "A1", "org": "unlimitedindustries", "version": "0.4.35", "path": "api", "filled": 8, "failed": 0, "review": 1, "fill_ms": 1593, "plan_ms": 842, "note": "Current Location autocomplete 1483ms"}
+{"round": "A1", "org": "npx", "version": "0.4.35", "path": "api", "filled": 9, "failed": 0, "review": 5, "fill_ms": 390, "plan_ms": 1027, "note": "Location geocoder 367ms"}
+{"round": "A1", "org": "astro-mechanica", "version": "0.4.35", "path": "api", "filled": 4, "failed": 0, "review": 1, "fill_ms": 116, "plan_ms": 755}
+{"round": "A1", "org": "voleon", "version": "0.4.35", "path": "api", "filled": 11, "failed": 0, "review": 1, "fill_ms": 1593, "plan_ms": 794, "note": "Current Location autocomplete 1499ms"}
+{"round": "A1", "org": "relay", "version": "0.4.35", "path": "api", "filled": 5, "failed": 0, "review": 1, "fill_ms": 72, "plan_ms": 857}
+{"round": "A1", "org": "mistral.ai", "version": "0.4.35", "path": "api", "filled": 9, "failed": 0, "review": 6, "fill_ms": 68, "plan_ms": 798}
+{"round": "A1", "org": "notion", "version": "0.4.35", "path": "api", "filled": 17, "failed": 0, "review": 5, "fill_ms": 3465, "plan_ms": 1762, "note": "Current Location autocomplete 3325ms \u2014 geocoder"}
+{"round": "A1", "org": "circleback", "version": "0.4.35", "path": "api", "filled": 6, "failed": 0, "review": 3, "fill_ms": 75, "plan_ms": 763}
+{"round": "A1", "org": "bedrock-robotics", "version": "0.4.35", "path": "api", "filled": 6, "failed": 0, "review": 3, "fill_ms": 81, "plan_ms": 1062}
+{"round": "A1", "org": "spacial", "version": "0.4.35", "path": "api", "filled": 4, "failed": 0, "review": 0, "fill_ms": 907, "plan_ms": 1069, "note": "Location geocoder 836ms"}
+{"round": "A1", "org": "moab", "version": "0.4.35", "path": "api", "filled": 4, "failed": 0, "review": 0, "fill_ms": 69, "plan_ms": 1055}
+{"round": "A1", "org": "g2", "version": "0.4.35", "path": "api", "filled": 10, "failed": 0, "review": 1, "fill_ms": 711, "plan_ms": 1505, "note": "Location geocoder 587ms"}
+{"round": "A1", "org": "gradientrobotics", "version": "0.4.35", "path": "api", "filled": 6, "failed": 0, "review": 2, "fill_ms": 82, "plan_ms": 1050}
+{"round": "A1", "org": "vendelux", "version": "0.4.35", "path": "api", "filled": 9, "failed": 0, "review": 8, "fill_ms": 111, "plan_ms": 909}
+{"round": "A1", "org": "zip", "version": "0.4.35", "path": "api", "filled": 11, "failed": 0, "review": 1, "fill_ms": 108, "plan_ms": 823}
+{"round": "A1", "org": "meow", "version": "0.4.35", "path": "api", "filled": 4, "failed": 0, "review": 0, "fill_ms": 68, "plan_ms": 781}
+{"round": "A1", "org": "pluralis-research", "version": "0.4.35", "path": "api", "filled": 5, "failed": 0, "review": 4, "fill_ms": 509, "plan_ms": 782, "note": "Location geocoder 437ms"}
+{"round": "A1", "org": "prelim", "version": "0.4.35", "path": "api", "filled": 3, "failed": 0, "review": 1, "fill_ms": 175, "plan_ms": 1248}
+{"round": "A1", "org": "avoca", "version": "0.4.35", "path": "api", "filled": 8, "failed": 0, "review": 0, "fill_ms": 78, "plan_ms": 1050}
+{"round": "A1", "org": "espa", "version": "0.4.35", "path": "api", "filled": 11, "failed": 1, "review": 2, "fill_ms": 1572, "plan_ms": 844, "failures": ["Location: no suggestion is exactly 'Ithaca, NY'; offered Netherlands | New Zealand | West \u2014 investigate field type"]}
+{"round": "A1", "org": "klarity-ai", "version": "0.4.35", "path": "api", "filled": 3, "failed": 0, "review": 0, "fill_ms": 65, "plan_ms": 1016}
+{"round": "A1", "org": "rhoda-ai", "version": "0.4.35", "path": "api", "filled": 3, "failed": 0, "review": 0, "fill_ms": 68, "plan_ms": 829}
+{"round": "A1", "org": "hcompany", "version": "0.4.35", "path": "api", "filled": 3, "failed": 0, "review": 1, "fill_ms": 61, "plan_ms": 1020}
+{"round": "A1", "org": "silnahealth.com", "version": "0.4.35", "path": "api", "filled": 6, "failed": 0, "review": 0, "fill_ms": 19, "plan_ms": 1962}
+{"round": "A1", "org": "zuru", "version": "0.4.35", "path": "api", "filled": 8, "failed": 0, "review": 5, "fill_ms": 10, "plan_ms": 751}
+{"round": "A1", "org": "creatify", "version": "0.4.35", "path": "api", "filled": 3, "failed": 0, "review": 0, "fill_ms": 8, "plan_ms": 751}
+{"round": "A1", "org": "odys-aviation", "version": "0.4.35", "path": "api", "filled": 10, "failed": 0, "review": 2, "fill_ms": 423, "plan_ms": 601, "note": "Location geocoder 386ms"}
+{"round": "A1", "org": "lambda", "version": "0.4.35", "path": "api", "filled": 10, "failed": 0, "review": 1, "fill_ms": 721, "plan_ms": 755, "note": "Location geocoder 692ms"}
+{"round": "A1", "org": "fanvue.com", "version": "0.4.35", "path": "api", "filled": 4, "failed": 1, "review": 1, "fill_ms": 1380, "plan_ms": 757, "failures": ["'Where are you located?' geocoder: same Netherlands|New Zealand|West list as Espa \u2014 retry-term defect, fixed 0.4.37, re-run pending"]}
+{"round": "A1", "org": "anthelioncap", "version": "0.4.35", "path": "api", "filled": 8, "failed": 0, "review": 3, "fill_ms": 114, "plan_ms": 1221}
+{"round": "A1", "org": "ibotta", "version": "0.4.35", "path": "api", "filled": 9, "failed": 0, "review": 2, "fill_ms": 213, "plan_ms": 893}
+{"round": "A1", "org": "nova-talent", "version": "0.4.35", "path": "api", "filled": 6, "failed": 0, "review": 4, "fill_ms": 57, "plan_ms": 772}
+{"round": "A1", "org": "ctgt", "version": "0.4.35", "path": "api", "filled": 4, "failed": 0, "review": 1, "fill_ms": 68, "plan_ms": 1085}
+{"round": "A1", "org": "nooks", "version": "0.4.35", "path": "api", "filled": 8, "failed": 0, "review": 6, "fill_ms": 1370, "plan_ms": 838, "note": "Location geocoder 1284ms"}
+{"round": "A1", "org": "hiverge", "version": "0.4.35", "path": "api", "filled": 3, "failed": 0, "review": 2, "fill_ms": 70, "plan_ms": 1002}
+{"round": "A1", "org": "fable", "version": "0.4.35", "path": "api", "filled": 4, "failed": 0, "review": 0, "fill_ms": 1058, "plan_ms": 1027, "note": "Location geocoder 987ms"}
+{"round": "A1", "org": "surge-ai", "version": "0.4.35", "path": "api", "filled": 6, "failed": 0, "review": 1, "fill_ms": 1157, "plan_ms": 1063, "note": "Location geocoder 1054ms"}
+{"round": "A1", "org": "bild-ai", "version": "0.4.35", "path": "api", "filled": 5, "failed": 0, "review": 2, "fill_ms": 69, "plan_ms": 1013}
+{"round": "A1", "org": "arch.co", "version": "0.4.35", "path": "api", "filled": 10, "failed": 0, "review": 5, "fill_ms": 407, "plan_ms": 771, "note": "Location geocoder 382ms"}
+{"round": "A1", "org": "applied", "version": "0.4.35", "path": "api", "filled": 10, "failed": 0, "review": 5, "fill_ms": 13, "plan_ms": 1257}
+{"round": "A1", "org": "gecko-robotics", "version": "0.4.35", "path": "api", "filled": 5, "failed": 0, "review": 3, "fill_ms": 56, "plan_ms": 835}
+{"round": "A1", "org": "faros-ai", "version": "0.4.35", "path": "api", "filled": 8, "failed": 0, "review": 2, "fill_ms": 108, "plan_ms": 1176}
+{"round": "A1", "org": "backbone", "version": "0.4.35", "path": "api", "filled": 3, "failed": 0, "review": 2, "fill_ms": 74, "plan_ms": 523}
+{"round": "A1", "org": "julius", "version": "0.4.35", "path": "api", "filled": 8, "failed": 0, "review": 3, "fill_ms": 86, "plan_ms": 1228}
+{"round": "A1", "org": "graymatter-robotics", "version": "0.4.35", "path": "api", "filled": 6, "failed": 0, "review": 3, "fill_ms": 74, "plan_ms": 1226}
+{"round": "A1-rerun", "org": "color-health", "version": "0.4.35", "path": "api", "filled": 9, "failed": 0, "review": 9, "fill_ms": 98, "plan_ms": 1112, "note": "after the yes/no guard: the Bay Area question went to review, 0 failures"}
+{"round": "A1-rerun", "org": "siftstack", "version": "0.4.35", "path": "api", "filled": 11, "failed": 0, "review": 4, "fill_ms": 127, "plan_ms": 1020, "note": "after the stored-theme guard: 0 failures"}
+{"round": "A1-rerun", "org": "espa", "version": "0.4.37", "path": "api", "filled": 11, "failed": 1, "review": 2, "fill_ms": 1098, "plan_ms": 1304, "failures": ["Location: employer-scoped geocoder offers only Netherlands | New Zealand | West \u2014 the applicant's location is outside where this employer hires; reported as a mismatch for the applicant from 0.4.38"]}
+{"round": "A1-rerun", "org": "fanvue.com", "version": "0.4.37", "path": "api", "filled": 4, "failed": 1, "review": 1, "fill_ms": 964, "plan_ms": 838, "failures": ["Location: employer-scoped geocoder offers only Netherlands | New Zealand | West \u2014 the applicant's location is outside where this employer hires; reported as a mismatch for the applicant from 0.4.38"]}
