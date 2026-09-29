@@ -576,10 +576,8 @@ var FirstPlay = FirstPlay || {};
 
   /**
    * Wait for a react-select to show or hold the option just selected.
-   * Separate from the pick so that a form's picks can all be fired first and
-   * confirmed together: React commits the state after the call returns, so
-   * every pick otherwise paid one poll interval in turn — Rocket Lab's
-   * thirteen selects spent 581 ms here (0.4.21 tiers), none of them slow.
+   * Kept separate from the pick for readability; picks are confirmed one at
+   * a time on purpose (see the picks tier in applyPlan).
    */
   async function confirmReactSelect(el, instance, chosen) {
     // Readback: what the widget shows, or — when the page is hidden and its
@@ -607,10 +605,15 @@ var FirstPlay = FirstPlay || {};
     // (Pacific Fusion, Rocket Lab, General Matter: false "plan said FILL"
     // rows over correctly filled fields). Hidden: rendering lags, so the
     // held state is the only signal there is.
-    const settled = () => displays(shown) || (document.hidden && held());
+    // Rendered value first; the held state counts once one frame has passed
+    // (or when hidden, where nothing renders). Some widgets never expose a
+    // readable display — Lightmatter's gender select ran the whole 2 s wait
+    // before the held state was consulted.
+    let frames = 0;
+    const settled = () => displays(shown) || (held() && (document.hidden || frames >= 1));
     let shown = displayedValue(el);
     await Promise.resolve();
-    for (let i = 0; i < 120 && !settled(); i += 1) {
+    for (; frames < 120 && !settled(); frames += 1) {
       await sleep(16);
       shown = displayedValue(el);
     }
@@ -1113,18 +1116,18 @@ var FirstPlay = FirstPlay || {};
     }
 
     lap("lookups");
-    // Pass 1 fires every pick; pass 2 confirms them together. The picks are
-    // synchronous calls on independent widgets; only the confirmations wait.
-    for (const item of work["react-select"]) if (!selectInstanceOf(item.el)) await hydrated(item.el);
-    const picked = work["react-select"].map((item, i) => {
-      try {
-        return { item, pending: fillReactSelect(item.el, item.value, prefetched[i]) };
-      } catch (e) {
-        return { item, pending: Promise.resolve({ ok: false, why: `threw ${e && e.message}` }) };
-      }
-    });
-    for (const { item, pending } of picked) {
-      record(item, await timed(item, () => pending.catch((e) => ({ ok: false, why: `threw ${e && e.message}` }))));
+    // One pick per frame, never two in one tick. Greenhouse's wrapper folds
+    // each change into the form's state from a closure over the previous
+    // state: two picks fired in the same tick both *display* (the widgets
+    // hold their own value) but the form keeps only the last — measured on
+    // Lightmatter with a dry-run submit after each variant (DECISIONS §44).
+    // 0.4.23 fired every pick at once and the oracle flagged the losers as
+    // "required" over green outlines. A pick confirms on its rendered value,
+    // or on its held state once a frame has passed; the poll is 16 ms, so
+    // thirteen selects cost about a quarter of a second, not 581 ms.
+    for (const [i, item] of work["react-select"].entries()) {
+      if (!selectInstanceOf(item.el)) await hydrated(item.el);
+      record(item, await timed(item, () => guarded(() => fillReactSelect(item.el, item.value, prefetched[i]))));
       if (item.entry.values.length > 1) await guarded(() => fillControl(item.el, item.entry, item.value));
     }
     // One frame for the form to commit the last pick before anyone reads it.
