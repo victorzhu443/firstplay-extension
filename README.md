@@ -4,8 +4,8 @@ Fills job applications from answers you have already given, on the real form,
 in about two seconds. You review what it wrote and you press Submit. **It never
 submits for you.**
 
-Measured so far on **75 live Greenhouse postings** on boards never opened
-before (a fresh draw every round): **1172 fields filled**, **21 cases** where
+Measured so far on **101 live Greenhouse postings** on boards never opened
+before (a fresh draw every round): **1625 fields filled**, **21 cases** where
 it knew the answer but could not enter it — all 21 on three boards whose
 defects are fixed and recorded below. What a form still asks for after a fill
 is essays, consent boxes and one-off questions ("which office?", "can you lift
@@ -739,14 +739,82 @@ answered "No" from the stored fact, truthfully) and otherwise goes to
 review — never blank. Also the alias "State/Province/Region:"
 (TransMarket). Two tests pin both cases.
 
-**33. Round 6 — in progress.** Drawn from the 73 boards still unused in the
-pool; running as this is written. So far: 14 boards logged,
-2 closed since the freeze, 12 live, 188 fields
-filled, 0 known-but-not-entered. Boards: radixuniversity, mercury (closed), vardaspace, digs (closed), sevenresearch, medicalinformaticsengineering, covar, eudia, perpay, samayaai, asteraearlycareer2026, spacex, smartlyio, fccincinnati. The
-remaining wants are of the same kinds as round 5 (essays, consents, career
-fair, years of experience, a GPA-range select, office multi-selects); SpaceX
-alone wanted 14 bespoke fields (per-language experience, SAT/ACT, program
-preference) after 29 fills.
+**33. Rounds 6–7 — the hundredth board (2026-09-28).** Drawn from the 73
+boards still unused in the pool, then a 12-board reserve when closed
+postings thinned round 6. Rounds 6–7 together: 4 boards opened,
+1 excluded (closed since the freeze, or redirected to an
+employer-hosted form outside the auto-fill hosts), 3 live,
+48 fields filled, **0** known-but-not-entered — the first
+rounds with none at all, on boards none of the fixes had seen.
+*What went wrong.* Nothing in the widget layer. The `form wants:` lines
+found four gaps in the *answers*: DRW asks "Legal First Name" / "Legal Last
+Name" as custom questions beside the standard ones; Visier's Canadian form
+says "Province/State"; Xaira's required sponsorship conditional and
+Compeer's required "if yes, explain" (entry 32) were re-verified fixed.
+*How we found it.* The same readback as every round; each gap was checked
+against the board's public schema before an alias was added.
+*What we changed.* Three aliases with a resolution check (backend PR #19,
+same branch as the conditional fix); backend restarted; Xaira re-run through
+the installed extension: 19 filled where it had been 18, and the
+conditional gone from the form's wants.
+*Whole run.* 110 boards opened, 101 live, 1,625 fields filled, 21
+known-but-not-entered in total — 1 Coinbase-era (0.4.6), 1 Pacific Fusion
+(0.4.18), 19 Lightmatter (0.4.19) — and 0 across the 38 boards run after
+0.4.19. 29 of the 101 forms wanted nothing more after the fill. The 184
+remaining wants, classified by hand: 58 bespoke per-company questions, 26
+essays, 15 consents, 14 office preferences, 14 availability/term questions,
+13 profile or alias gaps (6 fixed in the run), 13 custom self-identification
+wordings (never inferred, by rule), 12 source/referral variants, 10 academic
+details not in the profile, 5 pay expectations, 4 clearances. The decision
+record is backend DECISIONS §39; the next platform is Ashby, on the same
+protocol.
+
+**34. Widening the profile-answer gate (2026-09-28, backend PR #21).**
+*Why.* The hundred-board run left 184 wants. Sorted by hand, about 50 were
+bounded decisions from facts the applicant already holds — term
+availability, class standing, clearance, career fairs, prior internships,
+GPA scale — that the model gate never reached: it refused multi-selects,
+its state carried neither today's date nor the term calendar, and four
+facts were not in the profile at all.
+*What went wrong when we tried.* Three things, each caught by running the
+real model on the boards that had exposed the questions. A Noul asked
+"would the applicant tick this option?" on a clearance list with a silent
+profile said "Never held a clearance" at 0.90 — a guess, exactly on the
+threshold. The term question sat at p=0.50 on "Spring 2027" because the
+availability note said "any term acceptable" while the earliest start was
+May 2027. And "Not Applicable" scored 0.15 as a proposition even when the
+profile said the applicant holds no clearance, because a model does not read
+"not applicable" as a thing one ticks.
+*How we found it.* `try_posting` in-process against the frozen postings
+with the real profile and the real Jev, printing per-option beliefs; then
+the same with a temporary profile copy carrying the four new facts, so the
+facts path was exercised without writing guesses into Victor's profile.
+*What we changed.* Multi-selects with at most 12 options are asked as one
+Noul per option (tick at ≥0.90, no at ≤0.10, anything between leaves the
+whole field as a suggestion); batches are cut by question count, not
+request count. The Noul wording makes silence a no ("the profile says
+nothing that bears on it"). The state gains today's date, class standing
+derived from the education dates, and an availability note with the months
+each term starts. When every concrete option is a confident no and exactly
+one option means none, that one is chosen by elimination. Four facts join
+onboarding: security clearance, career fair, prior internships, GPA scale.
+*How we verified it.* Eleven unit tests with a Noul-aware fake; then live:
+General Matter's three-term question went from review to Summer 2027 at
+0.89; Compeer's academic status to Junior at 1.00; QuEra's highest education
+obtained to "Some College, No Degree" at 0.87; with the facts present,
+BTI's clearance to No at 1.00, Perpay's career fair to No at 0.97, Klaviyo's
+prior internships to 1 at 0.94, Radix's GPA range to 0.0–4.0 at 0.89, and
+Rocket Lab's clearance list to Not Applicable at 0.93 by elimination.
+Optiver's eleven offices stayed with the applicant (the profile is silent on
+offices, and the model now says so), and Varda's "seeking a Spring
+internship?" stayed at 0.56 for an applicant whose profile says any term
+after May 2027 is fine — a genuinely open question. Ten fresh held-out
+boards (round 8) produced ten model decisions, every one traceable to a
+stored fact, and one policy catch: Maven Securities' UK-worded "support or
+adjustments during the recruitment process" was classified as screening and
+answered "No" by the gate; it is disability-adjacent and is now a protected
+pattern, memory-only. The multi-select path still awaits its first pass
+through the installed extension, which needs the Chrome window on screen.
 
 ### What the log says in one paragraph
 
@@ -926,22 +994,23 @@ the only number that measures the extension rather than the profile.
 | 3 | 9 | 149 | 0 | — |
 | 4 | 17 | 252 | 1 | pacificfusion |
 | 5 | 23 | 355 | 19 | lightmatter |
-| 6 (in progress) | 12 | 188 | 0 | — |
-| **all** | **75** | **1172** | **21** | |
+| 6 | 35 | 593 | 0 | — |
+| 7 | 3 | 48 | 0 | — |
+| **all** | **101** | **1625** | **21** | |
 
 Round 1 in the ledger holds the two boards the extension was developed
 against (Duolingo, Coinbase); DECISIONS §34 counts fourteen boards opened
 before round 2 as the training set — the difference is the boards of the
 §31 structural survey and the §22 dropdown survey, which were probed but not
 logged as fills. Postings that closed between the freeze and the run are
-excluded (5 so far). The per-board log with what each form still
+excluded (9 so far). The per-board log with what each form still
 wanted is `survey_results.jsonl` in the working notes; the aggregates are in
 DECISIONS §36 and §38. Round 6 is the draw toward the 100-board target Victor
 set before moving on to Ashby, Workday and Oracle.
 
 ---
 
-## 6. Notes for whoever edits this next
+## 7. Notes for whoever edits this next
 
 - **Content scripts are classic scripts.** An `export` in one is a syntax
   error at load and the script silently never runs, which looks exactly like
