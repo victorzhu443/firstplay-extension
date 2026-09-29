@@ -1019,7 +1019,10 @@ var FirstPlay = FirstPlay || {};
    * they are looked at — and then wait for the selects to be owned.
    */
   async function pageReady() {
-    if (document.hidden) {
+    // Only a page with react-selects has anything to wait for while hidden
+    // (Greenhouse's hydration); Ashby's plain controls are written as they are.
+    const hasReactSelects = document.querySelector(".select__input") !== null;
+    if (document.hidden && hasReactSelects) {
       await new Promise((resolve) => {
         const onShow = () => { if (!document.hidden) { document.removeEventListener("visibilitychange", onShow); resolve(); } };
         document.addEventListener("visibilitychange", onShow);

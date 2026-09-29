@@ -188,8 +188,13 @@
     // dropdowns cannot be driven. General Matter, hidden 12 minutes: 15
     // "known but could not be entered". The page-world fill still waits for
     // hydration, which is seconds, not minutes.
+    // Greenhouse does not hydrate a hidden tab and its re-render discards
+    // early writes (§37), so a hidden Greenhouse tab waits. Ashby renders
+    // its whole form client-side whether or not the tab is looked at —
+    // every field was present on hidden probes — so an Ashby tab fills in
+    // the background and is done by the time it is opened.
     let hiddenMs = 0;
-    if (document.hidden) {
+    if (document.hidden && posting.ats !== "ashby") {
       console.log(`${TAG} this tab is in the background — the fill starts when you switch to it`);
       const tHidden = performance.now();
       await new Promise((resolve) => {
