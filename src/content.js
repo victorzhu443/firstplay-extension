@@ -177,12 +177,15 @@
     // dropdowns cannot be driven. General Matter, hidden 12 minutes: 15
     // "known but could not be entered". The page-world fill still waits for
     // hydration, which is seconds, not minutes.
+    let hiddenMs = 0;
     if (document.hidden) {
       console.log(`${TAG} this tab is in the background — the fill starts when you switch to it`);
+      const tHidden = performance.now();
       await new Promise((resolve) => {
         const onShow = () => { if (!document.hidden) { document.removeEventListener("visibilitychange", onShow); resolve(); } };
         document.addEventListener("visibilitychange", onShow);
       });
+      hiddenMs = performance.now() - tHidden;
     }
 
     // The fill runs in the page's world (see background.js): React's fibers,
@@ -218,7 +221,8 @@
       : response.elapsed_ms ? ` (backend ${secs(response.elapsed_ms)}${response.model_skipped ? ", model skipped: slow" : ""})` : "";
     console.log(
       `${TAG} timing: page settled ${secs(tSettled - t0)} · plan ready ${secs(tPlanned - t0)}${backendNote}` +
-        ` · filled ${secs(tApplied - tPlanned)} · total ${secs(tApplied - t0)}`
+        (hiddenMs ? ` · waited for the tab ${secs(hiddenMs)}` : "") +
+        ` · filled ${secs(tApplied - tPlanned - hiddenMs)} · total ${secs(tApplied - t0 - hiddenMs)}`
     );
     if (outcome.timing && outcome.timing.total !== undefined) {
       const tiers = Object.entries(outcome.timing).map(([k, v]) => `${k} ${v}ms`).join(" · ");
