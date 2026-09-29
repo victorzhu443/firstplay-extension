@@ -363,9 +363,16 @@ var FirstPlay = FirstPlay || {};
 
     const chosen = pickOption(options, (o) => o.textContent, value);
     if (!chosen) {
+      // The list answered and the answer is not on it. On Fanvue and Espa
+      // an organisation-scoped geocoder offered "Netherlands | New Zealand |
+      // West" for "Ithaca, NY": the employer restricts locations to where
+      // it hires. That is the form's decision about the applicant's value,
+      // not a widget the filler could not drive — reported as a mismatch
+      // the applicant resolves, with what was offered.
       return {
         ok: false,
-        why: `no suggestion is exactly ${JSON.stringify(value)}; offered: ` +
+        mismatch: true,
+        why: `the form's suggestions do not include ${JSON.stringify(value)}; offered: ` +
           options.slice(0, 5).map((o) => o.textContent.trim()).join(" | "),
       };
     }
@@ -1140,6 +1147,12 @@ var FirstPlay = FirstPlay || {};
       if (result.ok) {
         outline(el, OUTLINE_FILLED, `FirstPlay: ${entry.reason || entry.source}`);
         outcome.filled += 1;
+      } else if (result.mismatch) {
+        // The widget worked; the form's own answer set excludes the value.
+        outline(el, OUTLINE_REVIEW, `FirstPlay: needs you — ${result.why}`);
+        try { badge(el, `FirstPlay: your answer ${JSON.stringify(value)} is not among this form's choices — ${result.why}`); } catch (e) { /* ignore */ }
+        outcome.review += 1;
+        outcome.details.push({ label: entry.label, state: "mismatch", why: result.why, value });
       } else {
         outline(el, OUTLINE_REVIEW, `FirstPlay: could not fill — ${result.why}`);
         // Drawing the note must never abort the run.
