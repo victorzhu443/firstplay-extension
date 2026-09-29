@@ -70,15 +70,31 @@
     let previous = -1;
     let stableFor = 0;
 
-    for (let attempt = 0; attempt < 20; attempt += 1) {
+    for (let attempt = 0; attempt < 40; attempt += 1) {
       const controls = ns.extractControls();
       stableFor = controls.length === previous && controls.length > 0 ? stableFor + 1 : 0;
-      if (stableFor >= 2) return controls;
+      if (stableFor >= 1) return controls;
       previous = controls.length;
-      await new Promise((r) => setTimeout(r, 500));
+      await new Promise((r) => setTimeout(r, 250));
     }
 
     return ns.extractControls();
+  }
+
+  // The POST goes from the service worker, not here. A fetch from a content
+  // script carries the page's origin and is subject to CORS; the worker has
+  // host permission and is not.
+  function requestPlan(posting, controls) {
+    return chrome.runtime.sendMessage({
+      kind: "buildPlan",
+      posting,
+      controls,
+      page: {
+        company: document.title.split(/[—–|@]/).pop().trim() || null,
+        title: document.title,
+        url: window.location.href,
+      },
+    });
   }
 
   async function run() {
@@ -100,7 +116,15 @@
       return;
     }
 
+    const t0 = performance.now();
+
+    // A Greenhouse plan depends on the API payload, not on the DOM, so the
+    // request goes out now and runs while the page finishes rendering.
+    // Ashby has no API; its plan needs the controls first.
+    const earlyPlan = posting.ats === "greenhouse" ? requestPlan(posting, []) : null;
+
     const controls = await settledControls();
+    const tSettled = performance.now();
 
     if (!controls.length) {
       console.log(
@@ -113,19 +137,8 @@
 
     console.log(`${TAG} ${posting.ats}: ${controls.length} controls read`);
 
-    // The POST goes from the service worker, not here. A fetch from a content
-    // script carries the page's origin and is subject to CORS; the worker has
-    // host permission and is not.
-    const response = await chrome.runtime.sendMessage({
-      kind: "buildPlan",
-      posting,
-      controls,
-      page: {
-        company: document.title.split(/[—–|@]/).pop().trim() || null,
-        title: document.title,
-        url: window.location.href,
-      },
-    });
+    const response = await (earlyPlan || requestPlan(posting, controls));
+    const tPlanned = performance.now();
 
     if (!response || !response.ok) {
       console.warn(`${TAG} ${(response && response.error) || "no response from background"}`);
@@ -155,13 +168,37 @@
     // The resume lives in extension storage, put there once through the
     // popup; content scripts may read chrome.storage directly.
     const stored = await chrome.storage.local.get("firstplay.resume");
-    const outcome = await ns.applyPlan(response.plan, { resume: stored["firstplay.resume"] || null });
+    const resume = stored["firstplay.resume"] || null;
+
+    if (document.hidden) console.log(`${TAG} this tab is in the background — the fill starts when you switch to it`);
+
+    // The fill runs in the page's world (see background.js): React's fibers,
+    // which the select driver needs, are invisible from this isolated world.
+    const inPage = await chrome.runtime.sendMessage({ kind: "applyPlan", plan: response.plan, resume })
+      .catch((e) => ({ ok: false, why: e && e.message }));
+    let outcome;
+    if (inPage && inPage.ok && inPage.outcome) {
+      outcome = inPage.outcome;
+    } else {
+      console.warn(`${TAG} could not run the fill in the page's world (${(inPage && inPage.why) || "no result"}); ` +
+        `falling back — dropdowns may not take values`);
+      outcome = await ns.applyPlan(response.plan, { resume });
+    }
     window.__firstplayOutcome = outcome;
+
+    const tApplied = performance.now();
+    const secs = (ms) => (ms / 1000).toFixed(1) + "s";
 
     console.log(
       `${TAG} applied: ${outcome.filled} filled, ${outcome.attach} to attach by hand, ` +
         `${outcome.review} outlined for you, ${outcome.failed} known but could not be entered, ` +
         `${outcome.missing} in the plan but not on this page`
+    );
+    const backendNote = response.cached ? " (plan from cache)"
+      : response.elapsed_ms ? ` (backend ${secs(response.elapsed_ms)}${response.model_skipped ? ", model skipped: slow" : ""})` : "";
+    console.log(
+      `${TAG} timing: page settled ${secs(tSettled - t0)} · plan ready ${secs(tPlanned - t0)}${backendNote}` +
+        ` · filled ${secs(tApplied - tPlanned)} · total ${secs(tApplied - t0)}`
     );
 
     if (outcome.failed) {
@@ -179,9 +216,44 @@
     );
     console.log(`${TAG} plan on window.__firstplayPlan, outcome on window.__firstplayOutcome`);
 
+    // The form's own verdict. A dry-run submit — every way of sending is
+    // blocked in the page for the attempt — makes the form mark what it still
+    // considers missing or invalid. That list is compared with the plan: a
+    // field the plan called FILL that the form calls missing is a filler
+    // defect; one the plan never knew is a coverage gap.
+    const check = await chrome.runtime.sendMessage({ kind: "dryRunCheck" }).catch(() => null);
+    let stillRequired = null;
+    if (check && check.ok) {
+      const byKey = new Map(response.plan.entries.map((e) => [e.field_key, e]));
+      const state = (e) => !e ? "not in plan" : e.skipped ? "skipped" : e.satisfied_by ? "sibling"
+        : e.attach ? "attach" : e.needs_review ? "review" : (e.value !== null || e.values.length) ? "FILL" : "review";
+      // The renderer's ids differ from the plan's keys for a few fields.
+      const RENDERED_TO_KEY = { "candidate-location": "location", "school--0": "educations[0].school_name_id",
+        "degree--0": "educations[0].degree_id", "discipline--0": "educations[0].discipline_id",
+        "start-month--0": "educations[0].start_date.month", "start-year--0": "educations[0].start_date.year",
+        "end-month--0": "educations[0].end_date.month", "end-year--0": "educations[0].end_date.year" };
+      const rows = check.invalid.map((f) => {
+        const key = RENDERED_TO_KEY[f.id] || f.id;
+        const entry = byKey.get(key) || byKey.get(f.name) ||
+          [...byKey.values()].find((e) => (e.label || "").toLowerCase().slice(0, 30) === f.label.replace(/\*$/, "").toLowerCase().slice(0, 30));
+        return { form_says: f.message || "required", field: f.label, plan_said: state(entry) };
+      });
+      stillRequired = rows.length;
+      console.log(`${TAG} form check: the form still wants ${rows.length} field(s)`);
+      // Plain lines as well as the table: a pasted console log or a log
+      // reader never carries console.table's contents.
+      for (const r of rows) console.log(`${TAG}   form wants: ${r.field} ⇐ plan said ${r.plan_said}${r.form_says ? ` (${r.form_says})` : ""}`);
+      if (rows.length) console.table(rows);
+      const defects = rows.filter((r) => r.plan_said === "FILL");
+      if (defects.length) console.warn(`${TAG} ${defects.length} field(s) the plan called FILL are empty by the form's own account — filler defect, please report`);
+    } else if (check) {
+      console.log(`${TAG} form check skipped: ${check.why}`);
+    }
+
     return {
+      still_required: stillRequired,
       filled: outcome.filled, attach: outcome.attach, review: outcome.review,
-      failed: outcome.failed, missing: outcome.missing,
+      failed: outcome.failed, missing: outcome.missing, seconds: (tApplied - t0) / 1000,
     };
   }
 

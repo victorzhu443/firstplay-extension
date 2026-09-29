@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "FirstPlay Autofill",
-  "version": "0.4.3",
+  "version": "0.4.19",
   "description": "Fills job application forms from your own stored answers. Reviews before you submit; never submits for you.",
   "permissions": [
     "storage",
@@ -13,7 +13,9 @@
     "https://boards.greenhouse.io/*",
     "https://boards-api.greenhouse.io/*",
     "https://jobs.ashbyhq.com/*",
-    "http://localhost:8000/*"
+    "http://localhost:8000/*",
+    "https://job-boards.eu.greenhouse.io/*",
+    "https://boards.eu.greenhouse.io/*"
   ],
   "background": {
     "service_worker": "src/background.js",
@@ -23,6 +25,7 @@
     {
       "matches": [
         "https://job-boards.greenhouse.io/*",
+        "https://job-boards.eu.greenhouse.io/*",
         "https://boards.greenhouse.io/*",
         "https://jobs.ashbyhq.com/*"
       ],

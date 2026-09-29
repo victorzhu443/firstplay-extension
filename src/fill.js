@@ -34,7 +34,27 @@ var FirstPlay = FirstPlay || {};
   const OUTLINE_REVIEW = "2px solid #d97706";
   const OUTLINE_ATTACH = "2px dashed #2563eb";
 
-  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  /**
+   * A wait that keeps its word in a background tab. Chrome throttles timers
+   * in hidden pages (to one a second, then one a minute), so a fill in a tab
+   * the applicant has switched away from would crawl or stall. Message ports
+   * are not throttled — React's own scheduler relies on that — so when the
+   * page is hidden the wait is a chain of MessageChannel ticks until the
+   * deadline, each tick yielding to the event loop so fetches and renders
+   * still land. When visible, a plain timer.
+   */
+  function sleep(ms) {
+    if (document.visibilityState === "visible") return new Promise((r) => setTimeout(r, ms));
+    const deadline = performance.now() + ms;
+    return new Promise((resolve) => {
+      const channel = new MessageChannel();
+      channel.port1.onmessage = () => {
+        if (performance.now() >= deadline) { channel.port1.close(); resolve(); }
+        else channel.port2.postMessage(0);
+      };
+      channel.port2.postMessage(0);
+    });
+  }
 
   function normalise(text) {
     return (text || "").toLowerCase().replace(/[^\w\s+#&]+/g, " ").replace(/\s+/g, " ").trim();
@@ -137,6 +157,10 @@ var FirstPlay = FirstPlay || {};
   }
 
   const GREENHOUSE_EDUCATION_IDS = [
+    // The location block's submitted name is `location`; the standard
+    // renderer's control is `candidate-location` (Mill, Clockwork, Garda,
+    // Verkada all left "Location (City)" wanting until this line).
+    [/^location$/, "candidate-location"],
     [/^educations\[(\d+)\]\.school_name_id$/, "school--$1"],
     [/^educations\[(\d+)\]\.degree_id$/, "degree--$1"],
     [/^educations\[(\d+)\]\.discipline_id$/, "discipline--$1"],
@@ -223,10 +247,22 @@ var FirstPlay = FirstPlay || {};
   /** Options currently offered to an autocomplete input, wherever the list is attached. */
   /** The listbox ids a field's own inputs point at — its list, never another field's. */
   function listIdsFor(el) {
-    const box = el.closest('[role="group"]') || el.parentElement.parentElement || el.parentElement;
     const ids = [el.getAttribute("aria-controls"), el.getAttribute("aria-owns")];
-    for (const twin of box ? box.querySelectorAll("[aria-controls], [aria-owns]") : []) {
-      ids.push(twin.getAttribute("aria-controls"), twin.getAttribute("aria-owns"));
+    // The field's own box is the SMALLEST ancestor holding a list pointer —
+    // on Duolingo the decoy twin beside the typed input. A wider container
+    // (a role="group" around a whole section) would hand a field its
+    // neighbours' lists in DOM order, and Degree would read School's.
+    // Bounded: at most three levels up, and never a container that also
+    // holds other fields' inputs — an unbounded walk reached the whole form
+    // on Coinbase and handed every select the phone widget's country list.
+    let box = el.parentElement;
+    for (let hops = 0; box && box !== document.body && hops < 3; hops += 1, box = box.parentElement) {
+      const pointers = box.querySelectorAll("[aria-controls], [aria-owns]");
+      if (!pointers.length) continue;
+      const inputs = box.querySelectorAll('input:not([type="hidden"]), textarea, select');
+      if (inputs.length > 2) break;
+      for (const twin of pointers) ids.push(twin.getAttribute("aria-controls"), twin.getAttribute("aria-owns"));
+      break;
     }
     return ids.filter(Boolean);
   }
@@ -255,20 +291,31 @@ var FirstPlay = FirstPlay || {};
    * its text into the input and, on Duolingo, the chosen id into the hidden
    * field. Typing alone leaves the field unconfirmed.
    */
-  async function fillAutocomplete(el, value) {
-    // When the page's window is not focused — always the case right after
-    // the popup was clicked, and in a background tab — `focus()` moves
-    // activeElement but fires no focus events, and a widget that opens on
-    // focus never opens (measured on Duolingo: no suggestions until a
-    // `focusin` was dispatched by hand). React listens to focusin.
+  /**
+   * Start an autocomplete's search without waiting for it.
+   *
+   * When the page's window is not focused — always the case right after the
+   * popup was clicked, and in a background tab — `focus()` moves
+   * activeElement but fires no focus events, and a widget that opens on
+   * focus never opens (measured on Duolingo). React listens to focusin.
+   */
+  function startAutocomplete(el, value) {
     el.focus();
     el.dispatchEvent(new FocusEvent("focusin", { bubbles: true }));
     setNativeValue(el, value);
+  }
 
-    // Remote geocoders (Ashby, Duolingo's location) can take several seconds.
-    let options = [];
-    for (let i = 0; i < 80 && !options.length; i += 1) {
-      await sleep(100);
+  /**
+   * Pick from an autocomplete whose search was started earlier. Remote
+   * geocoders (Ashby, Duolingo's location) can take seconds; local lists
+   * appear within a frame, so the first check is immediate and the poll is
+   * short. Duolingo's lists stay open while other fields are filled
+   * (measured), which is what lets several searches run at once.
+   */
+  async function pickAutocomplete(el, value) {
+    let options = suggestionsFor(el);
+    for (let i = 0; i < 400 && !options.length; i += 1) {
+      await sleep(20);
       options = suggestionsFor(el);
     }
 
@@ -290,13 +337,11 @@ var FirstPlay = FirstPlay || {};
 
     // Proof the suggestion was taken, not merely typed: the input reads the
     // suggestion's text AND, where the field is backed by a hidden input
-    // (Duolingo writes the chosen id there), that hidden value is set. The
-    // typed text alone can equal the suggestion by construction. The widget
-    // commits on its own schedule, so poll rather than sleep.
+    // (Duolingo writes the chosen id there), that hidden value is set.
     const hidden = el.dataset.firstplayHidden ? document.getElementById(el.dataset.firstplayHidden) : null;
     const committed = () =>
       normalise(el.value) === normalise(text) && (!hidden || hidden.value !== "");
-    for (let i = 0; i < 30 && !committed(); i += 1) await sleep(100);
+    for (let i = 0; i < 150 && !committed(); i += 1) await sleep(20);
 
     if (!committed()) {
       return { ok: false, why: hidden && hidden.value === ""
@@ -305,6 +350,11 @@ var FirstPlay = FirstPlay || {};
     }
 
     return { ok: true, chose: text };
+  }
+
+  async function fillAutocomplete(el, value) {
+    startAutocomplete(el, value);
+    return pickAutocomplete(el, value);
   }
 
   function isReactSelect(el) {
@@ -394,8 +444,8 @@ var FirstPlay = FirstPlay || {};
     el.dispatchEvent(new FocusEvent("focusin", { bubbles: true }));
     setNativeValue(el, value);
 
-    for (let i = 0; i < 80; i += 1) {
-      await sleep(100);
+    for (let i = 0; i < 200; i += 1) {
+      await sleep(40);
       const fresh = selectInstanceOf(el) || instance;
       const options = instanceOptions(fresh);
       if (options.length) return options;
@@ -430,14 +480,32 @@ var FirstPlay = FirstPlay || {};
    * The value is read back afterwards. A selection the widget silently
    * rejected must surface as a failure, not as a green outline over a blank.
    */
-  async function fillReactSelect(el, value) {
+  /** Options for a react-select, from its props or its loader — the part that can run in parallel. */
+  async function reactSelectOptions(el, value) {
+    const instance = selectInstanceOf(el);
+    if (!instance) return [];
+    let options = instanceOptions(instance);
+    if (!options.length) options = await loadedOptions(el, value);
+    // A typeahead's lookup can come back empty for a moment (Pacific Fusion:
+    // the school search returned nothing once, then "Cornell University" on
+    // the next call). Retry the term before touching the default page — the
+    // default page is the alphabet's start and never holds the answer.
+    if (!options.length) { await sleep(300); options = await loadedOptions(el, value); }
+    if (!options.length && !optionLoaderOf(el)) options = await loadedOptions(el, "");
+    return options;
+  }
+
+  async function fillReactSelect(el, value, prefetched = null) {
     const instance = selectInstanceOf(el);
 
     if (!instance) return { ok: false, why: "not a react-select instance" };
 
-    let options = instanceOptions(instance);
+    let options = prefetched && prefetched.length ? prefetched : instanceOptions(instance);
     if (!options.length) options = await loadedOptions(el, value);
-    if (!options.length) options = await loadedOptions(el, "");
+    if (!options.length) { await sleep(300); options = await loadedOptions(el, value); }
+    if (!options.length && optionLoaderOf(el)) {
+      return { ok: false, why: `the form's lookup returned nothing for ${JSON.stringify(value)} — try again` };
+    }
     if (!options.length) options = await typedOptions(el, instance, value);
     const chosen = pickOption(options, optionText, value);
 
@@ -459,12 +527,32 @@ var FirstPlay = FirstPlay || {};
       return { ok: false, why: "react-select exposes no selection method" };
     }
 
-    await sleep(80);
-
-    const shown = displayedValue(el);
+    // Poll the readback instead of napping a fixed 80 ms.
+    // Readback: what the widget shows, or — when the page is hidden and its
+    // rendering lags — what the widget holds. `selectValue` is what react-
+    // select submits; the DOM catches up when the tab is visible again.
     const expected = optionText(chosen);
+    const held = () => {
+      const fresh = selectInstanceOf(el) || instance;
+      const state = (fresh.state && fresh.state.selectValue) || [];
+      const value = fresh.props && fresh.props.value;
+      const values = Array.isArray(state) && state.length ? state : (Array.isArray(value) ? value : value ? [value] : []);
+      return values.some((v) => normalise(optionText(v)) === normalise(expected));
+    };
+    // The phone-country select shows only the dial code ("+1") for the option
+    // "United States +1": a display that is a non-empty part of the chosen
+    // option's text counts as the option shown.
+    const displays = (shownText) => {
+      const a = normalise(shownText), b = normalise(expected);
+      return !!a && (a === b || (a.length >= 2 && b.includes(a)));
+    };
+    let shown = displayedValue(el);
+    for (let i = 0; i < 50 && !displays(shown) && !held(); i += 1) {
+      await sleep(40);
+      shown = displayedValue(el);
+    }
 
-    if (normalise(shown) !== normalise(expected)) {
+    if (!displays(shown) && !held()) {
       return { ok: false, why: `selected ${JSON.stringify(expected)} but widget shows ` +
         JSON.stringify(shown) };
     }
@@ -578,8 +666,8 @@ var FirstPlay = FirstPlay || {};
     // The page's main thread can be slow (a 300 ms timer took 1 s on Duolingo),
     // so the list is polled for well past the time it needs when idle.
     let list = null;
-    for (let i = 0; i < 15 && !list; i += 1) {
-      await sleep(100);
+    for (let i = 0; i < 40 && !list; i += 1) {
+      await sleep(40);
       const id = button.getAttribute("aria-controls");
       list = (id && document.getElementById(id)) || null;
     }
@@ -608,10 +696,10 @@ var FirstPlay = FirstPlay || {};
     const chosenText = picks.map((o) => o.textContent.trim());
     for (const pick of picks) {
       if (pick.getAttribute("aria-selected") !== "true") pick.click();
-      await sleep(120);
+      await sleep(40);
     }
     if (document.getElementById(button.getAttribute("aria-controls") || "")) button.click();
-    await sleep(150);
+    for (let i = 0; i < 20 && !chosenText.every((t) => shown().includes(normalise(t))); i += 1) await sleep(40);
 
     const missing = chosenText.filter((t) => !shown().includes(normalise(t)));
     if (missing.length) {
@@ -630,6 +718,19 @@ var FirstPlay = FirstPlay || {};
     let result;
 
     const extras = entry.values.length > 1 ? entry.values.slice(1) : [];
+
+    // A fieldset of radios or checkboxes (Greenhouse renders "How did you
+    // hear about us?" this way on some boards): choose among its inputs.
+    if (el.tagName === "FIELDSET") {
+      const candidates = Array.from(el.querySelectorAll('input[type="radio"], input[type="checkbox"]'));
+      if (!candidates.length) return { ok: false, why: "fieldset holds no choices" };
+      const textOf = (c) => { const l = c.id ? document.querySelector(`label[for="${CSS.escape(c.id)}"]`) : c.closest("label"); return l ? l.innerText : c.value; };
+      const chosen = pickOption(candidates, textOf, value);
+      if (!chosen) return { ok: false, why: `no choice is exactly ${JSON.stringify(value)}; offered: ` + candidates.slice(0, 6).map((c) => textOf(c).trim()).join(" | ") };
+      if (!chosen.checked) chosen.click();
+      for (const extra of extras) { const more = pickOption(candidates, textOf, extra); if (more && !more.checked) more.click(); }
+      return { ok: chosen.checked, chose: textOf(chosen).trim() };
+    }
 
     if (!["INPUT", "TEXTAREA", "SELECT"].includes(el.tagName) ||
         el.matches('button[aria-haspopup="listbox"]')) {
@@ -712,8 +813,126 @@ var FirstPlay = FirstPlay || {};
    * @param {object} plan  the backend's FillPlan
    * @param {object} [context]  `{ resume }` — the stored resume document, if any
    */
+  /** Which driver a located control needs — decides its tier below. */
+  /** react-select by its markup alone — the fiber may not be attached yet. */
+  function looksLikeReactSelect(el) {
+    return (el.className || "").includes("select__input") ||
+      /^react-select-/.test(el.id || "") ||
+      !!el.closest(".select__container, .select__control, [class*='select__value-container']");
+  }
+
+  /**
+   * Wait for React to own a control. The plan now arrives before the page
+   * has finished hydrating (the request goes out at first sight of the
+   * posting), and on Coinbase the standard selects were driven before
+   * `__reactFiber` existed: they fell through to the autocomplete path and
+   * were offered the phone widget's country list. Bounded at 3 s.
+   */
+  async function hydrated(el) {
+    // Bounded at 20 s, returning at once when the instance exists (the
+    // foreground case). In a hidden tab Greenhouse does not hydrate at all
+    // (NISC: 0 of 12 selects owned by React minutes after load), so a fill
+    // there reports the selects as not enterable rather than guessing.
+    // The budget counts only while the page is visible: Greenhouse pauses
+    // hydration when the tab is hidden, and a tab that flickered visible for
+    // a moment (Lightmatter, round 5) must not burn its 20 s in the dark.
+    let spent = 0;
+    while (spent < 1000) {
+      if (selectInstanceOf(el)) return true;
+      if (document.hidden) {
+        await new Promise((resolve) => {
+          const onShow = () => { if (!document.hidden) { document.removeEventListener("visibilitychange", onShow); resolve(); } };
+          document.addEventListener("visibilitychange", onShow);
+        });
+        continue;
+      }
+      await sleep(20);
+      spent += 1;
+    }
+    return false;
+  }
+
+  function widgetKind(el) {
+    if (el.tagName === "FIELDSET" && el.querySelector('input[type="radio"], input[type="checkbox"]')) return "instant";
+    if (!["INPUT", "TEXTAREA", "SELECT"].includes(el.tagName) || el.matches('button[aria-haspopup="listbox"]')) return "listbox";
+    if ((isReactSelect(el) && selectInstanceOf(el)) || looksLikeReactSelect(el)) return "react-select";
+    if (el.getAttribute("role") === "combobox" ||
+        (el.tagName === "INPUT" && el.getAttribute("aria-haspopup") === "listbox") ||
+        el.dataset.firstplayAutocomplete === "1") return "autocomplete";
+    return "instant";
+  }
+
+  /**
+   * Apply a plan to the page — in tiers, so waits overlap instead of adding up.
+   *
+   *   instant       text, checkboxes, radios, native selects, the résumé: no waits
+   *   react-select  every option lookup (network) fires at once; picks are synchronous
+   *   autocomplete  every search is started first; then each list is picked from
+   *   listbox       local menus, one after another (opening one may close another)
+   *
+   * Measured before this: education on the standard renderer paid three
+   * sequential network lookups; on Duolingo, the school search and the
+   * location geocoder waited one after the other. Widgets that need focus are
+   * never driven concurrently; only their lookups are.
+   *
+   * @param {object} plan  the backend's FillPlan
+   * @param {object} [context]  `{ resume }` — the stored resume document, if any
+   */
+  /**
+   * Greenhouse's two-question EEO block. The API lists one compliance field,
+   * `race`, but 7 of 9 surveyed boards render `hispanic_ethnicity` (Yes / No
+   * / Decline) first and mount `race` only after it is answered. The
+   * Hispanic answer is a deterministic reading of the applicant's own stored
+   * race — "Hispanic or Latino" is Yes, a decline stays a decline, anything
+   * else is No — so this is replay, not judgement; no model is involved.
+   * Returns the `race` entry's control once revealed, or null.
+   */
+  async function revealRace(raceEntry) {
+    if (document.getElementById("race")) return document.getElementById("race");
+    const hispanic = document.getElementById("hispanic_ethnicity");
+    if (!hispanic) return null;
+
+    const stored = normalise(raceEntry.value || "");
+    const answer = /hispanic|latin/.test(stored) ? "Yes"
+      : /decline|prefer not|do not wish/.test(stored) ? "Decline To Self Identify"
+      : "No";
+
+    await hydrated(hispanic);
+    const result = await fillReactSelect(hispanic, answer);
+    if (!result.ok) return null;
+    outline(hispanic, OUTLINE_FILLED, `FirstPlay: from your stored race — ${answer}`);
+
+    for (let i = 0; i < 100 && !document.getElementById("race"); i += 1) await sleep(20);
+    return document.getElementById("race");
+  }
+
+  /**
+   * Do not write into a form React has not taken over yet. Greenhouse's
+   * standard form hydrates lazily and not at all while its tab is hidden;
+   * a fill that lands first is wiped when hydration re-renders (Schonfeld,
+   * round 3: 9 green outlines, then none). So: if the tab is hidden, wait
+   * for it to be shown — postings opened in background tabs fill the moment
+   * they are looked at — and then wait for the selects to be owned.
+   */
+  async function pageReady() {
+    if (document.hidden) {
+      await new Promise((resolve) => {
+        const onShow = () => { if (!document.hidden) { document.removeEventListener("visibilitychange", onShow); resolve(); } };
+        document.addEventListener("visibilitychange", onShow);
+      });
+    }
+    const selects = document.querySelectorAll(".select__input");
+    if (selects.length) await hydrated(selects[selects.length - 1]);
+  }
+
   async function applyPlan(plan, context = {}) {
     const outcome = { filled: 0, attach: 0, review: 0, failed: 0, missing: 0, details: [] };
+    const work = { instant: [], "react-select": [], autocomplete: [], listbox: [] };
+
+    await pageReady();
+
+    const raceEntry = plan.entries.find((e) => e.field_key === "race" && e.value && !e.needs_review && !e.skipped);
+    if (raceEntry && (await revealRace(raceEntry))) outcome.details.push({ label: "Hispanic/Latino", state: "answered from your stored race" });
 
     for (const entry of plan.entries) {
       const el = locate(entry);
@@ -766,28 +985,51 @@ var FirstPlay = FirstPlay || {};
       }
 
       const value = entry.values.length ? entry.values[0] : entry.value;
-      let result;
+      work[widgetKind(el)].push({ entry, el, value });
+    }
 
-      try {
-        result = await fillControl(el, entry, value);
-      } catch (e) {
-        // One control that throws must not stop the rest of the form. Seen on
-        // Duolingo: the plan's id landed on a <div>, the input setter threw,
-        // and every field after it in plan order went unfilled.
-        result = { ok: false, why: `threw ${e && e.message}` };
-      }
-
+    const record = (item, result) => {
+      const { entry, el, value } = item;
       if (result.ok) {
         outline(el, OUTLINE_FILLED, `FirstPlay: ${entry.reason || entry.source}`);
         outcome.filled += 1;
       } else {
         outline(el, OUTLINE_REVIEW, `FirstPlay: could not fill — ${result.why}`);
-        badge(el, `FirstPlay knows this one: ${value} — please pick it (${result.why})`);
+        // Drawing the note must never abort the run.
+        try { badge(el, `FirstPlay knows this one: ${value} — please pick it (${result.why})`); } catch (e) { /* ignore */ }
         outcome.failed += 1;
-        outcome.details.push({ label: entry.label, state: "failed", why: result.why,
-                               value });
+        outcome.details.push({ label: entry.label, state: "failed", why: result.why, value });
       }
+    };
+    // One control that throws must not stop the rest of the form (seen on
+    // Duolingo: the plan's id landed on a <div>, the setter threw, and every
+    // later field went unfilled).
+    const guarded = async (fn) => {
+      try { return await fn(); } catch (e) { return { ok: false, why: `threw ${e && e.message}` }; }
+    };
+
+    // Tier 1: instant.
+    for (const item of work.instant) record(item, await guarded(() => fillControl(item.el, item.entry, item.value)));
+
+    // Tier 2: all react-select lookups at once, then synchronous picks —
+    // after React owns the controls.
+    if (work["react-select"].length) await hydrated(work["react-select"][0].el);
+    const prefetched = await Promise.all(
+      work["react-select"].map((item) => guarded(() => reactSelectOptions(item.el, item.value)).then((r) => (Array.isArray(r) ? r : [])))
+    );
+
+    // Tier 3: start every autocomplete search before picking from any.
+    for (const item of work.autocomplete) {
+      try { startAutocomplete(item.el, item.value); } catch (e) { /* recorded by the pick below */ }
     }
+
+    for (const [i, item] of work["react-select"].entries()) {
+      if (!selectInstanceOf(item.el)) await hydrated(item.el);
+      record(item, await guarded(() => fillReactSelect(item.el, item.value, prefetched[i])));
+      if (item.entry.values.length > 1) await guarded(() => fillControl(item.el, item.entry, item.value));
+    }
+    for (const item of work.autocomplete) record(item, await guarded(() => pickAutocomplete(item.el, item.value)));
+    for (const item of work.listbox) record(item, await guarded(() => fillControl(item.el, item.entry, item.value)));
 
     return outcome;
   }
