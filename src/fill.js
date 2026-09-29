@@ -415,22 +415,62 @@ var FirstPlay = FirstPlay || {};
    * on demand and keep `props.options` empty until then, so typing into the
    * input from a script shows nothing; calling the loader directly does.
    */
+  /**
+   * Loader results by control and term. The same school, degree and
+   * discipline are looked up on every Greenhouse board, so the terms of the
+   * last plan are looked up again as soon as the next board's selects
+   * hydrate — before its plan has arrived — and the plan-time prefetch
+   * finds the promise already here. General Matter's lookups tier was
+   * 863 ms of exactly these calls.
+   */
+  const lookupCache = new Map();
+
+  function lookupKey(input, term) {
+    return `${input.id || input.name || ""}::${normalise(term || "")}`;
+  }
+
   async function loadedOptions(input, term) {
     const loader = optionLoaderOf(input);
     if (!loader) return [];
 
-    let result;
-    try {
-      result = await Promise.race([
-        Promise.resolve(loader(term, () => {})),
-        sleep(8000).then(() => null),
-      ]);
-    } catch (e) {
-      return [];
+    const key = lookupKey(input, term);
+    if (!lookupCache.has(key)) {
+      lookupCache.set(key, (async () => {
+        let result;
+        try {
+          result = await Promise.race([
+            Promise.resolve(loader(term, () => {})),
+            sleep(8000).then(() => null),
+          ]);
+        } catch (e) {
+          return [];
+        }
+        const items = Array.isArray(result) ? result : (result && (result.options || result.items)) || [];
+        return items.flatMap((o) => (Array.isArray(o.options) ? o.options : [o]));
+      })());
     }
+    const options = await lookupCache.get(key);
+    // An empty result is not worth remembering: the retry path re-asks.
+    if (!options.length) lookupCache.delete(key);
+    return options;
+  }
 
-    const items = Array.isArray(result) ? result : (result && (result.options || result.items)) || [];
-    return items.flatMap((o) => (Array.isArray(o.options) ? o.options : [o]));
+  /**
+   * Start the loader lookups for the terms the last plan used, if this
+   * page has the matching controls. Called by the content script as soon as
+   * the page has settled, ahead of the plan. Nothing is written; results
+   * only wait in `lookupCache`.
+   */
+  async function warm(terms) {
+    const started = [];
+    for (const [id, term] of Object.entries(terms || {})) {
+      if (!term) continue;
+      const el = document.getElementById(id);
+      if (!el || !optionLoaderOf(el)) continue;
+      started.push(id);
+      loadedOptions(el, term).catch(() => {});
+    }
+    return started;
   }
 
   /**
@@ -444,8 +484,8 @@ var FirstPlay = FirstPlay || {};
     el.dispatchEvent(new FocusEvent("focusin", { bubbles: true }));
     setNativeValue(el, value);
 
-    for (let i = 0; i < 200; i += 1) {
-      await sleep(40);
+    for (let i = 0; i < 500; i += 1) {
+      await sleep(16);
       const fresh = selectInstanceOf(el) || instance;
       const options = instanceOptions(fresh);
       if (options.length) return options;
@@ -492,6 +532,10 @@ var FirstPlay = FirstPlay || {};
     // default page is the alphabet's start and never holds the answer.
     if (!options.length) { await sleep(300); options = await loadedOptions(el, value); }
     if (!options.length && !optionLoaderOf(el)) options = await loadedOptions(el, "");
+    // A typeahead without a loader (the Location geocoder): type now, so the
+    // network wait sits in the parallel lookups tier, not in the picks.
+    // General Matter's Location took 804 ms inside its pick before this.
+    if (!options.length && !optionLoaderOf(el)) options = await typedOptions(el, instance, value);
     return options;
   }
 
@@ -527,7 +571,17 @@ var FirstPlay = FirstPlay || {};
       return { ok: false, why: "react-select exposes no selection method" };
     }
 
-    // Poll the readback instead of napping a fixed 80 ms.
+    return confirmReactSelect(el, instance, chosen);
+  }
+
+  /**
+   * Wait for a react-select to show or hold the option just selected.
+   * Separate from the pick so that a form's picks can all be fired first and
+   * confirmed together: React commits the state after the call returns, so
+   * every pick otherwise paid one poll interval in turn — Rocket Lab's
+   * thirteen selects spent 581 ms here (0.4.21 tiers), none of them slow.
+   */
+  async function confirmReactSelect(el, instance, chosen) {
     // Readback: what the widget shows, or — when the page is hidden and its
     // rendering lags — what the widget holds. `selectValue` is what react-
     // select submits; the DOM catches up when the tab is visible again.
@@ -547,8 +601,10 @@ var FirstPlay = FirstPlay || {};
       return !!a && (a === b || (a.length >= 2 && b.includes(a)));
     };
     let shown = displayedValue(el);
-    for (let i = 0; i < 50 && !displays(shown) && !held(); i += 1) {
-      await sleep(40);
+    // A microtask first — React often has committed by then — then frames.
+    await Promise.resolve();
+    for (let i = 0; i < 120 && !displays(shown) && !held(); i += 1) {
+      await sleep(16);
       shown = displayedValue(el);
     }
 
@@ -1030,8 +1086,18 @@ var FirstPlay = FirstPlay || {};
     // Tier 2: all react-select lookups at once, then synchronous picks —
     // after React owns the controls.
     if (work["react-select"].length) await hydrated(work["react-select"][0].el);
+    let typedChain = Promise.resolve();
     const prefetched = await Promise.all(
-      work["react-select"].map((item) => guarded(() => reactSelectOptions(item.el, item.value)).then((r) => (Array.isArray(r) ? r : [])))
+      work["react-select"].map((item) => {
+        const typed = selectInstanceOf(item.el) && !instanceOptions(selectInstanceOf(item.el)).length && !optionLoaderOf(item.el);
+        const run = () => guarded(() => reactSelectOptions(item.el, item.value)).then((r) => (Array.isArray(r) ? r : []));
+        if (!typed) return run();
+        // Typeaheads take focus, so they run one after another — but
+        // alongside every loader lookup.
+        const next = typedChain.then(run);
+        typedChain = next.catch(() => []);
+        return next;
+      })
     );
 
     // Tier 3: start every autocomplete search before picking from any.
@@ -1040,9 +1106,18 @@ var FirstPlay = FirstPlay || {};
     }
 
     lap("lookups");
-    for (const [i, item] of work["react-select"].entries()) {
-      if (!selectInstanceOf(item.el)) await hydrated(item.el);
-      record(item, await timed(item, () => guarded(() => fillReactSelect(item.el, item.value, prefetched[i]))));
+    // Pass 1 fires every pick; pass 2 confirms them together. The picks are
+    // synchronous calls on independent widgets; only the confirmations wait.
+    for (const item of work["react-select"]) if (!selectInstanceOf(item.el)) await hydrated(item.el);
+    const picked = work["react-select"].map((item, i) => {
+      try {
+        return { item, pending: fillReactSelect(item.el, item.value, prefetched[i]) };
+      } catch (e) {
+        return { item, pending: Promise.resolve({ ok: false, why: `threw ${e && e.message}` }) };
+      }
+    });
+    for (const { item, pending } of picked) {
+      record(item, await timed(item, () => pending.catch((e) => ({ ok: false, why: `threw ${e && e.message}` }))));
       if (item.entry.values.length > 1) await guarded(() => fillControl(item.el, item.entry, item.value));
     }
     lap("picks");
@@ -1058,6 +1133,7 @@ var FirstPlay = FirstPlay || {};
   }
 
   ns.applyPlan = applyPlan;
+  ns.warm = warm;
   ns.fillFile = fillFile;
   ns.selectInstanceOf = selectInstanceOf;
   ns.displayedValue = displayedValue;

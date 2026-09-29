@@ -164,6 +164,7 @@ async function buildPlan({ posting, controls, page }) {
   if (cacheKey && !payload.model_skipped) {
     chrome.storage.session.set({ [cacheKey]: { at: Date.now(), payload } }).catch(() => {});
   }
+  rememberLookupTerms(payload);
 
   // Reported so an empty profile is distinguishable from a broken resolver.
   // Without it, "0 to fill, 19 need you" looks identical to a bug, and the
@@ -263,6 +264,37 @@ function dryRunSubmitInPage() {
  * the instances to a page-world probe. So fill.js is injected into the main
  * world and applyPlan runs there; the outcome comes back as the result.
  */
+/** The education terms this plan will look up; the next board warms them before its plan arrives. */
+const TERM_CONTROLS = [
+  [/^educations\[0\]\.school_name_id$/, "school--0"],
+  [/^educations\[0\]\.degree_id$/, "degree--0"],
+  [/^educations\[0\]\.discipline_id$/, "discipline--0"],
+];
+
+function rememberLookupTerms(payload) {
+  const entries = (payload && payload.plan && payload.plan.entries) || [];
+  const terms = {};
+  for (const entry of entries) {
+    if (!entry.value || entry.needs_review || entry.skipped) continue;
+    for (const [pattern, id] of TERM_CONTROLS) if (pattern.test(entry.field_key)) terms[id] = entry.value;
+  }
+  if (Object.keys(terms).length) chrome.storage.session.set({ "firstplay.terms": terms }).catch(() => {});
+}
+
+async function warmLookupsInPage(sender) {
+  const stored = await chrome.storage.session.get("firstplay.terms");
+  const terms = stored["firstplay.terms"];
+  if (!terms) return { ok: true, started: [] };
+  const target = { tabId: sender.tab.id, frameIds: [sender.frameId || 0] };
+  await chrome.scripting.executeScript({ target, world: "MAIN", files: ["src/fill.js"] });
+  const results = await chrome.scripting.executeScript({
+    target, world: "MAIN",
+    func: (t) => window.FirstPlay.warm(t),
+    args: [terms],
+  });
+  return { ok: true, started: (results && results[0] && results[0].result) || [] };
+}
+
 async function applyPlanInPage(sender, plan, resume) {
   const target = { tabId: sender.tab.id, frameIds: [sender.frameId || 0] };
   await chrome.scripting.executeScript({ target, world: "MAIN", files: ["src/fill.js"] });
@@ -284,6 +316,12 @@ async function dryRunCheck(sender) {
 }
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+  if (message.kind === "warmLookups") {
+    warmLookupsInPage(_sender)
+      .then((r) => sendResponse(r))
+      .catch((e) => sendResponse({ ok: false, why: e.message }));
+    return true;
+  }
   if (message.kind === "applyPlan") {
     applyPlanInPage(_sender, message.plan, message.resume)
       .then((outcome) => sendResponse({ ok: !!outcome, outcome }))
