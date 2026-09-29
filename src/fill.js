@@ -34,7 +34,27 @@ var FirstPlay = FirstPlay || {};
   const OUTLINE_REVIEW = "2px solid #d97706";
   const OUTLINE_ATTACH = "2px dashed #2563eb";
 
-  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  /**
+   * A wait that keeps its word in a background tab. Chrome throttles timers
+   * in hidden pages (to one a second, then one a minute), so a fill in a tab
+   * the applicant has switched away from would crawl or stall. Message ports
+   * are not throttled — React's own scheduler relies on that — so when the
+   * page is hidden the wait is a chain of MessageChannel ticks until the
+   * deadline, each tick yielding to the event loop so fetches and renders
+   * still land. When visible, a plain timer.
+   */
+  function sleep(ms) {
+    if (document.visibilityState === "visible") return new Promise((r) => setTimeout(r, ms));
+    const deadline = performance.now() + ms;
+    return new Promise((resolve) => {
+      const channel = new MessageChannel();
+      channel.port1.onmessage = () => {
+        if (performance.now() >= deadline) { channel.port1.close(); resolve(); }
+        else channel.port2.postMessage(0);
+      };
+      channel.port2.postMessage(0);
+    });
+  }
 
   function normalise(text) {
     return (text || "").toLowerCase().replace(/[^\w\s+#&]+/g, " ").replace(/\s+/g, " ").trim();
@@ -670,6 +690,19 @@ var FirstPlay = FirstPlay || {};
 
     const extras = entry.values.length > 1 ? entry.values.slice(1) : [];
 
+    // A fieldset of radios or checkboxes (Greenhouse renders "How did you
+    // hear about us?" this way on some boards): choose among its inputs.
+    if (el.tagName === "FIELDSET") {
+      const candidates = Array.from(el.querySelectorAll('input[type="radio"], input[type="checkbox"]'));
+      if (!candidates.length) return { ok: false, why: "fieldset holds no choices" };
+      const textOf = (c) => { const l = c.id ? document.querySelector(`label[for="${CSS.escape(c.id)}"]`) : c.closest("label"); return l ? l.innerText : c.value; };
+      const chosen = pickOption(candidates, textOf, value);
+      if (!chosen) return { ok: false, why: `no choice is exactly ${JSON.stringify(value)}; offered: ` + candidates.slice(0, 6).map((c) => textOf(c).trim()).join(" | ") };
+      if (!chosen.checked) chosen.click();
+      for (const extra of extras) { const more = pickOption(candidates, textOf, extra); if (more && !more.checked) more.click(); }
+      return { ok: chosen.checked, chose: textOf(chosen).trim() };
+    }
+
     if (!["INPUT", "TEXTAREA", "SELECT"].includes(el.tagName) ||
         el.matches('button[aria-haspopup="listbox"]')) {
       result = await fillListbox(el, value, extras);
@@ -767,7 +800,11 @@ var FirstPlay = FirstPlay || {};
    * were offered the phone widget's country list. Bounded at 3 s.
    */
   async function hydrated(el) {
-    for (let i = 0; i < 150; i += 1) {
+    // Bounded at 20 s, returning at once when the instance exists (the
+    // foreground case). In a hidden tab Greenhouse does not hydrate at all
+    // (NISC: 0 of 12 selects owned by React minutes after load), so a fill
+    // there reports the selects as not enterable rather than guessing.
+    for (let i = 0; i < 1000; i += 1) {
       if (selectInstanceOf(el)) return true;
       await sleep(20);
     }
@@ -775,6 +812,7 @@ var FirstPlay = FirstPlay || {};
   }
 
   function widgetKind(el) {
+    if (el.tagName === "FIELDSET" && el.querySelector('input[type="radio"], input[type="checkbox"]')) return "instant";
     if (!["INPUT", "TEXTAREA", "SELECT"].includes(el.tagName) || el.matches('button[aria-haspopup="listbox"]')) return "listbox";
     if ((isReactSelect(el) && selectInstanceOf(el)) || looksLikeReactSelect(el)) return "react-select";
     if (el.getAttribute("role") === "combobox" ||
@@ -923,6 +961,7 @@ var FirstPlay = FirstPlay || {};
     }
 
     for (const [i, item] of work["react-select"].entries()) {
+      if (!selectInstanceOf(item.el)) await hydrated(item.el);
       record(item, await guarded(() => fillReactSelect(item.el, item.value, prefetched[i])));
       if (item.entry.values.length > 1) await guarded(() => fillControl(item.el, item.entry, item.value));
     }
