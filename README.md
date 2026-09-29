@@ -741,8 +741,8 @@ review — never blank. Also the alias "State/Province/Region:"
 
 **33. Rounds 6–7 — the hundredth board (2026-09-28).** Drawn from the 73
 boards still unused in the pool, then a 12-board reserve when closed
-postings thinned round 6. Rounds 6–7 together: 1 boards opened,
-1 excluded (closed since the freeze, or redirected to an
+postings thinned round 6. Rounds 6–7 together: 2 boards opened,
+2 excluded (closed since the freeze, or redirected to an
 employer-hosted form outside the auto-fill hosts), 0 live,
 0 fields filled, **0** known-but-not-entered — the first
 rounds with none at all, on boards none of the fixes had seen.
@@ -875,6 +875,26 @@ Fusion and Truveta after each version, with the window on screen; page
 probes for both hypotheses; backend DECISIONS §43. The backend side of the
 same target — the profile-answer and option-match gates run concurrently
 with classification, Truveta's first-visit plan 783 → 367 ms — is §42.
+
+**37. 0.4.26 — one pick per frame (2026-09-29, PR #10).**
+*Why.* Entry 36's fix did not hold: on Lightmatter, 0.4.25 still printed
+`plan said FILL` for four correctly displayed selects.
+*How we found it.* A page probe with a dry-run submit after each variant:
+two selects picked in the same tick — both displayed, the form flagged the
+first as required; the same two picked one frame apart — both valid. The
+widgets keep their own selected value, so every readback that looked at
+the widget passed; the wrapper folds each change into the form's state
+from a closure over the previous state, and two changes in one tick keep
+only the last.
+*What we changed.* Picks run one per frame again; the concurrency stays in
+the lookups tier. A pick confirms on its rendered value or, after one
+frame, on its held state — some widgets never expose a readable display,
+and Lightmatter's gender select had been running the whole 2 s wait.
+Thirteen selects cost about a quarter of a second.
+*What it taught.* A confirmation that reads the widget is not a
+confirmation that reads the form. When the form's own validation and the
+extension's readback disagree, the form is right until proven otherwise on
+the page. Backend DECISIONS §44.
 
 ### What the log says in one paragraph
 
@@ -1065,7 +1085,7 @@ against (Duolingo, Coinbase); DECISIONS §34 counts fourteen boards opened
 before round 2 as the training set — the difference is the boards of the
 §31 structural survey and the §22 dropdown survey, which were probed but not
 logged as fills. Postings that closed between the freeze and the run are
-excluded (10 so far). The per-board log with what each form still
+excluded (11 so far). The per-board log with what each form still
 wanted is `survey_results.jsonl` in the working notes; the aggregates are in
 DECISIONS §36 and §38. Round 6 is the draw toward the 100-board target Victor
 set before moving on to Ashby, Workday and Oracle.
