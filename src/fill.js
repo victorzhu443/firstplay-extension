@@ -926,10 +926,25 @@ var FirstPlay = FirstPlay || {};
   }
 
   async function applyPlan(plan, context = {}) {
-    const outcome = { filled: 0, attach: 0, review: 0, failed: 0, missing: 0, details: [] };
+    const outcome = { filled: 0, attach: 0, review: 0, failed: 0, missing: 0, details: [], timing: {}, slow: [] };
     const work = { instant: [], "react-select": [], autocomplete: [], listbox: [] };
 
+    // Where the fill's time goes, per tier, and the slowest controls: the
+    // applicant's target is a fill under one second, and a number per tier is
+    // the only way to know which tier is over it.
+    const t0 = performance.now();
+    let tMark = t0;
+    const lap = (name) => { const now = performance.now(); outcome.timing[name] = Math.round(now - tMark); tMark = now; };
+    const timed = async (item, fn) => {
+      const started = performance.now();
+      const result = await fn();
+      const ms = Math.round(performance.now() - started);
+      if (ms >= 300) outcome.slow.push({ label: (item.entry.label || item.entry.field_key || "").slice(0, 50), kind: widgetKind(item.el), ms });
+      return result;
+    };
+
     await pageReady();
+    lap("ready");
 
     const raceEntry = plan.entries.find((e) => e.field_key === "race" && e.value && !e.needs_review && !e.skipped);
     if (raceEntry && (await revealRace(raceEntry))) outcome.details.push({ label: "Hispanic/Latino", state: "answered from your stored race" });
@@ -1009,7 +1024,8 @@ var FirstPlay = FirstPlay || {};
     };
 
     // Tier 1: instant.
-    for (const item of work.instant) record(item, await guarded(() => fillControl(item.el, item.entry, item.value)));
+    for (const item of work.instant) record(item, await timed(item, () => guarded(() => fillControl(item.el, item.entry, item.value))));
+    lap("instant");
 
     // Tier 2: all react-select lookups at once, then synchronous picks —
     // after React owns the controls.
@@ -1023,13 +1039,20 @@ var FirstPlay = FirstPlay || {};
       try { startAutocomplete(item.el, item.value); } catch (e) { /* recorded by the pick below */ }
     }
 
+    lap("lookups");
     for (const [i, item] of work["react-select"].entries()) {
       if (!selectInstanceOf(item.el)) await hydrated(item.el);
-      record(item, await guarded(() => fillReactSelect(item.el, item.value, prefetched[i])));
+      record(item, await timed(item, () => guarded(() => fillReactSelect(item.el, item.value, prefetched[i]))));
       if (item.entry.values.length > 1) await guarded(() => fillControl(item.el, item.entry, item.value));
     }
-    for (const item of work.autocomplete) record(item, await guarded(() => pickAutocomplete(item.el, item.value)));
-    for (const item of work.listbox) record(item, await guarded(() => fillControl(item.el, item.entry, item.value)));
+    lap("picks");
+    for (const item of work.autocomplete) record(item, await timed(item, () => guarded(() => pickAutocomplete(item.el, item.value))));
+    lap("autocomplete");
+    for (const item of work.listbox) record(item, await timed(item, () => guarded(() => fillControl(item.el, item.entry, item.value))));
+    lap("listbox");
+    outcome.timing.total = Math.round(performance.now() - t0);
+    outcome.slow.sort((a, b) => b.ms - a.ms);
+    outcome.slow = outcome.slow.slice(0, 5);
 
     return outcome;
   }

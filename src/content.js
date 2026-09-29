@@ -220,6 +220,11 @@
       `${TAG} timing: page settled ${secs(tSettled - t0)} · plan ready ${secs(tPlanned - t0)}${backendNote}` +
         ` · filled ${secs(tApplied - tPlanned)} · total ${secs(tApplied - t0)}`
     );
+    if (outcome.timing && outcome.timing.total !== undefined) {
+      const tiers = Object.entries(outcome.timing).map(([k, v]) => `${k} ${v}ms`).join(" · ");
+      const slow = (outcome.slow || []).map((s) => `${s.label} [${s.kind}] ${s.ms}ms`).join("; ");
+      console.log(`${TAG} fill tiers: ${tiers}${slow ? ` · slowest: ${slow}` : ""}`);
+    }
 
     if (outcome.failed) {
       console.warn(
