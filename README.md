@@ -4,8 +4,8 @@ Fills job applications from answers you have already given, on the real form,
 in about two seconds. You review what it wrote and you press Submit. **It never
 submits for you.**
 
-Measured so far on **111 live Greenhouse postings** on boards never opened
-before (a fresh draw every round): **1771 fields filled**, **21 cases** where
+Measured so far on **116 live Greenhouse postings** on boards never opened
+before (a fresh draw every round): **1849 fields filled**, **21 cases** where
 it knew the answer but could not enter it — all 21 on three boards whose
 defects are fixed and recorded below. What a form still asks for after a fill
 is essays, consent boxes and one-off questions ("which office?", "can you lift
@@ -741,10 +741,10 @@ review — never blank. Also the alias "State/Province/Region:"
 
 **33. Rounds 6–7 — the hundredth board (2026-09-28).** Drawn from the 73
 boards still unused in the pool, then a 12-board reserve when closed
-postings thinned round 6. Rounds 6–7 together: 2 boards opened,
-2 excluded (closed since the freeze, or redirected to an
-employer-hosted form outside the auto-fill hosts), 0 live,
-0 fields filled, **0** known-but-not-entered — the first
+postings thinned round 6. Rounds 6–7 together: 12 boards opened,
+7 excluded (closed since the freeze, or redirected to an
+employer-hosted form outside the auto-fill hosts), 5 live,
+78 fields filled, **0** known-but-not-entered — the first
 rounds with none at all, on boards none of the fixes had seen.
 *What went wrong.* Nothing in the widget layer. The `form wants:` lines
 found four gaps in the *answers*: DRW asks "Legal First Name" / "Legal Last
@@ -895,6 +895,28 @@ Thirteen selects cost about a quarter of a second.
 confirmation that reads the form. When the form's own validation and the
 extension's readback disagree, the form is right until proven otherwise on
 the page. Backend DECISIONS §44.
+
+**38. Round 10 and the Greenhouse close-out (2026-09-29).**
+*Why.* Victor asked whether Greenhouse was done. The confirmation set on
+0.4.26 (Lightmatter, Pacific Fusion, Rocket Lab) showed zero false
+"required" flags and fills of 0.4–0.9 s, so the last open verification
+closed.
+*New postings.* The original pool was exhausted, so round 10 drew from the
+Simplify Summer 2026 and New-Grad lists, never sampled before. Four of the
+first six intern postings had closed since listing; the New-Grad list,
+liveness-checked against the board API first, gave 77 live boards. Five
+ran before the window was covered: GITAI 15, Cloudflare 17, Katalyst 12,
+OpenTable 16, Insurify 18 — 78 filled, 0 known-but-not-entered, no false
+flags. New-grad forms ask the same shapes in different words.
+*What went wrong.* Rocket Lab covered mid-fill spent 25.6 s in picks (2 s
+display cap per select with nothing rendering) — 0.4.27 caps the wait at
+twelve frames when hidden. OpenTable's lookups tier took 8.7 s because one
+loader never answered and the race was 8 s — 0.4.28 gives up at 3 s and
+names slow lookups in the console.
+*Whole run.* 132 boards opened, 16 excluded, 116 live: 1,849 fields filled,
+21 known-but-not-entered in total and 0 since 0.4.19 across 64 consecutive
+unseen boards. Fill 0.1–0.4 s without a geocoder, ~0.8–0.9 s with one.
+Backend DECISIONS §45. Next: Ashby, same protocol.
 
 ### What the log says in one paragraph
 
@@ -1077,15 +1099,15 @@ the only number that measures the extension rather than the profile.
 | 6 | 35 | 593 | 0 | — |
 | 7 | 3 | 48 | 0 | — |
 | 9 | 10 | 146 | 0 | — |
-| 10 | 0 | 0 | 0 | — |
-| **all** | **111** | **1771** | **21** | |
+| 10 | 5 | 78 | 0 | — |
+| **all** | **116** | **1849** | **21** | |
 
 Round 1 in the ledger holds the two boards the extension was developed
 against (Duolingo, Coinbase); DECISIONS §34 counts fourteen boards opened
 before round 2 as the training set — the difference is the boards of the
 §31 structural survey and the §22 dropdown survey, which were probed but not
 logged as fills. Postings that closed between the freeze and the run are
-excluded (11 so far). The per-board log with what each form still
+excluded (16 so far). The per-board log with what each form still
 wanted is `survey_results.jsonl` in the working notes; the aggregates are in
 DECISIONS §36 and §38. Round 6 is the draw toward the 100-board target Victor
 set before moving on to Ashby, Workday and Oracle.
