@@ -438,9 +438,11 @@ var FirstPlay = FirstPlay || {};
       lookupCache.set(key, (async () => {
         let result;
         try {
+          // 3 s, not 8: a loader that hangs held OpenTable's whole lookups
+          // tier for 8.7 s. The pick retries the term once more anyway.
           result = await Promise.race([
             Promise.resolve(loader(term, () => {})),
-            sleep(8000).then(() => null),
+            sleep(3000).then(() => null),
           ]);
         } catch (e) {
           return [];
@@ -1005,16 +1007,18 @@ var FirstPlay = FirstPlay || {};
     const t0 = performance.now();
     let tMark = t0;
     const lap = (name) => { const now = performance.now(); outcome.timing[name] = Math.round(now - tMark); tMark = now; };
+    let phase = "instant";
     const timed = async (item, fn) => {
       const started = performance.now();
       const result = await fn();
       const ms = Math.round(performance.now() - started);
-      if (ms >= 300) outcome.slow.push({ label: (item.entry.label || item.entry.field_key || "").slice(0, 50), kind: widgetKind(item.el), ms });
+      if (ms >= 300) outcome.slow.push({ label: (item.entry.label || item.entry.field_key || "").slice(0, 50), kind: `${widgetKind(item.el)} ${phase}`, ms });
       return result;
     };
 
     await pageReady();
     lap("ready");
+    phase = "instant";
 
     const raceEntry = plan.entries.find((e) => e.field_key === "race" && e.value && !e.needs_review && !e.skipped);
     if (raceEntry && (await revealRace(raceEntry))) outcome.details.push({ label: "Hispanic/Latino", state: "answered from your stored race" });
@@ -1096,6 +1100,7 @@ var FirstPlay = FirstPlay || {};
     // Tier 1: instant.
     for (const item of work.instant) record(item, await timed(item, () => guarded(() => fillControl(item.el, item.entry, item.value))));
     lap("instant");
+    phase = "lookup";
 
     // Tier 2: all react-select lookups at once, then synchronous picks —
     // after React owns the controls.
@@ -1104,7 +1109,7 @@ var FirstPlay = FirstPlay || {};
     const prefetched = await Promise.all(
       work["react-select"].map((item) => {
         const typed = selectInstanceOf(item.el) && !instanceOptions(selectInstanceOf(item.el)).length && !optionLoaderOf(item.el);
-        const run = () => guarded(() => reactSelectOptions(item.el, item.value)).then((r) => (Array.isArray(r) ? r : []));
+        const run = () => timed(item, () => guarded(() => reactSelectOptions(item.el, item.value))).then((r) => (Array.isArray(r) ? r : []));
         if (!typed) return run();
         // Typeaheads take focus, so they run one after another — but
         // alongside every loader lookup.
@@ -1120,6 +1125,7 @@ var FirstPlay = FirstPlay || {};
     }
 
     lap("lookups");
+    phase = "pick";
     // One pick per frame, never two in one tick. Greenhouse's wrapper folds
     // each change into the form's state from a closure over the previous
     // state: two picks fired in the same tick both *display* (the widgets
