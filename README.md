@@ -4,8 +4,8 @@ Fills job applications from answers you have already given, on the real form,
 in about two seconds. You review what it wrote and you press Submit. **It never
 submits for you.**
 
-Measured so far on **75 live Greenhouse postings** on boards never opened
-before (a fresh draw every round): **1172 fields filled**, **21 cases** where
+Measured so far on **101 live Greenhouse postings** on boards never opened
+before (a fresh draw every round): **1625 fields filled**, **21 cases** where
 it knew the answer but could not enter it — all 21 on three boards whose
 defects are fixed and recorded below. What a form still asks for after a fill
 is essays, consent boxes and one-off questions ("which office?", "can you lift
@@ -739,14 +739,35 @@ answered "No" from the stored fact, truthfully) and otherwise goes to
 review — never blank. Also the alias "State/Province/Region:"
 (TransMarket). Two tests pin both cases.
 
-**33. Round 6 — in progress.** Drawn from the 73 boards still unused in the
-pool; running as this is written. So far: 14 boards logged,
-2 closed since the freeze, 12 live, 188 fields
-filled, 0 known-but-not-entered. Boards: radixuniversity, mercury (closed), vardaspace, digs (closed), sevenresearch, medicalinformaticsengineering, covar, eudia, perpay, samayaai, asteraearlycareer2026, spacex, smartlyio, fccincinnati. The
-remaining wants are of the same kinds as round 5 (essays, consents, career
-fair, years of experience, a GPA-range select, office multi-selects); SpaceX
-alone wanted 14 bespoke fields (per-language experience, SAT/ACT, program
-preference) after 29 fills.
+**33. Rounds 6–7 — the hundredth board (2026-09-28).** Drawn from the 73
+boards still unused in the pool, then a 12-board reserve when closed
+postings thinned round 6. Rounds 6–7 together: 4 boards opened,
+1 excluded (closed since the freeze, or redirected to an
+employer-hosted form outside the auto-fill hosts), 3 live,
+48 fields filled, **0** known-but-not-entered — the first
+rounds with none at all, on boards none of the fixes had seen.
+*What went wrong.* Nothing in the widget layer. The `form wants:` lines
+found four gaps in the *answers*: DRW asks "Legal First Name" / "Legal Last
+Name" as custom questions beside the standard ones; Visier's Canadian form
+says "Province/State"; Xaira's required sponsorship conditional and
+Compeer's required "if yes, explain" (entry 32) were re-verified fixed.
+*How we found it.* The same readback as every round; each gap was checked
+against the board's public schema before an alias was added.
+*What we changed.* Three aliases with a resolution check (backend PR #19,
+same branch as the conditional fix); backend restarted; Xaira re-run through
+the installed extension: 19 filled where it had been 18, and the
+conditional gone from the form's wants.
+*Whole run.* 110 boards opened, 101 live, 1,625 fields filled, 21
+known-but-not-entered in total — 1 Coinbase-era (0.4.6), 1 Pacific Fusion
+(0.4.18), 19 Lightmatter (0.4.19) — and 0 across the 38 boards run after
+0.4.19. 29 of the 101 forms wanted nothing more after the fill. The 184
+remaining wants, classified by hand: 58 bespoke per-company questions, 26
+essays, 15 consents, 14 office preferences, 14 availability/term questions,
+13 profile or alias gaps (6 fixed in the run), 13 custom self-identification
+wordings (never inferred, by rule), 12 source/referral variants, 10 academic
+details not in the profile, 5 pay expectations, 4 clearances. The decision
+record is backend DECISIONS §39; the next platform is Ashby, on the same
+protocol.
 
 ### What the log says in one paragraph
 
@@ -926,22 +947,23 @@ the only number that measures the extension rather than the profile.
 | 3 | 9 | 149 | 0 | — |
 | 4 | 17 | 252 | 1 | pacificfusion |
 | 5 | 23 | 355 | 19 | lightmatter |
-| 6 (in progress) | 12 | 188 | 0 | — |
-| **all** | **75** | **1172** | **21** | |
+| 6 | 35 | 593 | 0 | — |
+| 7 (in progress) | 3 | 48 | 0 | — |
+| **all** | **101** | **1625** | **21** | |
 
 Round 1 in the ledger holds the two boards the extension was developed
 against (Duolingo, Coinbase); DECISIONS §34 counts fourteen boards opened
 before round 2 as the training set — the difference is the boards of the
 §31 structural survey and the §22 dropdown survey, which were probed but not
 logged as fills. Postings that closed between the freeze and the run are
-excluded (5 so far). The per-board log with what each form still
+excluded (9 so far). The per-board log with what each form still
 wanted is `survey_results.jsonl` in the working notes; the aggregates are in
 DECISIONS §36 and §38. Round 6 is the draw toward the 100-board target Victor
 set before moving on to Ashby, Workday and Oracle.
 
 ---
 
-## 6. Notes for whoever edits this next
+## 7. Notes for whoever edits this next
 
 - **Content scripts are classic scripts.** An `export` in one is a syntax
   error at load and the script silently never runs, which looks exactly like
