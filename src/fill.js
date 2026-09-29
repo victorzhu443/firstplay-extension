@@ -833,9 +833,21 @@ var FirstPlay = FirstPlay || {};
     // foreground case). In a hidden tab Greenhouse does not hydrate at all
     // (NISC: 0 of 12 selects owned by React minutes after load), so a fill
     // there reports the selects as not enterable rather than guessing.
-    for (let i = 0; i < 1000; i += 1) {
+    // The budget counts only while the page is visible: Greenhouse pauses
+    // hydration when the tab is hidden, and a tab that flickered visible for
+    // a moment (Lightmatter, round 5) must not burn its 20 s in the dark.
+    let spent = 0;
+    while (spent < 1000) {
       if (selectInstanceOf(el)) return true;
+      if (document.hidden) {
+        await new Promise((resolve) => {
+          const onShow = () => { if (!document.hidden) { document.removeEventListener("visibilitychange", onShow); resolve(); } };
+          document.addEventListener("visibilitychange", onShow);
+        });
+        continue;
+      }
       await sleep(20);
+      spent += 1;
     }
     return false;
   }
