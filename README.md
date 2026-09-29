@@ -948,7 +948,7 @@ the only number that measures the extension rather than the profile.
 | 4 | 17 | 252 | 1 | pacificfusion |
 | 5 | 23 | 355 | 19 | lightmatter |
 | 6 | 35 | 593 | 0 | — |
-| 7 (in progress) | 3 | 48 | 0 | — |
+| 7 | 3 | 48 | 0 | — |
 | **all** | **101** | **1625** | **21** | |
 
 Round 1 in the ledger holds the two boards the extension was developed
