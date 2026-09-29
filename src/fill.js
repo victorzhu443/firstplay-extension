@@ -34,7 +34,27 @@ var FirstPlay = FirstPlay || {};
   const OUTLINE_REVIEW = "2px solid #d97706";
   const OUTLINE_ATTACH = "2px dashed #2563eb";
 
-  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  /**
+   * A wait that keeps its word in a background tab. Chrome throttles timers
+   * in hidden pages (to one a second, then one a minute), so a fill in a tab
+   * the applicant has switched away from would crawl or stall. Message ports
+   * are not throttled — React's own scheduler relies on that — so when the
+   * page is hidden the wait is a chain of MessageChannel ticks until the
+   * deadline, each tick yielding to the event loop so fetches and renders
+   * still land. When visible, a plain timer.
+   */
+  function sleep(ms) {
+    if (document.visibilityState === "visible") return new Promise((r) => setTimeout(r, ms));
+    const deadline = performance.now() + ms;
+    return new Promise((resolve) => {
+      const channel = new MessageChannel();
+      channel.port1.onmessage = () => {
+        if (performance.now() >= deadline) { channel.port1.close(); resolve(); }
+        else channel.port2.postMessage(0);
+      };
+      channel.port2.postMessage(0);
+    });
+  }
 
   function normalise(text) {
     return (text || "").toLowerCase().replace(/[^\w\s+#&]+/g, " ").replace(/\s+/g, " ").trim();
@@ -137,6 +157,10 @@ var FirstPlay = FirstPlay || {};
   }
 
   const GREENHOUSE_EDUCATION_IDS = [
+    // The location block's submitted name is `location`; the standard
+    // renderer's control is `candidate-location` (Mill, Clockwork, Garda,
+    // Verkada all left "Location (City)" wanting until this line).
+    [/^location$/, "candidate-location"],
     [/^educations\[(\d+)\]\.school_name_id$/, "school--$1"],
     [/^educations\[(\d+)\]\.degree_id$/, "degree--$1"],
     [/^educations\[(\d+)\]\.discipline_id$/, "discipline--$1"],
@@ -462,7 +486,12 @@ var FirstPlay = FirstPlay || {};
     if (!instance) return [];
     let options = instanceOptions(instance);
     if (!options.length) options = await loadedOptions(el, value);
-    if (!options.length) options = await loadedOptions(el, "");
+    // A typeahead's lookup can come back empty for a moment (Pacific Fusion:
+    // the school search returned nothing once, then "Cornell University" on
+    // the next call). Retry the term before touching the default page — the
+    // default page is the alphabet's start and never holds the answer.
+    if (!options.length) { await sleep(300); options = await loadedOptions(el, value); }
+    if (!options.length && !optionLoaderOf(el)) options = await loadedOptions(el, "");
     return options;
   }
 
@@ -473,7 +502,10 @@ var FirstPlay = FirstPlay || {};
 
     let options = prefetched && prefetched.length ? prefetched : instanceOptions(instance);
     if (!options.length) options = await loadedOptions(el, value);
-    if (!options.length) options = await loadedOptions(el, "");
+    if (!options.length) { await sleep(300); options = await loadedOptions(el, value); }
+    if (!options.length && optionLoaderOf(el)) {
+      return { ok: false, why: `the form's lookup returned nothing for ${JSON.stringify(value)} — try again` };
+    }
     if (!options.length) options = await typedOptions(el, instance, value);
     const chosen = pickOption(options, optionText, value);
 
@@ -496,14 +528,31 @@ var FirstPlay = FirstPlay || {};
     }
 
     // Poll the readback instead of napping a fixed 80 ms.
+    // Readback: what the widget shows, or — when the page is hidden and its
+    // rendering lags — what the widget holds. `selectValue` is what react-
+    // select submits; the DOM catches up when the tab is visible again.
     const expected = optionText(chosen);
+    const held = () => {
+      const fresh = selectInstanceOf(el) || instance;
+      const state = (fresh.state && fresh.state.selectValue) || [];
+      const value = fresh.props && fresh.props.value;
+      const values = Array.isArray(state) && state.length ? state : (Array.isArray(value) ? value : value ? [value] : []);
+      return values.some((v) => normalise(optionText(v)) === normalise(expected));
+    };
+    // The phone-country select shows only the dial code ("+1") for the option
+    // "United States +1": a display that is a non-empty part of the chosen
+    // option's text counts as the option shown.
+    const displays = (shownText) => {
+      const a = normalise(shownText), b = normalise(expected);
+      return !!a && (a === b || (a.length >= 2 && b.includes(a)));
+    };
     let shown = displayedValue(el);
-    for (let i = 0; i < 20 && normalise(shown) !== normalise(expected); i += 1) {
+    for (let i = 0; i < 50 && !displays(shown) && !held(); i += 1) {
       await sleep(40);
       shown = displayedValue(el);
     }
 
-    if (normalise(shown) !== normalise(expected)) {
+    if (!displays(shown) && !held()) {
       return { ok: false, why: `selected ${JSON.stringify(expected)} but widget shows ` +
         JSON.stringify(shown) };
     }
@@ -670,6 +719,19 @@ var FirstPlay = FirstPlay || {};
 
     const extras = entry.values.length > 1 ? entry.values.slice(1) : [];
 
+    // A fieldset of radios or checkboxes (Greenhouse renders "How did you
+    // hear about us?" this way on some boards): choose among its inputs.
+    if (el.tagName === "FIELDSET") {
+      const candidates = Array.from(el.querySelectorAll('input[type="radio"], input[type="checkbox"]'));
+      if (!candidates.length) return { ok: false, why: "fieldset holds no choices" };
+      const textOf = (c) => { const l = c.id ? document.querySelector(`label[for="${CSS.escape(c.id)}"]`) : c.closest("label"); return l ? l.innerText : c.value; };
+      const chosen = pickOption(candidates, textOf, value);
+      if (!chosen) return { ok: false, why: `no choice is exactly ${JSON.stringify(value)}; offered: ` + candidates.slice(0, 6).map((c) => textOf(c).trim()).join(" | ") };
+      if (!chosen.checked) chosen.click();
+      for (const extra of extras) { const more = pickOption(candidates, textOf, extra); if (more && !more.checked) more.click(); }
+      return { ok: chosen.checked, chose: textOf(chosen).trim() };
+    }
+
     if (!["INPUT", "TEXTAREA", "SELECT"].includes(el.tagName) ||
         el.matches('button[aria-haspopup="listbox"]')) {
       result = await fillListbox(el, value, extras);
@@ -767,14 +829,31 @@ var FirstPlay = FirstPlay || {};
    * were offered the phone widget's country list. Bounded at 3 s.
    */
   async function hydrated(el) {
-    for (let i = 0; i < 150; i += 1) {
+    // Bounded at 20 s, returning at once when the instance exists (the
+    // foreground case). In a hidden tab Greenhouse does not hydrate at all
+    // (NISC: 0 of 12 selects owned by React minutes after load), so a fill
+    // there reports the selects as not enterable rather than guessing.
+    // The budget counts only while the page is visible: Greenhouse pauses
+    // hydration when the tab is hidden, and a tab that flickered visible for
+    // a moment (Lightmatter, round 5) must not burn its 20 s in the dark.
+    let spent = 0;
+    while (spent < 1000) {
       if (selectInstanceOf(el)) return true;
+      if (document.hidden) {
+        await new Promise((resolve) => {
+          const onShow = () => { if (!document.hidden) { document.removeEventListener("visibilitychange", onShow); resolve(); } };
+          document.addEventListener("visibilitychange", onShow);
+        });
+        continue;
+      }
       await sleep(20);
+      spent += 1;
     }
     return false;
   }
 
   function widgetKind(el) {
+    if (el.tagName === "FIELDSET" && el.querySelector('input[type="radio"], input[type="checkbox"]')) return "instant";
     if (!["INPUT", "TEXTAREA", "SELECT"].includes(el.tagName) || el.matches('button[aria-haspopup="listbox"]')) return "listbox";
     if ((isReactSelect(el) && selectInstanceOf(el)) || looksLikeReactSelect(el)) return "react-select";
     if (el.getAttribute("role") === "combobox" ||
@@ -827,9 +906,30 @@ var FirstPlay = FirstPlay || {};
     return document.getElementById("race");
   }
 
+  /**
+   * Do not write into a form React has not taken over yet. Greenhouse's
+   * standard form hydrates lazily and not at all while its tab is hidden;
+   * a fill that lands first is wiped when hydration re-renders (Schonfeld,
+   * round 3: 9 green outlines, then none). So: if the tab is hidden, wait
+   * for it to be shown — postings opened in background tabs fill the moment
+   * they are looked at — and then wait for the selects to be owned.
+   */
+  async function pageReady() {
+    if (document.hidden) {
+      await new Promise((resolve) => {
+        const onShow = () => { if (!document.hidden) { document.removeEventListener("visibilitychange", onShow); resolve(); } };
+        document.addEventListener("visibilitychange", onShow);
+      });
+    }
+    const selects = document.querySelectorAll(".select__input");
+    if (selects.length) await hydrated(selects[selects.length - 1]);
+  }
+
   async function applyPlan(plan, context = {}) {
     const outcome = { filled: 0, attach: 0, review: 0, failed: 0, missing: 0, details: [] };
     const work = { instant: [], "react-select": [], autocomplete: [], listbox: [] };
+
+    await pageReady();
 
     const raceEntry = plan.entries.find((e) => e.field_key === "race" && e.value && !e.needs_review && !e.skipped);
     if (raceEntry && (await revealRace(raceEntry))) outcome.details.push({ label: "Hispanic/Latino", state: "answered from your stored race" });
@@ -895,7 +995,8 @@ var FirstPlay = FirstPlay || {};
         outcome.filled += 1;
       } else {
         outline(el, OUTLINE_REVIEW, `FirstPlay: could not fill — ${result.why}`);
-        badge(el, `FirstPlay knows this one: ${value} — please pick it (${result.why})`);
+        // Drawing the note must never abort the run.
+        try { badge(el, `FirstPlay knows this one: ${value} — please pick it (${result.why})`); } catch (e) { /* ignore */ }
         outcome.failed += 1;
         outcome.details.push({ label: entry.label, state: "failed", why: result.why, value });
       }
@@ -923,6 +1024,7 @@ var FirstPlay = FirstPlay || {};
     }
 
     for (const [i, item] of work["react-select"].entries()) {
+      if (!selectInstanceOf(item.el)) await hydrated(item.el);
       record(item, await guarded(() => fillReactSelect(item.el, item.value, prefetched[i])));
       if (item.entry.values.length > 1) await guarded(() => fillControl(item.el, item.entry, item.value));
     }
