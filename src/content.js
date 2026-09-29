@@ -66,6 +66,22 @@
    * than scrolling to force rendering, which froze the renderer on a live
    * Notion posting — waits exactly as long as the page needs and no longer.
    */
+  // A tab hidden for more than five minutes gets Chrome's intensive timer
+  // throttling: setTimeout fires about once a minute, and a 250 ms settle
+  // loop takes ten. A MessageChannel message is not throttled; fill.js
+  // already sleeps this way when hidden (0.4.16), and so does this loop now.
+  function pause(ms) {
+    if (!document.hidden) return new Promise((r) => setTimeout(r, ms));
+    return new Promise((resolve) => {
+      const started = performance.now();
+      const channel = new MessageChannel();
+      channel.port1.onmessage = () => {
+        if (performance.now() - started >= ms) resolve(); else channel.port2.postMessage(0);
+      };
+      channel.port2.postMessage(0);
+    });
+  }
+
   async function settledControls() {
     let previous = -1;
     let stableFor = 0;
@@ -75,7 +91,7 @@
       stableFor = controls.length === previous && controls.length > 0 ? stableFor + 1 : 0;
       if (stableFor >= 1) return controls;
       previous = controls.length;
-      await new Promise((r) => setTimeout(r, 250));
+      await pause(250);
     }
 
     return ns.extractControls();
@@ -268,7 +284,8 @@
     // defect; one the plan never knew is a coverage gap.
     // The form commits the last write a frame later; asking it before that
     // flags filled fields as required (0.4.24).
-    await new Promise((resolve) => requestAnimationFrame(() => setTimeout(resolve, 100)));
+    if (document.hidden) await pause(150);
+    else await new Promise((resolve) => requestAnimationFrame(() => setTimeout(resolve, 100)));
     const check = await chrome.runtime.sendMessage({ kind: "dryRunCheck" }).catch(() => null);
     let stillRequired = null;
     let wantRows = [];

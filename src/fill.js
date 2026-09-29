@@ -1175,8 +1175,10 @@ var FirstPlay = FirstPlay || {};
       record(item, await timed(item, () => guarded(() => fillReactSelect(item.el, item.value, prefetched[i]))));
       if (item.entry.values.length > 1) await guarded(() => fillControl(item.el, item.entry, item.value));
     }
-    // One frame for the form to commit the last pick before anyone reads it.
-    await new Promise((resolve) => requestAnimationFrame(() => setTimeout(resolve, 0)));
+    // One frame for the form to commit the last pick before anyone reads it
+    // (a hidden tab has no frames; a short unthrottled sleep instead).
+    if (document.hidden) await sleep(32);
+    else await new Promise((resolve) => requestAnimationFrame(() => setTimeout(resolve, 0)));
     lap("picks");
     for (const item of work.autocomplete) record(item, await timed(item, () => guarded(() => pickAutocomplete(item.el, item.value))));
     lap("autocomplete");
