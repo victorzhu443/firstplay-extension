@@ -1184,8 +1184,8 @@ set before moving on to Ashby, Workday and Oracle.
 - **Ashby renders its demographics section late.** The content script samples
   the control count until it stops changing. Do not force it by scrolling to
   the bottom — that froze the renderer on a live posting.
-- **Greenhouse's phone widget strips the dashes** you type; "301-906-3249"
-  reads back as "3019063249". Same number, not a failed fill.
+- **Greenhouse's phone widget strips the dashes** you type; "555-010-0100"
+  reads back as "5550100100". Same number, not a failed fill.
 - **Passwords are never read.** Not extracted, not sent, not filled.
 
 ## Permissions, exactly
