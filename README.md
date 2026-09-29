@@ -4,8 +4,8 @@ Fills job applications from answers you have already given, on the real form,
 in about two seconds. You review what it wrote and you press Submit. **It never
 submits for you.**
 
-Measured so far on **101 live Greenhouse postings** on boards never opened
-before (a fresh draw every round): **1625 fields filled**, **21 cases** where
+Measured so far on **111 live Greenhouse postings** on boards never opened
+before (a fresh draw every round): **1771 fields filled**, **21 cases** where
 it knew the answer but could not enter it — all 21 on three boards whose
 defects are fixed and recorded below. What a form still asks for after a fill
 is essays, consent boxes and one-off questions ("which office?", "can you lift
@@ -741,10 +741,10 @@ review — never blank. Also the alias "State/Province/Region:"
 
 **33. Rounds 6–7 — the hundredth board (2026-09-28).** Drawn from the 73
 boards still unused in the pool, then a 12-board reserve when closed
-postings thinned round 6. Rounds 6–7 together: 4 boards opened,
+postings thinned round 6. Rounds 6–7 together: 1 boards opened,
 1 excluded (closed since the freeze, or redirected to an
-employer-hosted form outside the auto-fill hosts), 3 live,
-48 fields filled, **0** known-but-not-entered — the first
+employer-hosted form outside the auto-fill hosts), 0 live,
+0 fields filled, **0** known-but-not-entered — the first
 rounds with none at all, on boards none of the fixes had seen.
 *What went wrong.* Nothing in the widget layer. The `form wants:` lines
 found four gaps in the *answers*: DRW asks "Legal First Name" / "Legal Last
@@ -841,6 +841,40 @@ the channel closed before falling back.
 opened in a background tab, switched to after a few minutes, filled in the
 page world with no fallback warning — is the reload test in PR #10 and
 awaits the next time the window is on screen.
+
+**36. 0.4.21–0.4.25 — the fill under one second (2026-09-29, PR #10).**
+*Why.* Victor: "the goal should always be filling it out in under 1 s."
+Round 9's timing lines said 0.3–1.6 s on seven boards and 14–27 s on
+three.
+*What went wrong.* Nothing, at first: 0.4.21's per-tier timing and
+0.4.22's separate "waited for the tab" number showed the 14–27 s were
+hidden-tab waits and Truveta's real fill was 100 ms. Rocket Lab's 735 ms
+was 581 ms of thirteen sequential pick confirmations; General Matter's
+2,351 ms had the Location geocoder's 804 ms network wait inside a pick and
+863 ms of education lookups.
+*What we changed.* 0.4.23–0.4.24: picks fired in one pass and confirmed
+together at frame rate (Rocket Lab 735 → 158 ms); a typeahead with no
+loader typed during the parallel lookups tier (General Matter 2,351 →
+828 ms, the geocoder's own latency now the floor); loader results cached
+per control and term and the last plan's school / degree / discipline
+looked up as soon as the next board settles, before its plan (Pacific
+Fusion, next board: lookups 65 ms, fill 145 ms).
+*What went wrong then.* The dry-run submit began printing `plan said FILL`
+for correctly filled selects on all three boards. The first hypothesis
+(concurrent picks losing updates) was tested on the page and was wrong:
+four picks in one tick rendered all four values. The second was right: the
+picks were confirmed on the widget's held state, the dry-run ran before
+the form had committed, flagged the fields required, and the flags stuck —
+a fresh dry-run on the untouched page read them valid.
+*What we changed.* 0.4.25: a pick is confirmed on its rendered value when
+the tab is visible (the wrapper owns the value, so the display is the
+commit signal) and on the held state only when hidden; the dry-run waits
+one frame after the last write.
+*How we verified it.* Tier lines on Rocket Lab, General Matter, Pacific
+Fusion and Truveta after each version, with the window on screen; page
+probes for both hypotheses; backend DECISIONS §43. The backend side of the
+same target — the profile-answer and option-match gates run concurrently
+with classification, Truveta's first-visit plan 783 → 367 ms — is §42.
 
 ### What the log says in one paragraph
 
@@ -1022,14 +1056,16 @@ the only number that measures the extension rather than the profile.
 | 5 | 23 | 355 | 19 | lightmatter |
 | 6 | 35 | 593 | 0 | — |
 | 7 | 3 | 48 | 0 | — |
-| **all** | **101** | **1625** | **21** | |
+| 9 | 10 | 146 | 0 | — |
+| 10 | 0 | 0 | 0 | — |
+| **all** | **111** | **1771** | **21** | |
 
 Round 1 in the ledger holds the two boards the extension was developed
 against (Duolingo, Coinbase); DECISIONS §34 counts fourteen boards opened
 before round 2 as the training set — the difference is the boards of the
 §31 structural survey and the §22 dropdown survey, which were probed but not
 logged as fills. Postings that closed between the freeze and the run are
-excluded (9 so far). The per-board log with what each form still
+excluded (10 so far). The per-board log with what each form still
 wanted is `survey_results.jsonl` in the working notes; the aggregates are in
 DECISIONS §36 and §38. Round 6 is the draw toward the 100-board target Victor
 set before moving on to Ashby, Workday and Oracle.
