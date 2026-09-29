@@ -222,8 +222,11 @@ function dryRunSubmitInPage() {
       document.removeEventListener("submit", stop, true); window.removeEventListener("beforeunload", unload);
     };
 
+    // Ashby renders its application without a <form>; the button is found
+    // document-wide by its text ("Submit Application").
     const form = document.querySelector("form");
-    const buttons = form ? Array.from(form.querySelectorAll('button, input[type="submit"]')) : [];
+    const scope = form || document;
+    const buttons = Array.from(scope.querySelectorAll('button, input[type="submit"]'));
     const button = buttons.find((b) => /submit application|^submit$/i.test((b.innerText || b.value || "").trim()))
       || (form && form.querySelector('button[type="submit"], input[type="submit"]'))
       || buttons.find((b) => /submit/i.test(b.innerText || ""));
