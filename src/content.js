@@ -170,12 +170,32 @@
     const stored = await chrome.storage.local.get("firstplay.resume");
     const resume = stored["firstplay.resume"] || null;
 
-    if (document.hidden) console.log(`${TAG} this tab is in the background — the fill starts when you switch to it`);
+    // Wait for the tab to be looked at *here*, before asking the service
+    // worker to run the fill: a worker call that waits out a hidden tab dies
+    // with the worker (MV3 stops it after a few idle minutes), the message
+    // channel closes, and the fill fell back to this isolated world — where
+    // dropdowns cannot be driven. General Matter, hidden 12 minutes: 15
+    // "known but could not be entered". The page-world fill still waits for
+    // hydration, which is seconds, not minutes.
+    if (document.hidden) {
+      console.log(`${TAG} this tab is in the background — the fill starts when you switch to it`);
+      await new Promise((resolve) => {
+        const onShow = () => { if (!document.hidden) { document.removeEventListener("visibilitychange", onShow); resolve(); } };
+        document.addEventListener("visibilitychange", onShow);
+      });
+    }
 
     // The fill runs in the page's world (see background.js): React's fibers,
     // which the select driver needs, are invisible from this isolated world.
-    const inPage = await chrome.runtime.sendMessage({ kind: "applyPlan", plan: response.plan, resume })
+    // A closed message channel is the worker having been stopped mid-call,
+    // not a page problem: ask again once before giving up on the page world.
+    const runInPage = () => chrome.runtime.sendMessage({ kind: "applyPlan", plan: response.plan, resume })
       .catch((e) => ({ ok: false, why: e && e.message }));
+    let inPage = await runInPage();
+    if (!(inPage && inPage.ok && inPage.outcome) && /message channel closed|context invalidated/i.test((inPage && inPage.why) || "")) {
+      console.log(`${TAG} the extension's worker was stopped mid-fill; asking it again`);
+      inPage = await runInPage();
+    }
     let outcome;
     if (inPage && inPage.ok && inPage.outcome) {
       outcome = inPage.outcome;

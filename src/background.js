@@ -73,9 +73,27 @@ function countAnswers(profile) {
   );
 }
 
-/** A short, stable key for "this posting, this profile": the plan is a pure function of both. */
+/**
+ * Which engine the backend is running, from its health route. A plan is a
+ * function of the engine as much as of the posting and profile: after a
+ * backend change a cached pre-change plan was served for twelve minutes on
+ * the board meant to test the change (DECISIONS §40). Local and fast; on
+ * failure the key carries "unknown" and a cached plan is still better than none.
+ */
+async function engineFingerprint() {
+  try {
+    const res = await fetch(`${BACKEND}/api/autofill/health`, { cache: "no-store" });
+    const body = await res.json();
+    return body.engine || "unknown";
+  } catch (_e) {
+    return "unknown";
+  }
+}
+
+/** A short, stable key for "this posting, this profile, this engine": the plan is a pure function of the three. */
 async function planCacheKey(posting, profile) {
-  const text = JSON.stringify([posting.ats, posting.board || posting.org, posting.jobId || posting.postingId, profile]);
+  const engine = await engineFingerprint();
+  const text = JSON.stringify([posting.ats, posting.board || posting.org, posting.jobId || posting.postingId, profile, engine]);
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
   return "firstplay.plan." + Array.from(new Uint8Array(digest)).slice(0, 12).map((b) => b.toString(16).padStart(2, "0")).join("");
 }
