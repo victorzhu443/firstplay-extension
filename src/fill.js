@@ -486,7 +486,12 @@ var FirstPlay = FirstPlay || {};
     if (!instance) return [];
     let options = instanceOptions(instance);
     if (!options.length) options = await loadedOptions(el, value);
-    if (!options.length) options = await loadedOptions(el, "");
+    // A typeahead's lookup can come back empty for a moment (Pacific Fusion:
+    // the school search returned nothing once, then "Cornell University" on
+    // the next call). Retry the term before touching the default page — the
+    // default page is the alphabet's start and never holds the answer.
+    if (!options.length) { await sleep(300); options = await loadedOptions(el, value); }
+    if (!options.length && !optionLoaderOf(el)) options = await loadedOptions(el, "");
     return options;
   }
 
@@ -497,7 +502,10 @@ var FirstPlay = FirstPlay || {};
 
     let options = prefetched && prefetched.length ? prefetched : instanceOptions(instance);
     if (!options.length) options = await loadedOptions(el, value);
-    if (!options.length) options = await loadedOptions(el, "");
+    if (!options.length) { await sleep(300); options = await loadedOptions(el, value); }
+    if (!options.length && optionLoaderOf(el)) {
+      return { ok: false, why: `the form's lookup returned nothing for ${JSON.stringify(value)} — try again` };
+    }
     if (!options.length) options = await typedOptions(el, instance, value);
     const chosen = pickOption(options, optionText, value);
 
@@ -825,9 +833,21 @@ var FirstPlay = FirstPlay || {};
     // foreground case). In a hidden tab Greenhouse does not hydrate at all
     // (NISC: 0 of 12 selects owned by React minutes after load), so a fill
     // there reports the selects as not enterable rather than guessing.
-    for (let i = 0; i < 1000; i += 1) {
+    // The budget counts only while the page is visible: Greenhouse pauses
+    // hydration when the tab is hidden, and a tab that flickered visible for
+    // a moment (Lightmatter, round 5) must not burn its 20 s in the dark.
+    let spent = 0;
+    while (spent < 1000) {
       if (selectInstanceOf(el)) return true;
+      if (document.hidden) {
+        await new Promise((resolve) => {
+          const onShow = () => { if (!document.hidden) { document.removeEventListener("visibilitychange", onShow); resolve(); } };
+          document.addEventListener("visibilitychange", onShow);
+        });
+        continue;
+      }
       await sleep(20);
+      spent += 1;
     }
     return false;
   }
