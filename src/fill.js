@@ -324,10 +324,28 @@ var FirstPlay = FirstPlay || {};
    * (measured), which is what lets several searches run at once.
    */
   async function pickAutocomplete(el, value) {
-    let options = suggestionsFor(el);
-    for (let i = 0; i < 400 && !options.length; i += 1) {
-      await sleep(20);
+    // Wait up to 1.5 s for the list the typed term brings; then shorten the
+    // term and try again (two words, one word). Ashby's University field
+    // filters a fixed list by substring: "Cornell University" matched
+    // nothing where its option is "Cornell", and the old 8 s wait ended in
+    // "no suggestions appeared" (Sierra, 9.2 s in this one pick).
+    const terms = [value];
+    const words = String(value).trim().split(/\s+/);
+    if (words.length > 2) terms.push(words.slice(0, 2).join(" "));
+    if (words.length > 1) terms.push(words[0]);
+    let options = [];
+    for (const [round, term] of terms.entries()) {
+      if (round > 0) {
+        el.focus();
+        setNativeValue(el, term);
+        el.dispatchEvent(new Event("input", { bubbles: true }));
+      }
       options = suggestionsFor(el);
+      for (let i = 0; i < 75 && !options.length; i += 1) {
+        await sleep(20);
+        options = suggestionsFor(el);
+      }
+      if (options.length) break;
     }
 
     if (!options.length) {
