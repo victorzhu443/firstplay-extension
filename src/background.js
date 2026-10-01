@@ -385,13 +385,15 @@ const PROPOSALS_KEY = "firstplay.learning.proposals";
 const IGNORED_KEY = "firstplay.learning.ignored";
 const LEARNING_STATS_KEY = "firstplay.learning.stats";
 
-async function learn(observations) {
-  if (!Array.isArray(observations) || !observations.length) return { ok: true, learned: 0, proposals: 0 };
+async function learn(observations, accept) {
+  observations = Array.isArray(observations) ? observations : [];
+  accept = Array.isArray(accept) ? accept : [];
+  if (!observations.length && !accept.length) return { ok: true, learned: 0, proposals: 0, accepted: [] };
   const profile = await loadProfile();
   const response = await fetch(`${BACKEND}/api/autofill/learn`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ profile, observations }),
+    body: JSON.stringify({ profile, observations, accept }),
   });
   if (!response.ok) {
     const detail = await response.text();
@@ -423,12 +425,12 @@ async function learn(observations) {
   stats.last_at = new Date().toISOString();
   await chrome.storage.local.set({ [PROPOSALS_KEY]: proposals, [LEARNING_STATS_KEY]: stats });
 
-  return { ok: true, learned: payload.learned || 0, proposals: added, pending: proposals.length };
+  return { ok: true, learned: payload.learned || 0, proposals: added, pending: proposals.length, accepted: payload.accepted || [] };
 }
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message.kind === "learn") {
-    learn(message.observations)
+    learn(message.observations, message.accept)
       .then(sendResponse)
       .catch((e) => sendResponse({ ok: false, why: e.message }));
     return true;

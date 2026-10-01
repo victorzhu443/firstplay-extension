@@ -220,9 +220,17 @@
       box.appendChild(card);
 
       accept.addEventListener("click", async () => {
+        // The backend owns the promotion (it clears learned_pending and
+        // knows which section the key lives in); the local write below is
+        // the fallback when the backend is not running.
+        let settled = false;
+        try {
+          const reply = await chrome.runtime.sendMessage({ kind: "learn", observations: [], accept: [proposal.key] });
+          settled = !!(reply && reply.ok && (reply.accepted || []).includes(proposal.key));
+        } catch (e) { settled = false; }
         const fresh = await chrome.storage.local.get([PROFILE_KEY, PROPOSALS_KEY]);
         const current = fresh[PROFILE_KEY] || {};
-        placeLearned(current, proposal.key, proposal.value);
+        if (!settled) placeLearned(current, proposal.key, proposal.value);
         const remaining = (fresh[PROPOSALS_KEY] || []).filter((p) => !(p.key === proposal.key && String(p.value) === String(proposal.value)));
         await chrome.storage.local.set({ [PROFILE_KEY]: current, [PROPOSALS_KEY]: remaining });
         area.value = JSON.stringify(current, null, 2);

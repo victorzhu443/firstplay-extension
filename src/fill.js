@@ -917,6 +917,22 @@ var FirstPlay = FirstPlay || {};
       } else {
         result = { ok: false, why: "no matching option" };
       }
+    } else if ((el.type || "").toLowerCase() === "number") {
+      // R48-2: TELUS "Phone" and Atominvest "notice period (in months)" are
+      // <input type=number>; a dashed phone and "8 weeks +" left them empty
+      // while the fill reported success. A phone becomes its digits; any
+      // other non-numeric value is refused here rather than silently dropped.
+      const digits = String(value).replace(/\D/g, "");
+      const numeric = /^\s*-?\d+([.,]\d+)?\s*$/.test(String(value));
+      const asNumber = numeric ? String(value).trim().replace(",", ".") : (digits.length >= 7 ? digits : null);
+      if (asNumber === null) {
+        result = { ok: false, why: `this field takes a number; ${JSON.stringify(String(value).slice(0, 30))} is not one` };
+      } else {
+        setNativeValue(el, asNumber);
+        el.dispatchEvent(new Event("change", { bubbles: true }));
+        result = (el.value || "") !== "" ? { ok: true, chose: asNumber }
+                                         : { ok: false, why: `the number input rejected ${JSON.stringify(asNumber)}` };
+      }
     } else {
       setNativeValue(el, value);
       el.dispatchEvent(new Event("change", { bubbles: true }));
