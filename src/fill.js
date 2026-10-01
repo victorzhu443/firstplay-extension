@@ -384,8 +384,17 @@ var FirstPlay = FirstPlay || {};
     // suggestion's text AND, where the field is backed by a hidden input
     // (Duolingo writes the chosen id there), that hidden value is set.
     const hidden = el.dataset.firstplayHidden ? document.getElementById(el.dataset.firstplayHidden) : null;
-    const committed = () =>
-      normalise(el.value) === normalise(text) && (!hidden || hidden.value !== "");
+    // Saronic (Ashby, R48-1): the option is three spans — name, country,
+    // domain — so its textContent reads "Cornell UniversityUnited
+    // Statescornell.edu" while the input shows "Cornell University". The
+    // input holding a non-empty prefix of the option's text is the same
+    // proof; the input holding something else is not.
+    const committed = () => {
+      const shown = normalise(el.value);
+      const wantedText = normalise(text);
+      const same = shown !== "" && (shown === wantedText || wantedText.startsWith(shown));
+      return same && (!hidden || hidden.value !== "");
+    };
     for (let i = 0; i < 150 && !committed(); i += 1) await sleep(20);
 
     if (!committed()) {
@@ -854,6 +863,26 @@ var FirstPlay = FirstPlay || {};
     // A fieldset of radios or checkboxes (Greenhouse renders "How did you
     // hear about us?" this way on some boards): choose among its inputs.
     if (el.tagName === "FIELDSET" || el.hasAttribute("data-field-path")) {
+      // Ashby's Boolean field is two buttons ("Yes" / "No") that toggle
+      // aria-pressed, with a hidden checkbox behind them. Held-out round
+      // R48-1 (2026-10-01): on Crusoe, Fab and Exegy a "No" was reported
+      // filled while neither button was pressed — the lone-checkbox rule
+      // below had "left it unchecked" and called that an answer. Press the
+      // button the value names, and believe it only when it reads pressed.
+      const yesNo = el.querySelector(".ashby-application-form-input-yesno, [class*='input-yesno']");
+      if (yesNo) {
+        const wanted = normalise(value);
+        const option = /^(yes|true|y)$/.test(wanted) ? "yes" : /^(no|false|n)$/.test(wanted) ? "no" : null;
+        if (!option) return { ok: false, why: `${JSON.stringify(value)} is not yes/no` };
+        const button = yesNo.querySelector(`button[data-option="${option}"]`) ||
+          Array.from(yesNo.querySelectorAll("button")).find((b) => normalise(b.textContent) === option);
+        if (!button) return { ok: false, why: `no ${option} button in the yes/no control` };
+        if (button.getAttribute("aria-pressed") !== "true") button.click();
+        for (let i = 0; i < 25 && button.getAttribute("aria-pressed") !== "true"; i += 1) await sleep(20);
+        const pressed = button.getAttribute("aria-pressed") === "true";
+        return pressed ? { ok: true, chose: button.textContent.trim() }
+                       : { ok: false, why: `clicked ${option} but the button did not register as pressed` };
+      }
       const candidates = Array.from(el.querySelectorAll('input[type="radio"], input[type="checkbox"]'));
       // A lone checkbox in an Ashby container is a yes/no question.
       if (candidates.length === 1 && candidates[0].type === "checkbox") return fillChoiceInput(candidates[0], value);
