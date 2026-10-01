@@ -981,7 +981,7 @@ mechanism per cluster, tests, the offline delta, and a fresh held-out draw
 through the installed extension.
 *Baseline → round 1 (real profile, with the model).* Greenhouse 74.2% →
 76.4%; Ashby 76.5% → 80.5%. With the new onboarding facts answered (a
-placeholder copy of the profile, never the real one): 85.1% / 80.8%. The
+placeholder copy of the profile, never the real one): 85.2% / 81.8%. The
 biggest single cluster is the education start month/year on 411 of 578
 Greenhouse forms — a fact the profile already has a slot for and that is
 still empty.
