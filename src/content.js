@@ -343,6 +343,12 @@
       }));
     } catch (_e) { /* the record is a convenience */ }
 
+    // From here on the applicant edits; what they type, pick and correct is
+    // the ground truth this plan lacked (learn.js). Watching, never writing.
+    if (ns.watchForLearning) {
+      try { ns.watchForLearning(posting, response.plan); } catch (e) { console.warn(`${TAG} learning watch not started: ${e && e.message}`); }
+    }
+
     return {
       still_required: stillRequired,
       filled: outcome.filled, attach: outcome.attach, review: outcome.review,
