@@ -46,14 +46,13 @@ log = (S / "readme_log.md").read_text()
 process = (S / "readme_process.md").read_text()
 
 round_rows = ""
-for k in sorted(by):
+for k in sorted(by, key=lambda r: (isinstance(r, str), str(r).zfill(3))):
     v = by[k]
     l = [r for r in v if not r.get("closed")]
     f = sum(r["filled"] for r in l)
     x = sum(r["failed"] for r in l)
     bad = [r["board"] for r in l if r["failed"]]
-    note = "" if k == max(by) else ""
-    round_rows += f"| {k}{note} | {len(l)} | {f} | {x} | {', '.join(bad) or '—'} |\n"
+    round_rows += f"| {k} | {len(l)} | {f} | {x} | {', '.join(bad) or '—'} |\n"
 
 survey = f"""## 5. The survey, as it stands
 
@@ -81,7 +80,7 @@ set before moving on to Ashby, Workday and Oracle.
 
 """
 
-r6 = by[max(by)]
+r6 = by[max((k for k in by if isinstance(k, int)), default=max(by, key=str))]
 r6_live = [r for r in r6 if not r.get("closed")]
 subs = {
     "{r6_logged}": str(len(r6)),

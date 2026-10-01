@@ -21,6 +21,12 @@
            cursor: pointer; }
   button:hover { border-color: var(--muted); }
   .row { display: flex; gap: 8px; align-items: center; margin-top: 9px; }
+  .proposal { border: 1px solid var(--line); border-radius: 6px; padding: 7px 8px; margin: 0 0 6px; }
+  .proposal .q { color: var(--muted); font-size: 11px; margin-bottom: 2px; }
+  .proposal .kv { font-size: 12px; margin-bottom: 5px; word-break: break-word; }
+  .proposal .kv code { font-size: 11px; }
+  .proposal .acts { display: flex; gap: 6px; }
+  .proposal .acts button { padding: 3px 9px; font-size: 11px; }
   .status { font-size: 12px; }
   .ok { color: var(--ok); } .warn { color: var(--warn); }
   code { font-size: 11px; background: color-mix(in srgb, var(--fg) 8%, transparent);
@@ -47,6 +53,13 @@
     <button id="removeResume" title="Forget the stored resume">✕</button>
   </div>
   <p id="resumeStatus" class="status" style="margin-bottom:12px"></p>
+
+  <p style="margin-top:4px"><strong>Learned from you</strong></p>
+  <label class="row" style="margin:0 0 6px;font-size:12px"><input id="learnEnabled" type="checkbox" style="margin-right:6px" />
+    Learn from my answers — remember what I type into fields the fill left to me, on this computer only, and suggest facts to add after I've given the same answer at two companies.</label>
+  <p id="learnedStatus" class="status" style="margin-bottom:6px"></p>
+  <div id="proposals"></div>
+  <p id="proposalsNote" style="margin:0 0 12px"></p>
 
   <p>Paste your profile — the contents of<br /><code>~/.config/firstplay/profile.json</code></p>
   <textarea id="profile" spellcheck="false" placeholder="{ &quot;facts&quot;: { … } }"></textarea>

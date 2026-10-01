@@ -369,7 +369,72 @@ async function dryRunCheck(sender) {
   return (results && results[0] && results[0].result) || { ok: false, why: "no result" };
 }
 
+/**
+ * The applicant's own answers, sent to the local backend to learn from.
+ *
+ * The backend is stateless about people: it reads the profile in the request,
+ * decides what each observation means — a verbatim answer to replay next time
+ * the same question appears, a fact worth proposing — and returns the profile
+ * to store. Proposals wait in storage for the applicant to accept or ignore in
+ * the popup; nothing is written to the profile's facts without that click,
+ * except what the backend puts under `answers` (replay of the applicant's own
+ * exact answer to the same question). A changed profile changes the plan
+ * cache key (the profile is hashed into it), so no stale plan survives.
+ */
+const PROPOSALS_KEY = "firstplay.learning.proposals";
+const IGNORED_KEY = "firstplay.learning.ignored";
+const LEARNING_STATS_KEY = "firstplay.learning.stats";
+
+async function learn(observations, accept) {
+  observations = Array.isArray(observations) ? observations : [];
+  accept = Array.isArray(accept) ? accept : [];
+  if (!observations.length && !accept.length) return { ok: true, learned: 0, proposals: 0, accepted: [] };
+  const profile = await loadProfile();
+  const response = await fetch(`${BACKEND}/api/autofill/learn`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ profile, observations, accept }),
+  });
+  if (!response.ok) {
+    const detail = await response.text();
+    throw new Error(`backend returned ${response.status}: ${detail.slice(0, 120)}`);
+  }
+  const payload = await response.json();
+
+  if (payload.profile && typeof payload.profile === "object" && Object.keys(payload.profile).length) {
+    await chrome.storage.local.set({ [PROFILE_KEY]: payload.profile });
+  }
+
+  const stored = await chrome.storage.local.get([PROPOSALS_KEY, IGNORED_KEY, LEARNING_STATS_KEY]);
+  const ignored = new Set((stored[IGNORED_KEY] || []).map((p) => `${p.key}=${p.value}`));
+  const proposals = stored[PROPOSALS_KEY] || [];
+  const seen = new Set(proposals.map((p) => `${p.key}=${p.value}`));
+  let added = 0;
+  for (const proposal of payload.proposals || []) {
+    if (!proposal || !proposal.key) continue;
+    const sig = `${proposal.key}=${proposal.value}`;
+    if (seen.has(sig) || ignored.has(sig)) continue;
+    seen.add(sig);
+    proposals.push({ key: proposal.key, value: proposal.value, label: proposal.label || "", support: proposal.support || 1,
+                     why: proposal.why || "", at: new Date().toISOString() });
+    added += 1;
+  }
+  const stats = stored[LEARNING_STATS_KEY] || { sent: 0, learned: 0 };
+  stats.sent += observations.length;
+  stats.learned += payload.learned || 0;
+  stats.last_at = new Date().toISOString();
+  await chrome.storage.local.set({ [PROPOSALS_KEY]: proposals, [LEARNING_STATS_KEY]: stats });
+
+  return { ok: true, learned: payload.learned || 0, proposals: added, pending: proposals.length, accepted: payload.accepted || [] };
+}
+
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+  if (message.kind === "learn") {
+    learn(message.observations, message.accept)
+      .then(sendResponse)
+      .catch((e) => sendResponse({ ok: false, why: e.message }));
+    return true;
+  }
   if (message.kind === "warmLookups") {
     warmLookupsInPage(_sender)
       .then((r) => sendResponse(r))

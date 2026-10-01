@@ -343,6 +343,12 @@
       }));
     } catch (_e) { /* the record is a convenience */ }
 
+    // From here on the applicant edits; what they type, pick and correct is
+    // the ground truth this plan lacked (learn.js). Watching, never writing.
+    if (ns.watchForLearning) {
+      try { ns.watchForLearning(posting, response.plan); } catch (e) { console.warn(`${TAG} learning watch not started: ${e && e.message}`); }
+    }
+
     return {
       still_required: stillRequired,
       filled: outcome.filled, attach: outcome.attach, review: outcome.review,
@@ -364,9 +370,11 @@
       const file = container.querySelector('input[type="file"]');
       const control = container.querySelector('input:not([type="hidden"]):not([type="radio"]):not([type="checkbox"]):not([type="file"]), textarea, select');
       const choices = container.querySelectorAll('input[type="radio"], input[type="checkbox"]');
+      const pressed = container.querySelectorAll('button[aria-pressed="true"]');
       let holds;
       if (file) holds = (file.files && file.files.length > 0) || /\.(pdf|docx?|rtf|txt)\b/i.test(container.innerText);
       else if (control) holds = (control.value || "").trim() !== "";
+      else if (pressed.length) holds = true;   // Ashby yes/no: a pressed button is the answer
       else if (choices.length) holds = Array.from(choices).some((c) => c.checked);
       else holds = false;
       if (!holds) invalid.push({ id: entry.field_key, name: entry.field_key, label: entry.label || entry.field_key, message: "required (Ashby form definition)" });
