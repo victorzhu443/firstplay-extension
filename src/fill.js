@@ -719,7 +719,16 @@ var FirstPlay = FirstPlay || {};
     // hit. Measured on Ashby: "Are you authorized to work lawfully…" is one
     // checkbox in its own container.
     if (candidates.length === 1 && (el.type || "").toLowerCase() === "checkbox") {
-      const yes = /^(yes|true|y)$/.test(wanted);
+      // OpenAI (Ashby, R49): "I hereby certify that I have read…" is a
+      // one-option select in the API and a single checkbox on the page; the
+      // plan's value is that option's own label ("I confirm I have read the
+      // above."). The label of the box *is* the yes.
+      const ownLabel = (() => {
+        const byFor = el.id ? document.querySelector(`label[for="${CSS.escape(el.id)}"]`) : null;
+        const label = byFor || el.closest("label");
+        return label ? normalise(label.innerText) : "";
+      })();
+      const yes = /^(yes|true|y)$/.test(wanted) || (ownLabel !== "" && wanted === ownLabel);
       const no = /^(no|false|n)$/.test(wanted);
       if (!yes && !no) return { ok: false, why: `${JSON.stringify(value)} is not yes/no` };
       if (el.checked !== yes) el.click();
