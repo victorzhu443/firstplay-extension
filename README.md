@@ -4,8 +4,8 @@ Fills job applications from answers you have already given, on the real form,
 in about two seconds. You review what it wrote and you press Submit. **It never
 submits for you.**
 
-Measured so far on **116 live Greenhouse postings** on boards never opened
-before (a fresh draw every round): **1849 fields filled**, **21 cases** where
+Measured so far on **117 live Greenhouse postings** on boards never opened
+before (a fresh draw every round): **1866 fields filled**, **21 cases** where
 it knew the answer but could not enter it — all 21 on three boards whose
 defects are fixed and recorded below. What a form still asks for after a fill
 is essays, consent boxes and one-off questions ("which office?", "can you lift
@@ -963,6 +963,98 @@ company hires. The widget worked; the form's answer set excludes the
 value. 0.4.38 reports that as a mismatch for the applicant, with what was
 offered, not as a filler failure. Backend DECISIONS §46–§47.
 
+**40. Everything except the essays, round 1 (2026-09-30 → 10-01, backend
+PR #23, extension 0.4.39 on PR #11).**
+*Why.* Victor: "create it so that for Greenhouse and for Ashby it fills out
+everything except for the essays. Everything else is a simple decision.
+Make sure to continuously train and test and train and test and
+hypothesize."
+*How the loop runs.* Measure offline first: a new backend tool scores the
+engine over frozen forms with the real profile — 578 Greenhouse forms and
+a new corpus of 413 live Ashby form definitions pulled through the
+ApiJobPosting replay (the API rate-limits above two parallel requests; the
+first pull at eight workers "lost" 353 of 459). Coverage is filled over
+everything that is not an essay or a file; a stated decision to leave a
+field blank counts. Every uncovered field is kept with its label, kind,
+options and reason, grouped — that list is the hypothesis list. Then a
+mechanism per cluster, tests, the offline delta, and a fresh held-out draw
+through the installed extension.
+*Baseline → round 1 (real profile, with the model).* Greenhouse 74.2% →
+76.4%; Ashby 76.5% → 80.5%. With the new onboarding facts answered (a
+placeholder copy of the profile, never the real one): 85.2% / 81.8%. The
+biggest single cluster is the education start month/year on 411 of 578
+Greenhouse forms — a fact the profile already has a slot for and that is
+still empty.
+*What changed in the engine.* Aliases and sentence-shaped patterns for
+Ashby custom fields that restate a core fact ("Current Location", "Please
+include your LinkedIn profile", "Your Phone Number"); optional "If other,
+please specify" fields blank when the choice before them was not Other;
+yes/no polarity read from the opening words, so "I am not a protected
+veteran" lands on "No, I am not a veteran or active member"; a `consents`
+section of standing decisions (privacy notice, certification, terms, SMS,
+marketing) replayed only once set, with the AI-policy attestation and
+arbitration never in it; ordered second choices for "How did you hear
+about us?"; an internship-end theme; class standing computed for "Are you
+a Freshman or Sophomore?"; essays in single-line controls recognised as
+essays. New facts the applicant is asked for: start date, address, salary
+expectation, interview language, years of experience, consents, two
+protected answers.
+*The held-out round, R48-1.* Twelve unused Ashby organisations in a hidden
+tab on 0.4.38: 103 filled, 42 for the applicant, median fill 0.4 s, 9 of 12
+under one second.
+*What went wrong, and how it was found.* Crusoe, Fab and Exegy each
+reported a yes/no (sponsorship, worked here before) as filled while the
+page's own required check still listed it. Reading the container: Ashby's
+yes/no is two buttons that toggle `aria-pressed`, with a hidden checkbox
+behind them. The filler had treated the checkbox as the control and, for a
+No, "left it unchecked" — and called that filled. Clicking the No button
+by hand flipped `aria-pressed` to true. 0.4.39 presses the button the value
+names and believes it only when it reads pressed; the local check counts a
+pressed button. The same read found Saronic's university pick failing its
+own confirmation: the option is three spans (name, country, domain), so
+its text runs longer than the input shows; a non-empty prefix is now the
+proof. Greenhouse's half of the draw ran one board (IMC: 20 filled, 0
+failures, 1.07 s) before the window left the screen; Greenhouse fills only
+while visible, so the other eleven wait for the window. Backend DECISIONS
+§48.
+
+**41. The live hundreds, the unanswered list, and the second pass
+(2026-10-01, backend PR #23, extension 0.4.39 on PR #11).**
+*Why.* Victor: "those were only four runs, let's do 100 runs across
+Greenhouse and 100 across Ashby", then "compile the questions we couldn't
+answer, decide yes or no whether we have the information, and answer it as
+well — for both Greenhouse and Ashby".
+*The Ashby hundred.* 100 unused organisations on 0.4.39 with the round-1
+facts answered: 719 filled, 250 for the applicant, 1 could-not-enter
+(Rivian/VW's Location geocoder), 22 forms with nothing left, median fill
+110 ms, 83 under one second — all in a hidden tab. Four organisations
+needed a second visit because the page navigated mid-poll; two text fields
+(a notice period, a phone) were reported filled yet still wanted and are
+on the list to inspect.
+*The Greenhouse hundred.* Drawn (100 live unused postings over 68 boards)
+and batched; 8 ran clean before the window left the screen. Greenhouse
+fills only while visible, so the rest wait for the window and are
+recorded as they land.
+*The unanswered list.* Every R48 posting re-planned through the backend
+with the real profile; every open question clustered: 443 clusters, each
+with a decision — YES the profile holds it (a wiring gap), NO it does not,
+PARTLY, MAYBE (model read under threshold), ESSAY, N/A — in the backend's
+`docs/unanswered-R48.md`. Still unanswered of 3,741 entries: 663 after
+round 1, 609 after the round-2 wiring (salary expectations had no route to
+the stored answer; privacy-policy acknowledgements were not consents;
+LinkedIn-link wordings; a cover-letter file input; "based in the United
+States?" as a checkbox), 597 after the second pass.
+*The second pass.* The agent Victor described: for each free-text question
+still open, the model is asked from the profile alone whether the profile
+contains the asked-for fact, and which stored key answers it; a second
+call verifies the value against the question; only the stored value is
+ever written, behind three gates, and essays, protected questions and
+consents never enter. Every answer it wrote across the 224 postings was
+read by hand: 14 of 14 correct (GitHub and LinkedIn wordings, a preferred
+last name, self-described pronouns, an availability date); 44 declined as
+not in the profile; 33 left as "touches it but no stored value answers it"
+(a university email address, rightly). Backend DECISIONS §49.
+
 ### What the log says in one paragraph
 
 Two classes of defect account for nearly everything that ever went wrong on
@@ -1145,7 +1237,8 @@ the only number that measures the extension rather than the profile.
 | 7 | 3 | 48 | 0 | — |
 | 9 | 10 | 146 | 0 | — |
 | 10 | 5 | 78 | 0 | — |
-| **all** | **116** | **1849** | **21** | |
+| R48-2 | 1 | 17 | 0 | — |
+| **all** | **117** | **1866** | **21** | |
 
 Round 1 in the ledger holds the two boards the extension was developed
 against (Duolingo, Coinbase); DECISIONS §34 counts fourteen boards opened
@@ -1159,7 +1252,7 @@ set before moving on to Ashby, Workday and Oracle.
 
 ---
 
-## 6. Notes for whoever edits this next
+## 7. Notes for whoever edits this next
 
 - **Content scripts are classic scripts.** An `export` in one is a syntax
   error at load and the script silently never runs, which looks exactly like
