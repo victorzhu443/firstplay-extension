@@ -920,6 +920,52 @@ last name, self-described pronouns, an availability date); 44 declined as
 not in the profile; 33 left as "touches it but no stored value answers it"
 (a university email address, rightly). Backend DECISIONS §49.
 
+**42. The learning loop — built in parallel, from the research first
+(2026-10-01, backend PR #24, extension 0.4.40–0.4.42 on PR #12).**
+*Why.* Victor: "build an agent that as we use it improves and understands
+what I do to answer questions and starts being able to answer my own
+questions … build these in parallel, then test and iterate … based off of
+research about agents … a product that can be given to the world and let
+people focus on editing their résumé and learning, not applying as if it
+is their life and job."
+*Research first.* A 53-source note (backend `docs/research/learning-agents.md`)
+on agent memory (CoALA, Reflexion, Voyager, Generative Agents, Agent
+Workflow Memory, Synapse, a June 2026 budget-matched study showing memory
+wins must be measured as fewer repeated questions, not benchmark lift),
+on correction learning (Chromium Autofill's per-field votes from what the
+user actually submitted; Simplify's exact-question reuse), on propose-vs-
+auto-apply (mixed-initiative evidence that pre-applied suggestions reduce
+agency), on the products (Simplify, Jobright, LazyApply, Teal, Huntr,
+Sonara, Massive — every incumbent complaint is wrong values, fabricated
+content, unreviewed submissions or billing), on ATS terms (no
+candidate-facing Greenhouse or Ashby term forbids assisted filling; Ashby's
+robots.txt disallows /api/, so posting reads stay to the applicant's own
+open posting), on Chrome Web Store Limited Use (learning is a post-install
+change in data handling: disclose and opt in), and on self-identification
+law in flux (never generalised, never judged, default decline).
+*What was built, in parallel.* Two builders against one contract. Backend:
+`POST /api/autofill/learn` takes the profile and the applicant's
+observations and returns the profile with every differing answer saved for
+exact replay (episodic), proposals for facts judged stable by two bounded
+Jev questions (semantic), and `learned` facts read by the second pass and
+the gate (procedural); nothing is applied without the applicant's Accept;
+protected and consent answers are never proposed. Extension: `learn.js`
+watches the fields the plan knew, reads the applicant's final value the
+way the dry run reads values back, and sends observations on change, on a
+Submit click (never preventing it) and on leaving the page; the popup shows
+replay counts and proposal cards with Accept / Ignore; an opt-in switch
+gates all of it.
+*What the research changed after the first build.* Proposals now require
+the same answer at two different companies (the vote model); the opt-in
+switch; Accept routed through the backend so the pending record is
+settled.
+*Measured.* Offline replay simulation over the frozen corpora: Greenhouse
+1,045 simulated answers, 1,666 later occurrences of the same question,
+1,571 replayed (94.3%); Ashby 360 / 234 / 226 (96.6%). The remainder are
+the same label on a select whose options differ. 620 backend tests, 23
+node cases for the capture rules. Live test on a real form waits for the
+reload to 0.4.42. Backend DECISIONS §50.
+
 ### What the log says in one paragraph
 
 Two classes of defect account for nearly everything that ever went wrong on

@@ -719,7 +719,16 @@ var FirstPlay = FirstPlay || {};
     // hit. Measured on Ashby: "Are you authorized to work lawfully…" is one
     // checkbox in its own container.
     if (candidates.length === 1 && (el.type || "").toLowerCase() === "checkbox") {
-      const yes = /^(yes|true|y)$/.test(wanted);
+      // OpenAI (Ashby, R49): "I hereby certify that I have read…" is a
+      // one-option select in the API and a single checkbox on the page; the
+      // plan's value is that option's own label ("I confirm I have read the
+      // above."). The label of the box *is* the yes.
+      const ownLabel = (() => {
+        const byFor = el.id ? document.querySelector(`label[for="${CSS.escape(el.id)}"]`) : null;
+        const label = byFor || el.closest("label");
+        return label ? normalise(label.innerText) : "";
+      })();
+      const yes = /^(yes|true|y)$/.test(wanted) || (ownLabel !== "" && wanted === ownLabel);
       const no = /^(no|false|n)$/.test(wanted);
       if (!yes && !no) return { ok: false, why: `${JSON.stringify(value)} is not yes/no` };
       if (el.checked !== yes) el.click();
@@ -916,6 +925,22 @@ var FirstPlay = FirstPlay || {};
         result = { ok: true, chose: option.textContent.trim() };
       } else {
         result = { ok: false, why: "no matching option" };
+      }
+    } else if ((el.type || "").toLowerCase() === "number") {
+      // R48-2: TELUS "Phone" and Atominvest "notice period (in months)" are
+      // <input type=number>; a dashed phone and "8 weeks +" left them empty
+      // while the fill reported success. A phone becomes its digits; any
+      // other non-numeric value is refused here rather than silently dropped.
+      const digits = String(value).replace(/\D/g, "");
+      const numeric = /^\s*-?\d+([.,]\d+)?\s*$/.test(String(value));
+      const asNumber = numeric ? String(value).trim().replace(",", ".") : (digits.length >= 7 ? digits : null);
+      if (asNumber === null) {
+        result = { ok: false, why: `this field takes a number; ${JSON.stringify(String(value).slice(0, 30))} is not one` };
+      } else {
+        setNativeValue(el, asNumber);
+        el.dispatchEvent(new Event("change", { bubbles: true }));
+        result = (el.value || "") !== "" ? { ok: true, chose: asNumber }
+                                         : { ok: false, why: `the number input rejected ${JSON.stringify(asNumber)}` };
       }
     } else {
       setNativeValue(el, value);
