@@ -4,8 +4,8 @@ Fills job applications from answers you have already given, on the real form,
 in about two seconds. You review what it wrote and you press Submit. **It never
 submits for you.**
 
-Measured so far on **116 live Greenhouse postings** on boards never opened
-before (a fresh draw every round): **1849 fields filled**, **21 cases** where
+Measured so far on **117 live Greenhouse postings** on boards never opened
+before (a fresh draw every round): **1866 fields filled**, **21 cases** where
 it knew the answer but could not enter it — all 21 on three boards whose
 defects are fixed and recorded below. What a form still asks for after a fill
 is essays, consent boxes and one-off questions ("which office?", "can you lift
@@ -1018,6 +1018,43 @@ failures, 1.07 s) before the window left the screen; Greenhouse fills only
 while visible, so the other eleven wait for the window. Backend DECISIONS
 §48.
 
+**41. The live hundreds, the unanswered list, and the second pass
+(2026-10-01, backend PR #23, extension 0.4.39 on PR #11).**
+*Why.* Victor: "those were only four runs, let's do 100 runs across
+Greenhouse and 100 across Ashby", then "compile the questions we couldn't
+answer, decide yes or no whether we have the information, and answer it as
+well — for both Greenhouse and Ashby".
+*The Ashby hundred.* 100 unused organisations on 0.4.39 with the round-1
+facts answered: 719 filled, 250 for the applicant, 1 could-not-enter
+(Rivian/VW's Location geocoder), 22 forms with nothing left, median fill
+110 ms, 83 under one second — all in a hidden tab. Four organisations
+needed a second visit because the page navigated mid-poll; two text fields
+(a notice period, a phone) were reported filled yet still wanted and are
+on the list to inspect.
+*The Greenhouse hundred.* Drawn (100 live unused postings over 68 boards)
+and batched; 8 ran clean before the window left the screen. Greenhouse
+fills only while visible, so the rest wait for the window and are
+recorded as they land.
+*The unanswered list.* Every R48 posting re-planned through the backend
+with the real profile; every open question clustered: 443 clusters, each
+with a decision — YES the profile holds it (a wiring gap), NO it does not,
+PARTLY, MAYBE (model read under threshold), ESSAY, N/A — in the backend's
+`docs/unanswered-R48.md`. Still unanswered of 3,741 entries: 663 after
+round 1, 609 after the round-2 wiring (salary expectations had no route to
+the stored answer; privacy-policy acknowledgements were not consents;
+LinkedIn-link wordings; a cover-letter file input; "based in the United
+States?" as a checkbox), 597 after the second pass.
+*The second pass.* The agent Victor described: for each free-text question
+still open, the model is asked from the profile alone whether the profile
+contains the asked-for fact, and which stored key answers it; a second
+call verifies the value against the question; only the stored value is
+ever written, behind three gates, and essays, protected questions and
+consents never enter. Every answer it wrote across the 224 postings was
+read by hand: 14 of 14 correct (GitHub and LinkedIn wordings, a preferred
+last name, self-described pronouns, an availability date); 44 declined as
+not in the profile; 33 left as "touches it but no stored value answers it"
+(a university email address, rightly). Backend DECISIONS §49.
+
 ### What the log says in one paragraph
 
 Two classes of defect account for nearly everything that ever went wrong on
@@ -1200,7 +1237,8 @@ the only number that measures the extension rather than the profile.
 | 7 | 3 | 48 | 0 | — |
 | 9 | 10 | 146 | 0 | — |
 | 10 | 5 | 78 | 0 | — |
-| **all** | **116** | **1849** | **21** | |
+| R48-2 | 1 | 17 | 0 | — |
+| **all** | **117** | **1866** | **21** | |
 
 Round 1 in the ledger holds the two boards the extension was developed
 against (Duolingo, Coinbase); DECISIONS §34 counts fourteen boards opened

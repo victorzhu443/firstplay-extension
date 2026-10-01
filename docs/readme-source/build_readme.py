@@ -80,7 +80,7 @@ set before moving on to Ashby, Workday and Oracle.
 
 """
 
-r6 = by[max(by)]
+r6 = by[max((k for k in by if isinstance(k, int)), default=max(by, key=str))]
 r6_live = [r for r in r6 if not r.get("closed")]
 subs = {
     "{r6_logged}": str(len(r6)),
