@@ -194,6 +194,7 @@
   }
 
   function flush(final) {
+    if (!enabled) return;
     if (!watch) return Promise.resolve(0);
     let observations;
     try { observations = collect(final); } catch (e) { console.warn(`${TAG} learning capture failed: ${e && e.message}`); return Promise.resolve(0); }
@@ -231,8 +232,17 @@
    * Start watching this plan's controls. Idempotent per page: a second plan
    * (Ashby's posting → /application move, a popup re-run) replaces the first.
    */
+  let enabled = false;
+  // Off until the applicant opts in from the popup; re-read on every plan so
+  // turning it off stops the watch without a reload.
+  async function readEnabled() {
+    try { const v = await chrome.storage.local.get(["firstplay.learning.enabled"]); return !!v["firstplay.learning.enabled"]; }
+    catch (e) { return false; }
+  }
+
   function watchForLearning(posting, plan) {
     if (!plan || !plan.entries) return;
+    readEnabled().then((on) => { enabled = on; });
     if (watch) { clearTimeout(watch.timer); }
     const first = !watch;
     watch = { posting, plan, lastSent: new Map(), timer: null };

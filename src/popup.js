@@ -179,6 +179,17 @@
     return "learned";
   }
 
+  // Opt-in, off until the applicant turns it on: learning is a change in how
+  // their data is handled after install, so it is disclosed and chosen here
+  // (Chrome Web Store Limited Use; docs/research/learning-agents.md §4).
+  const LEARN_ENABLED_KEY = "firstplay.learning.enabled";
+  const learnToggle = document.getElementById("learnEnabled");
+  chrome.storage.local.get([LEARN_ENABLED_KEY]).then((v) => { learnToggle.checked = !!v[LEARN_ENABLED_KEY]; });
+  learnToggle.addEventListener("change", async () => {
+    await chrome.storage.local.set({ [LEARN_ENABLED_KEY]: learnToggle.checked });
+    renderLearned();
+  });
+
   async function renderLearned() {
     const stored = await chrome.storage.local.get([PROFILE_KEY, PROPOSALS_KEY, LEARNING_STATS_KEY]);
     const profile = stored[PROFILE_KEY] || {};

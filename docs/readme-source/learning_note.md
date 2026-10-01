@@ -40,3 +40,15 @@ profile replaces it), `firstplay.learning.proposals`,
 `firstplay.learning.ignored`, `firstplay.learning.stats`. A changed profile
 changes the plan-cache key (the profile is hashed into it), so no stale plan
 is served after a learn.
+
+
+**0.4.42 — opt-in and the two-company rule.** Learning is off until the
+applicant turns on "Learn from my answers" in the popup (a change in how
+their data is handled after install, so it is disclosed and chosen there;
+Chrome Web Store Limited Use). The backend now proposes a fact only once
+the same answer has been given on two different organisations' forms —
+Chromium Autofill's vote model — while an exact repeat of a question is
+replayed from the first time. Accept posts the key to the backend, which
+promotes it and clears the pending record; the local write is the fallback
+when the backend is down. Number inputs: a phone becomes its digits, any
+other non-number is refused with a reason (0.4.41).
