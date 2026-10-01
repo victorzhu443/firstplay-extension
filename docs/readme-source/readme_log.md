@@ -828,6 +828,61 @@ company hires. The widget worked; the form's answer set excludes the
 value. 0.4.38 reports that as a mismatch for the applicant, with what was
 offered, not as a filler failure. Backend DECISIONS §46–§47.
 
+**40. Everything except the essays, round 1 (2026-09-30 → 10-01, backend
+PR #23, extension 0.4.39 on PR #11).**
+*Why.* Victor: "create it so that for Greenhouse and for Ashby it fills out
+everything except for the essays. Everything else is a simple decision.
+Make sure to continuously train and test and train and test and
+hypothesize."
+*How the loop runs.* Measure offline first: a new backend tool scores the
+engine over frozen forms with the real profile — 578 Greenhouse forms and
+a new corpus of 413 live Ashby form definitions pulled through the
+ApiJobPosting replay (the API rate-limits above two parallel requests; the
+first pull at eight workers "lost" 353 of 459). Coverage is filled over
+everything that is not an essay or a file; a stated decision to leave a
+field blank counts. Every uncovered field is kept with its label, kind,
+options and reason, grouped — that list is the hypothesis list. Then a
+mechanism per cluster, tests, the offline delta, and a fresh held-out draw
+through the installed extension.
+*Baseline → round 1 (real profile, with the model).* Greenhouse 74.2% →
+76.3%; Ashby 76.5% → 79.4%. With the new onboarding facts answered (a
+placeholder copy of the profile, never the real one): 85.1% / 80.8%. The
+biggest single cluster is the education start month/year on 411 of 578
+Greenhouse forms — a fact the profile already has a slot for and that is
+still empty.
+*What changed in the engine.* Aliases and sentence-shaped patterns for
+Ashby custom fields that restate a core fact ("Current Location", "Please
+include your LinkedIn profile", "Your Phone Number"); optional "If other,
+please specify" fields blank when the choice before them was not Other;
+yes/no polarity read from the opening words, so "I am not a protected
+veteran" lands on "No, I am not a veteran or active member"; a `consents`
+section of standing decisions (privacy notice, certification, terms, SMS,
+marketing) replayed only once set, with the AI-policy attestation and
+arbitration never in it; ordered second choices for "How did you hear
+about us?"; an internship-end theme; class standing computed for "Are you
+a Freshman or Sophomore?"; essays in single-line controls recognised as
+essays. New facts the applicant is asked for: start date, address, salary
+expectation, interview language, years of experience, consents, two
+protected answers.
+*The held-out round, R48-1.* Twelve unused Ashby organisations in a hidden
+tab on 0.4.38: 103 filled, 42 for the applicant, median fill 0.4 s, 9 of 12
+under one second.
+*What went wrong, and how it was found.* Crusoe, Fab and Exegy each
+reported a yes/no (sponsorship, worked here before) as filled while the
+page's own required check still listed it. Reading the container: Ashby's
+yes/no is two buttons that toggle `aria-pressed`, with a hidden checkbox
+behind them. The filler had treated the checkbox as the control and, for a
+No, "left it unchecked" — and called that filled. Clicking the No button
+by hand flipped `aria-pressed` to true. 0.4.39 presses the button the value
+names and believes it only when it reads pressed; the local check counts a
+pressed button. The same read found Saronic's university pick failing its
+own confirmation: the option is three spans (name, country, domain), so
+its text runs longer than the input shows; a non-empty prefix is now the
+proof. Greenhouse's half of the draw ran one board (IMC: 20 filled, 0
+failures, 1.07 s) before the window left the screen; Greenhouse fills only
+while visible, so the other eleven wait for the window. Backend DECISIONS
+§48.
+
 ### What the log says in one paragraph
 
 Two classes of defect account for nearly everything that ever went wrong on
