@@ -46,7 +46,7 @@ log = (S / "readme_log.md").read_text()
 process = (S / "readme_process.md").read_text()
 
 round_rows = ""
-for k in sorted(by):
+for k in sorted(by, key=lambda r: (isinstance(r, str), str(r).zfill(3))):
     v = by[k]
     l = [r for r in v if not r.get("closed")]
     f = sum(r["filled"] for r in l)
