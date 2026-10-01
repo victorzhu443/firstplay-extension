@@ -52,7 +52,6 @@ for k in sorted(by, key=lambda r: (isinstance(r, str), str(r).zfill(3))):
     f = sum(r["filled"] for r in l)
     x = sum(r["failed"] for r in l)
     bad = [r["board"] for r in l if r["failed"]]
-    note = "" if k == max(by) else ""
     round_rows += f"| {k}{note} | {len(l)} | {f} | {x} | {', '.join(bad) or '—'} |\n"
 
 survey = f"""## 5. The survey, as it stands
