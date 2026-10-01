@@ -1,0 +1,132 @@
+{"round": 1, "board": "duolingo", "filled": 22, "failed": 0, "wants": [], "note": "employer renderer; location fixed later"}
+{"round": 1, "board": "coinbase", "filled": 24, "failed": 0, "wants": [], "note": "embed; hydration+list search fixed"}
+{"round": 2, "board": "mill", "filled": 6, "failed": 0, "wants": ["country"], "note": "country synthesised after"}
+{"round": 2, "board": "clockworksystems", "filled": 15, "failed": 1, "wants": ["location"], "note": "phone-country display; location id fixed after"}
+{"round": 2, "board": "gardacp", "filled": 9, "failed": 0, "wants": ["location"]}
+{"round": 2, "board": "verkada", "filled": 19, "failed": 0, "wants": ["location", "start dates", "availability months"]}
+{"round": 2, "board": "tribalscale", "filled": 12, "failed": 0, "wants": ["start dates"]}
+{"round": 2, "board": "docugami", "filled": 8, "failed": 0, "wants": []}
+{"round": 2, "board": "internshiplist2000", "filled": 23, "failed": 0, "wants": ["bespoke x7", "consents"]}
+{"round": 2, "board": "vercel", "filled": 19, "failed": 0, "wants": ["essays x2", "attestations x2"]}
+{"round": 2, "board": "integra", "filled": 22, "failed": 0, "wants": ["start dates", "heard-about multi", "availability", "essay"]}
+{"round": 2, "board": "aperaaiinc", "filled": 10, "failed": 0, "wants": ["bespoke eligibility"]}
+{"round": 2, "board": "chicagotradingcampus", "filled": 26, "failed": 0, "wants": ["preferred program", "street address", "state (if n/a select other)", "registered checkboxes"], "note": "re-run in page world"}
+{"round": 2, "board": "testnisc", "filled": 13, "failed": 0, "wants": ["preferred first name (alias gap)", "essay", "office multi", "remote %", "compensation", "most recent degree"], "note": "re-run visible, page world"}
+{"round": 3, "board": "genevatrading", "filled": 14, "failed": 0, "wants": []}
+{"round": 3, "board": "schonfeld", "filled": 20, "failed": 0, "wants": []}
+{"round": 3, "board": "integrainterns", "filled": 24, "failed": 0, "wants": ["availability multi", "essay"]}
+{"round": 3, "board": "virtu", "filled": 18, "failed": 0, "wants": ["bespoke yes/no x3"]}
+{"round": 3, "board": "relaypro", "filled": 17, "failed": 0, "wants": ["address", "state/province", "country (custom)", "salary", "bespoke"]}
+{"round": 3, "board": "figureai", "filled": 11, "failed": 0, "wants": []}
+{"round": 3, "board": "duolingounirecruitment", "filled": 24, "failed": 0, "wants": ["pronunciation", "duolingo account", "essays x4"]}
+{"round": 3, "board": "workshop", "filled": 7, "failed": 0, "wants": ["bespoke eligibility", "essay"]}
+{"round": 3, "board": "doordashcanada", "filled": 14, "failed": 0, "wants": ["competing offer", "previously completed", "team preference group"]}
+{"round": 4, "board": "doordashusa", "filled": 22, "failed": 0, "wants": [], "note": "re-run visible from load: 22/0; earlier 3 misses were hidden->visible hydration"}
+{"round": 4, "board": "devtechnology", "filled": 19, "failed": 0, "wants": ["clearance checkbox group (None/ATF/CBP\u2026)"]}
+{"round": 4, "board": "garnerhealth", "filled": 17, "failed": 0, "wants": ["desired salary", "based in\u2026 bespoke"]}
+{"round": 4, "board": "athinkingape", "filled": 9, "failed": 0, "wants": ["class year group (derivable from start_date)", "co-op registered", "essays x3"]}
+{"round": 4, "board": "nanopathinc", "filled": 9, "failed": 0, "wants": []}
+{"round": 4, "board": "whitewatermidstream", "filled": 19, "failed": 0, "wants": ["background check consent"]}
+{"round": 4, "board": "intersystems", "filled": 0, "failed": 0, "wants": [], "note": "posting closed since freeze \u2014 excluded", "closed": true}
+{"round": 4, "board": "wurljobs", "filled": 14, "failed": 0, "wants": ["interview recording consent"]}
+{"round": 4, "board": "sage49", "filled": 12, "failed": 0, "wants": ["heard-about (no own-site option)", "essays x2"]}
+{"round": 4, "board": "orennia", "filled": 10, "failed": 0, "wants": ["currently enrolled bespoke"], "note": "boards.greenhouse.io redirected to job-boards"}
+{"round": 4, "board": "haizelabs", "filled": 13, "failed": 0, "wants": []}
+{"round": 4, "board": "fspco-op012325", "filled": 12, "failed": 0, "wants": ["employment block: company, title, end year"], "note": "employment block never planned"}
+{"round": 4, "board": "tenstorrentuniversity", "filled": 14, "failed": 0, "wants": ["attestation"]}
+{"round": 4, "board": "gemini", "filled": 13, "failed": 0, "wants": ["essay", "attestation"], "note": "embed URL on boards.greenhouse.io redirected to job-boards"}
+{"round": 4, "board": "pacificfusion", "filled": 24, "failed": 1, "wants": ["School", "attestation"], "note": "school loader offered no 'Cornell University' \u2014 DIAGNOSE"}
+{"round": 4, "board": "andurilindustries", "filled": 20, "failed": 0, "wants": ["location preference bespoke"]}
+{"round": 4, "board": "vikingglobalinvestors", "filled": 13, "failed": 0, "wants": ["experience checkbox group"]}
+{"round": 4, "board": "xantium", "filled": 12, "failed": 0, "wants": ["preferred pronouns", "office applying to"]}
+{"round": 4, "board": "aegworldwide", "filled": 0, "failed": 0, "wants": [], "note": "posting closed since freeze \u2014 excluded", "closed": true}
+{"round":5,"board":"argmax","filled":6,"failed":0,"wants":[]}
+{"round":5,"board":"bti36021","filled":16,"failed":0,"wants":["security clearance x2"]}
+{"round":5,"board":"tanium","filled":25,"failed":0,"wants":["referral conditional","custom veteran question"]}
+{"round":5,"board":"ziprecruiter","filled":6,"failed":0,"wants":[],"note":"slow page; first read too early, second visit 6+ green mid-fill, no notes"}
+{"round":5,"board":"neuralink","filled":16,"failed":0,"wants":["essays x3","prior internship","bespoke"]}
+{"round":5,"board":"freeformfuturecorp","filled":23,"failed":0,"wants":["essays x4","heard-about","GPA (Undergraduate) alias gap","SAT/ACT","based-in bespoke"]}
+{"round":5,"board":"cresta","filled":5,"failed":0,"wants":[]}
+{"round":5,"board":"rfsmart","filled":18,"failed":0,"wants":["located-in bespoke"]}
+{"round":5,"board":"hpiq","filled":21,"failed":0,"wants":["essay"]}
+{"round":5,"board":"hevenaerotech","filled":15,"failed":0,"wants":["bespoke x9 (major, enrolled, shifts, lifting, location)"]}
+{"round":5,"board":"togetherai","filled":24,"failed":0,"wants":[]}
+{"round":5,"board":"lightmatter","filled":7,"failed":19,"wants":["office multi"],"note":"tab visible briefly then hidden before hydration; environmental — re-run pending; fix 0.4.19"}
+{"round":5,"board":"xairatherapeutics","filled":18,"failed":0,"wants":["essays x3","SMS consent","required sponsorship conditional left blank as sibling (no N/A option?) — defect candidate"]}
+{"round":5,"board":"kodiak","filled":16,"failed":0,"wants":[],"note":"0 aria-invalid after dry run"}
+{"round":5,"board":"compeerfinancial","filled":24,"failed":0,"wants":["internship credit bespoke","locations bespoke","academic status","agricultural experience","County (profile gap)","Address 1 (profile gap)","previously employed here? — check theme"]}
+{"round":5,"board":"thebrattlegroup","filled":21,"failed":0,"wants":["preferred office location","I agree consent"]}
+{"round":5,"board":"bgeinc","filled":0,"failed":0,"wants":[],"note":"posting redirects to the board listing — closed, excluded","closed":true}
+{"round":5,"board":"transmarketgroup","filled":19,"failed":0,"wants":["bespoke diversity prompt","State/Province/Region: alias gap","essay"]}
+{"round":5,"board":"newsbreak","filled":11,"failed":0,"wants":[]}
+{"round":5,"board":"gensyn","filled":12,"failed":0,"wants":["publication list","hours per week","country intend to work from — check","essay"],"note":"EU board, 0.4.17 host match works"}
+{"round":5,"board":"didi","filled":7,"failed":0,"wants":[]}
+{"round":5,"board":"rothesaygraduates","filled":13,"failed":0,"wants":["custom gender question (UK)","household occupation (UK socio-economic)","University name text — alias gap","campus visit","referral name"]}
+{"round":5,"board":"evolver","filled":20,"failed":0,"wants":["reference name","essay x2"]}
+{"round":5,"board":"momentenergy","filled":12,"failed":0,"wants":["essay"]}
+{"round":6,"board":"radixuniversity","filled":20,"failed":0,"wants":["GPA range select (bespoke)","office multi"]}
+{"round":6,"board":"mercury","filled":0,"failed":0,"wants":[],"note":"posting closed — board redirect with error=true","closed":true}
+{"round":6,"board":"vardaspace","filled":14,"failed":0,"wants":["seeking Spring internship? (availability)"]}
+{"round":6,"board":"digs","filled":0,"failed":0,"wants":[],"note":"posting closed — board redirect","closed":true}
+{"round":6,"board":"sevenresearch","filled":20,"failed":0,"wants":[]}
+{"round":6,"board":"medicalinformaticsengineering","filled":7,"failed":0,"wants":[]}
+{"round":6,"board":"covar","filled":15,"failed":0,"wants":["years of work experience"]}
+{"round":6,"board":"eudia","filled":15,"failed":0,"wants":[]}
+{"round":6,"board":"perpay","filled":17,"failed":0,"wants":["career fair","essay x2","in-person acknowledgement"]}
+{"round":6,"board":"samayaai","filled":10,"failed":0,"wants":["website/scholar link","project essay","published?","privacy notice consent"]}
+{"round":6,"board":"asteraearlycareer2026","filled":14,"failed":0,"wants":[]}
+{"round":6,"board":"spacex","filled":29,"failed":0,"wants":["summary essay","experience level per language x6 (bespoke matrix)","SAT","ACT","program preference"]}
+{"round":6,"board":"smartlyio","filled":15,"failed":0,"wants":["custom Veteran Status wording","age range"]}
+{"round":6,"board":"fccincinnati","filled":12,"failed":0,"wants":["live in West End neighborhood? bespoke"]}
+{"round":6,"board":"brave","filled":8,"failed":0,"wants":[]}
+{"round":6,"board":"visiersolutionsinc","filled":21,"failed":0,"wants":["6 CS courses bespoke","Address (profile gap)","Province/State alias gap","custom disability/LGBTQ/veteran (Canada)"]}
+{"round":6,"board":"blackedgecapital","filled":15,"failed":0,"wants":[]}
+{"round":6,"board":"thenuclearcompany","filled":22,"failed":0,"wants":["legal address (profile gap)","non-compete bespoke"]}
+{"round":6,"board":"klaviyocampus","filled":26,"failed":0,"wants":["prior internships count","Pronoun (custom)","Sexual Orientation (custom protected)"]}
+{"round":6,"board":"queracomputinginc","filled":26,"failed":0,"wants":["Address Line 1 (profile gap)","Highest Level of Education Obtained — candidate for degree-level derivation"]}
+{"round":6,"board":"msfcareers","filled":0,"failed":0,"wants":[],"note":"posting closed — board redirect","closed":true}
+{"round":6,"board":"hometapjobs","filled":15,"failed":0,"wants":["Why Hometap essay","How did you hear about us? — options unmatched","family/household member bespoke"]}
+{"round":6,"board":"audaxgroup","filled":27,"failed":0,"wants":["hourly rate","interview availability","office bespoke","function multi-select bespoke","end date","40 hrs commit","co-op vs internship"]}
+{"round":6,"board":"generalmatter","filled":26,"failed":0,"wants":["clearance x2","term multi-select (Fall/Spring/Summer) — availability candidate","commute confirm","essay"]}
+{"round":6,"board":"axq","filled":6,"failed":0,"wants":[]}
+{"round":6,"board":"nationallifeinsurancecompany","filled":23,"failed":0,"wants":["desired salary","relocation multi","broker-dealer/FINRA disclosures x5 bespoke","years of experience"]}
+{"round":6,"board":"later","filled":16,"failed":0,"wants":["work environment essay","salary expectations"]}
+{"round":6,"board":"roboforce","filled":8,"failed":0,"wants":[]}
+{"round":6,"board":"baltimoreorioles","filled":10,"failed":0,"wants":["baseball essays x4"]}
+{"round":6,"board":"hudl","filled":13,"failed":0,"wants":["on-site confirm","pay acknowledgement","cover-letter essay","custom race question"]}
+{"round":6,"board":"10alabs","filled":14,"failed":0,"wants":[]}
+{"round":6,"board":"optiverprivate","filled":28,"failed":0,"wants":["high-school graduation year","office multi","one role ack","applied in past 8 months","pronouns (custom)","terms consent"]}
+{"round":6,"board":"vaxcyte","filled":13,"failed":0,"wants":[]}
+{"round":6,"board":"honehealth","filled":0,"failed":0,"wants":[],"note":"posting closed — board redirect","closed":true}
+{"round":6,"board":"drweng","filled":22,"failed":0,"wants":["Legal First Name / Legal Last Name — alias gap","how did you hear (options unmatched)"]}
+{"round":6,"board":"axontalentcommunity","filled":0,"failed":0,"wants":[],"note":"posting closed — board redirect","closed":true}
+{"round":6,"board":"graphcore","filled":14,"failed":0,"wants":["legal-name acknowledgement"]}
+{"round":6,"board":"pdtpartners","filled":16,"failed":0,"wants":["tutored/TA bespoke"]}
+{"round":6,"board":"rocketlab","filled":22,"failed":0,"wants":["GPA conversion","essential qualifications","essays x2","preferred start date select","duration","fellowship multi","previous interview","clearance multi","offer consent"]}
+{"round":6,"board":"clevelandguardiansbops","filled":14,"failed":0,"wants":[]}
+{"round":7,"board":"viamrobotics","filled":12,"failed":0,"wants":[]}
+{"round":7,"board":"janestreet","filled":0,"failed":0,"wants":[],"note":"redirects to the employer-hosted form on janestreet.com — not a matched host; excluded (click-to-run case)","closed":true}
+{"round":7,"board":"fiveringsllc","filled":22,"failed":0,"wants":["grading scale","grad school plans","department","heard-about checkbox group","consents x2"]}
+{"round":7,"board":"efficientcomputer","filled":14,"failed":0,"wants":[]}
+{"round":9,"board":"cnssummerassociates","filled":14,"failed":0,"wants":["compensation expectations"],"note":"gate-widened engine; filled 1.6s"}
+{"round":9,"board":"bgeinccampus","filled":12,"failed":0,"wants":["School (check)","position type","location pref","department pref","SMS consent","Address (profile gap)"],"note":"filled 0.3s"}
+{"round":9,"board":"themjcos","filled":7,"failed":0,"wants":[]}
+{"round":9,"board":"amperesand","filled":22,"failed":0,"wants":["position availability bespoke","essays x2","location multi — model declined (silent)"],"note":"filled 0.7s"}
+{"round":9,"board":"walleyecapital-external-students","filled":15,"failed":0,"wants":["education start date (profile gap)","essay"],"note":"filled 0.3s"}
+{"round":9,"board":"assuredguaranty","filled":13,"failed":0,"wants":["education start date (profile gap)","FINRA/conflict disclosures x8 (legal, human)","consent"],"note":"filled 1.2s"}
+{"round":9,"board":"truveta","filled":9,"failed":0,"wants":["available dates (multi?)","relocation assistance ack"],"note":"filled 21.1s — slow-fill case, no checkbox multi filled"}
+{"round":9,"board":"hyannisportresearch","filled":14,"failed":0,"wants":[]}
+{"round":9,"board":"dvtrading","filled":25,"failed":0,"wants":["education start date (profile gap)","relevant internship experience bespoke","pronouns (custom)","T&C consent"]}
+{"round":9,"board":"aevexaerospace","filled":15,"failed":0,"wants":["resume-updated ack","government/military employee (disclosure)","recusal disclosure","CCPA consent","available dates text"]}
+{"round":10,"board":"rise8","filled":0,"failed":0,"wants":[],"note":"posting closed — board redirect","closed":true}
+{"round":10,"board":"patientpoint","filled":0,"failed":0,"wants":[],"note":"posting closed — board redirect","closed":true}
+{"round":10,"board":"ispottv","filled":0,"failed":0,"wants":[],"note":"posting closed — board redirect","closed":true}
+{"round":10,"board":"constantcontact","filled":0,"failed":0,"wants":[],"note":"posting closed — board redirect","closed":true}
+{"round":10,"board":"pointc","filled":0,"failed":0,"wants":[],"note":"posting closed — board redirect","closed":true}
+{"round":10,"board":"silananotechnologies","filled":0,"failed":0,"wants":[],"note":"posting closed — board redirect","closed":true}
+{"round":10,"board":"gitai","filled":15,"failed":0,"wants":["education start date (profile gap)","startup experience yes/no","open-source contribution yes/no"],"note":"fresh Simplify posting; 0.4.26"}
+{"round":10,"board":"cloudflare","filled":17,"failed":0,"wants":["4 outlined for review (labels not read; page re-navigated)"],"note":"fresh Simplify posting; fill 298ms"}
+{"round":10,"board":"katalyst","filled":12,"failed":0,"wants":["interview travel willingness","aerospace experience yes/no"],"note":"new-grad list; fill 924ms (geocoder 810)"}
+{"round":10,"board":"opentable","filled":16,"failed":0,"wants":["acknowledgement consent"],"note":"new-grad list; fill 8.8s — one loader hung to the 8s cap (fixed 0.4.28: 3s)"}
+{"round":10,"board":"insurify","filled":18,"failed":0,"wants":["why-this-role essay"],"note":"new-grad list; fill 327ms"}
+{"round":10,"board":"trace3","filled":0,"failed":0,"wants":[],"note":"page did not load (chrome network error) — excluded","closed":true}

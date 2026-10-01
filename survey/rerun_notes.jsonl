@@ -1,0 +1,7 @@
+{"date":"2026-09-29","board":"rocketlab","version":"0.4.24","filled":22,"failed":0,"fill_ms":158,"note":"picks 20ms (was 581); dry-run false flags — fixed 0.4.25"}
+{"date":"2026-09-29","board":"generalmatter","version":"0.4.24","filled":26,"failed":0,"fill_ms":828,"note":"lookups 737ms = Location geocoder; Summer 2027 ticked; warm lookups fired"}
+{"date":"2026-09-29","board":"pacificfusion","version":"0.4.24","filled":23,"failed":0,"fill_ms":145,"note":"school lookup fine; false flags from premature dry-run — verified valid on re-check"}
+{"date":"2026-09-29","board":"truveta","version":"0.4.22","filled":9,"failed":0,"fill_ms":100,"note":"earlier 21s was hidden-tab wait"}
+{"date":"2026-09-29","board":"lightmatter","version":"0.4.26","filled":20,"failed":0,"fill_ms":934,"note":"no false FILL rows; wants only office multi (review); lookups 651 picks 231"}
+{"date":"2026-09-29","board":"pacificfusion","version":"0.4.26","filled":23,"failed":0,"fill_ms":390,"note":"no false FILL rows; wants only the confirmation consent"}
+{"date":"2026-09-29","board":"rocketlab","version":"0.4.26","filled":22,"failed":0,"fill_ms":null,"note":"page read hidden; 22 green, wants []"}

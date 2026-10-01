@@ -73,9 +73,27 @@ function countAnswers(profile) {
   );
 }
 
-/** A short, stable key for "this posting, this profile": the plan is a pure function of both. */
+/**
+ * Which engine the backend is running, from its health route. A plan is a
+ * function of the engine as much as of the posting and profile: after a
+ * backend change a cached pre-change plan was served for twelve minutes on
+ * the board meant to test the change (DECISIONS §40). Local and fast; on
+ * failure the key carries "unknown" and a cached plan is still better than none.
+ */
+async function engineFingerprint() {
+  try {
+    const res = await fetch(`${BACKEND}/api/autofill/health`, { cache: "no-store" });
+    const body = await res.json();
+    return body.engine || "unknown";
+  } catch (_e) {
+    return "unknown";
+  }
+}
+
+/** A short, stable key for "this posting, this profile, this engine": the plan is a pure function of the three. */
 async function planCacheKey(posting, profile) {
-  const text = JSON.stringify([posting.ats, posting.board || posting.org, posting.jobId || posting.postingId, profile]);
+  const engine = await engineFingerprint();
+  const text = JSON.stringify([posting.ats, posting.board || posting.org, posting.jobId || posting.postingId, profile, engine]);
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
   return "firstplay.plan." + Array.from(new Uint8Array(digest)).slice(0, 12).map((b) => b.toString(16).padStart(2, "0")).join("");
 }
@@ -89,7 +107,11 @@ async function buildPlan({ posting, controls, page }) {
   // fixing one field by hand) should not pay the backend again. Session
   // storage: gone when the browser closes, and the profile hash is in the key,
   // so an edited profile misses. Ashby plans depend on the DOM and are not cached.
-  const cacheKey = posting.ats === "greenhouse" ? await planCacheKey(posting, profile) : null;
+  // Greenhouse and Ashby plans are both pure functions of an API payload
+  // and the profile (Ashby's form comes from its ApiJobPosting operation,
+  // DECISIONS §46), so both are cached; a DOM-read Ashby plan is not.
+  const cacheKey = posting.ats === "greenhouse" || (posting.ats === "ashby" && !(controls && controls.length))
+    ? await planCacheKey(posting, profile) : null;
   if (cacheKey) {
     const hit = (await chrome.storage.session.get(cacheKey))[cacheKey];
     if (hit && Date.now() - hit.at < 6 * 60 * 60 * 1000) {
@@ -115,17 +137,28 @@ async function buildPlan({ posting, controls, page }) {
     }
     body = { ats: "greenhouse", form, profile };
   } else {
-    body = {
-      ats: "ashby",
-      form: {
-        posting_id: posting.postingId,
-        company: posting.org,
-        title: page.title,
-        apply_url: page.url,
-        controls,
-      },
-      profile,
-    };
+    // Ashby: the form definition from the page's own GraphQL operation.
+    // The DOM extract is the fallback when the operation fails or when an
+    // older content script sent controls only.
+    let jobPosting = null;
+    try {
+      jobPosting = await fetchAshbyPosting(posting.org, posting.postingId);
+    } catch (e) {
+      if (!(controls && controls.length)) throw new Error(`Ashby's form definition could not be fetched (${e.message})`);
+    }
+    body = jobPosting
+      ? { ats: "ashby", form: { ...jobPosting, _org: posting.org }, profile }
+      : {
+          ats: "ashby",
+          form: {
+            posting_id: posting.postingId,
+            company: posting.org,
+            title: page.title,
+            apply_url: page.url,
+            controls,
+          },
+          profile,
+        };
   }
 
   const response = await fetch(`${BACKEND}/api/autofill/plan`, {
@@ -146,6 +179,7 @@ async function buildPlan({ posting, controls, page }) {
   if (cacheKey && !payload.model_skipped) {
     chrome.storage.session.set({ [cacheKey]: { at: Date.now(), payload } }).catch(() => {});
   }
+  rememberLookupTerms(payload);
 
   // Reported so an empty profile is distinguishable from a broken resolver.
   // Without it, "0 to fill, 19 need you" looks identical to a bug, and the
@@ -188,9 +222,14 @@ function dryRunSubmitInPage() {
       document.removeEventListener("submit", stop, true); window.removeEventListener("beforeunload", unload);
     };
 
+    // Ashby renders its application without a <form>; the button is found
+    // document-wide by its text ("Submit Application").
     const form = document.querySelector("form");
-    const button = form && (form.querySelector('button[type="submit"], input[type="submit"]') ||
-      Array.from(form.querySelectorAll("button")).find((b) => /submit/i.test(b.innerText)));
+    const scope = form || document;
+    const buttons = Array.from(scope.querySelectorAll('button, input[type="submit"]'));
+    const button = buttons.find((b) => /submit application|^submit$/i.test((b.innerText || b.value || "").trim()))
+      || (form && form.querySelector('button[type="submit"], input[type="submit"]'))
+      || buttons.find((b) => /submit/i.test(b.innerText || ""));
     if (!button) { restore(); resolve({ ok: false, why: "no submit button found" }); return; }
 
     const collect = () => {
@@ -208,6 +247,14 @@ function dryRunSubmitInPage() {
         const m = near && near.querySelector('[class*="error"], [role="alert"]');
         return m ? m.innerText.trim().slice(0, 80) : "";
       };
+      // Ashby marks a failed field with an error message inside its
+      // container rather than aria-invalid on the control.
+      for (const container of document.querySelectorAll("[data-field-path]")) {
+        const message = container.querySelector('[class*="error"], [role="alert"]');
+        if (!message || !message.innerText.trim()) continue;
+        const control = container.querySelector('input:not([type="hidden"]), textarea, select, [role="combobox"]');
+        if (control && !invalid.includes(control)) invalid.push(control);
+      }
       const fields = [];
       const seen = new Set();
       for (const el of invalid) {
@@ -245,6 +292,63 @@ function dryRunSubmitInPage() {
  * the instances to a page-world probe. So fill.js is injected into the main
  * world and applyPlan runs there; the outcome comes back as the result.
  */
+/**
+ * Ashby's application form, from the operation the page itself sends
+ * (`ApiJobPosting`; query text recovered from Ashby's bundle, checked in as
+ * ashby_posting.graphql). Public, no auth. Returns the `jobPosting` object,
+ * whose `applicationForm.sections[].fieldEntries[]` the backend normalises.
+ */
+let ashbyQueryText = null;
+async function fetchAshbyPosting(org, postingId) {
+  if (!ashbyQueryText) ashbyQueryText = await (await fetch(chrome.runtime.getURL("src/ashby_posting.graphql"))).text();
+  const res = await fetch("https://jobs.ashbyhq.com/api/non-user-graphql?op=ApiJobPosting", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "apollographql-client-name": "frontend_non_user" },
+    body: JSON.stringify({
+      operationName: "ApiJobPosting",
+      variables: { organizationHostedJobsPageName: org, jobPostingId: postingId },
+      query: ashbyQueryText,
+    }),
+  });
+  if (!res.ok) throw new Error(`ApiJobPosting ${res.status}`);
+  const json = await res.json();
+  const jobPosting = json && json.data && json.data.jobPosting;
+  if (!jobPosting || !jobPosting.applicationForm) throw new Error("ApiJobPosting returned no applicationForm");
+  return jobPosting;
+}
+
+/** The education terms this plan will look up; the next board warms them before its plan arrives. */
+const TERM_CONTROLS = [
+  [/^educations\[0\]\.school_name_id$/, "school--0"],
+  [/^educations\[0\]\.degree_id$/, "degree--0"],
+  [/^educations\[0\]\.discipline_id$/, "discipline--0"],
+  [/^_systemfield_location$/, "_systemfield_location"],   // Ashby's geocoder
+];
+
+function rememberLookupTerms(payload) {
+  const entries = (payload && payload.plan && payload.plan.entries) || [];
+  const terms = {};
+  for (const entry of entries) {
+    if (!entry.value || entry.needs_review || entry.skipped) continue;
+    for (const [pattern, id] of TERM_CONTROLS) if (pattern.test(entry.field_key)) terms[id] = entry.value;
+  }
+  if (Object.keys(terms).length) chrome.storage.session.set({ "firstplay.terms": terms }).catch(() => {});
+}
+
+async function warmLookupsInPage(sender) {
+  const stored = await chrome.storage.session.get("firstplay.terms");
+  const terms = stored["firstplay.terms"];
+  if (!terms) return { ok: true, started: [] };
+  const target = { tabId: sender.tab.id, frameIds: [sender.frameId || 0] };
+  await chrome.scripting.executeScript({ target, world: "MAIN", files: ["src/fill.js"] });
+  const results = await chrome.scripting.executeScript({
+    target, world: "MAIN",
+    func: (t) => window.FirstPlay.warm(t),
+    args: [terms],
+  });
+  return { ok: true, started: (results && results[0] && results[0].result) || [] };
+}
+
 async function applyPlanInPage(sender, plan, resume) {
   const target = { tabId: sender.tab.id, frameIds: [sender.frameId || 0] };
   await chrome.scripting.executeScript({ target, world: "MAIN", files: ["src/fill.js"] });
@@ -266,6 +370,12 @@ async function dryRunCheck(sender) {
 }
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+  if (message.kind === "warmLookups") {
+    warmLookupsInPage(_sender)
+      .then((r) => sendResponse(r))
+      .catch((e) => sendResponse({ ok: false, why: e.message }));
+    return true;
+  }
   if (message.kind === "applyPlan") {
     applyPlanInPage(_sender, message.plan, message.resume)
       .then((outcome) => sendResponse({ ok: !!outcome, outcome }))

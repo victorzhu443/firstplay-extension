@@ -180,6 +180,17 @@ var FirstPlay = FirstPlay || {};
   function locate(entry) {
     const key = entry.field_key;
 
+    // Ashby: every field's container carries data-field-path equal to the
+    // API field's path, which is the plan's key. Exact, no label matching.
+    const ashbyContainer = key && document.querySelector(`[data-field-path="${CSS.escape(key)}"]`);
+    if (ashbyContainer) {
+      const control = ashbyContainer.querySelector(
+        'input:not([type="hidden"]):not([type="radio"]):not([type="checkbox"]), textarea, select, [role="combobox"]'
+      );
+      if (control) return control;
+      if (ashbyContainer.querySelector('input[type="radio"], input[type="checkbox"]')) return ashbyContainer;
+    }
+
     const rendered = key && renderedIdFor(key);
     const byRendered = rendered && document.getElementById(rendered);
     if (byRendered) return byRendered;
@@ -313,10 +324,37 @@ var FirstPlay = FirstPlay || {};
    * (measured), which is what lets several searches run at once.
    */
   async function pickAutocomplete(el, value) {
-    let options = suggestionsFor(el);
-    for (let i = 0; i < 400 && !options.length; i += 1) {
-      await sleep(20);
+    // Wait up to 1.5 s for the list the typed term brings; then shorten the
+    // term and try again (two words, one word). Ashby's University field
+    // filters a fixed list by substring: "Cornell University" matched
+    // nothing where its option is "Cornell", and the old 8 s wait ended in
+    // "no suggestions appeared" (Sierra, 9.2 s in this one pick).
+    // A remote geocoder (Ashby's Location) answers in 0.4–3.3 s; a local
+    // list answers in a frame. The full term gets the long wait; shortened
+    // terms (punctuation stripped — "Ithaca," matched nothing) get a short
+    // one. Espa: the retry fired at 1.5 s while the geocoder was still
+    // working, and its late answer was read against the wrong term.
+    const isGeocoder = /location|city/i.test(el.getAttribute("aria-label") || "") ||
+      !!el.closest('[data-field-path="_systemfield_location"]') || el.id === "candidate-location";
+    const clean = (t) => t.replace(/[,.;:]+$/, "").trim();
+    const terms = [String(value)];
+    const words = clean(String(value)).split(/\s+/);
+    if (words.length > 2) terms.push(clean(words.slice(0, 2).join(" ")));
+    if (words.length > 1) terms.push(clean(words[0]));
+    let options = [];
+    for (const [round, term] of terms.entries()) {
+      if (round > 0) {
+        el.focus();
+        setNativeValue(el, term);
+        el.dispatchEvent(new Event("input", { bubbles: true }));
+      }
+      const budget = round === 0 && isGeocoder ? 175 : 75;   // × 20 ms
       options = suggestionsFor(el);
+      for (let i = 0; i < budget && !options.length; i += 1) {
+        await sleep(20);
+        options = suggestionsFor(el);
+      }
+      if (options.length) break;
     }
 
     if (!options.length) {
@@ -325,9 +363,16 @@ var FirstPlay = FirstPlay || {};
 
     const chosen = pickOption(options, (o) => o.textContent, value);
     if (!chosen) {
+      // The list answered and the answer is not on it. On Fanvue and Espa
+      // an organisation-scoped geocoder offered "Netherlands | New Zealand |
+      // West" for "Ithaca, NY": the employer restricts locations to where
+      // it hires. That is the form's decision about the applicant's value,
+      // not a widget the filler could not drive — reported as a mismatch
+      // the applicant resolves, with what was offered.
       return {
         ok: false,
-        why: `no suggestion is exactly ${JSON.stringify(value)}; offered: ` +
+        mismatch: true,
+        why: `the form's suggestions do not include ${JSON.stringify(value)}; offered: ` +
           options.slice(0, 5).map((o) => o.textContent.trim()).join(" | "),
       };
     }
@@ -415,22 +460,78 @@ var FirstPlay = FirstPlay || {};
    * on demand and keep `props.options` empty until then, so typing into the
    * input from a script shows nothing; calling the loader directly does.
    */
+  /**
+   * Loader results by control and term. The same school, degree and
+   * discipline are looked up on every Greenhouse board, so the terms of the
+   * last plan are looked up again as soon as the next board's selects
+   * hydrate — before its plan has arrived — and the plan-time prefetch
+   * finds the promise already here. General Matter's lookups tier was
+   * 863 ms of exactly these calls.
+   */
+  const lookupCache = new Map();
+
+  function lookupKey(input, term) {
+    return `${input.id || input.name || ""}::${normalise(term || "")}`;
+  }
+
   async function loadedOptions(input, term) {
     const loader = optionLoaderOf(input);
     if (!loader) return [];
 
-    let result;
-    try {
-      result = await Promise.race([
-        Promise.resolve(loader(term, () => {})),
-        sleep(8000).then(() => null),
-      ]);
-    } catch (e) {
-      return [];
+    const key = lookupKey(input, term);
+    if (!lookupCache.has(key)) {
+      lookupCache.set(key, (async () => {
+        let result;
+        try {
+          // 3 s, not 8: a loader that hangs held OpenTable's whole lookups
+          // tier for 8.7 s. The pick retries the term once more anyway.
+          result = await Promise.race([
+            Promise.resolve(loader(term, () => {})),
+            sleep(3000).then(() => null),
+          ]);
+        } catch (e) {
+          return [];
+        }
+        const items = Array.isArray(result) ? result : (result && (result.options || result.items)) || [];
+        return items.flatMap((o) => (Array.isArray(o.options) ? o.options : [o]));
+      })());
     }
+    const options = await lookupCache.get(key);
+    // An empty result is not worth remembering: the retry path re-asks.
+    if (!options.length) lookupCache.delete(key);
+    return options;
+  }
 
-    const items = Array.isArray(result) ? result : (result && (result.options || result.items)) || [];
-    return items.flatMap((o) => (Array.isArray(o.options) ? o.options : [o]));
+  /**
+   * Start the loader lookups for the terms the last plan used, if this
+   * page has the matching controls. Called by the content script as soon as
+   * the page has settled, ahead of the plan. Nothing is written; results
+   * only wait in `lookupCache`.
+   */
+  async function warm(terms) {
+    const started = [];
+    for (const [id, term] of Object.entries(terms || {})) {
+      if (!term) continue;
+      // Ashby's Location: a remote geocoder that takes 0.4–3.3 s. Typing the
+      // stored location as soon as the form renders means its suggestions
+      // are already open when the plan arrives and the pick is a click.
+      if (id === "_systemfield_location") {
+        const container = document.querySelector('[data-field-path="_systemfield_location"]');
+        const box = container && container.querySelector('input[role="combobox"], input');
+        if (!box || box.value) continue;
+        box.focus();
+        box.dispatchEvent(new FocusEvent("focusin", { bubbles: true }));
+        setNativeValue(box, term);
+        box.dispatchEvent(new Event("input", { bubbles: true }));
+        started.push(id);
+        continue;
+      }
+      const el = document.getElementById(id);
+      if (!el || !optionLoaderOf(el)) continue;
+      started.push(id);
+      loadedOptions(el, term).catch(() => {});
+    }
+    return started;
   }
 
   /**
@@ -444,8 +545,9 @@ var FirstPlay = FirstPlay || {};
     el.dispatchEvent(new FocusEvent("focusin", { bubbles: true }));
     setNativeValue(el, value);
 
-    for (let i = 0; i < 200; i += 1) {
-      await sleep(40);
+    // 3 s: FourKites' geocoder was down and the typed lookup waited 9.7 s.
+    for (let i = 0; i < 190; i += 1) {
+      await sleep(16);
       const fresh = selectInstanceOf(el) || instance;
       const options = instanceOptions(fresh);
       if (options.length) return options;
@@ -492,6 +594,10 @@ var FirstPlay = FirstPlay || {};
     // default page is the alphabet's start and never holds the answer.
     if (!options.length) { await sleep(300); options = await loadedOptions(el, value); }
     if (!options.length && !optionLoaderOf(el)) options = await loadedOptions(el, "");
+    // A typeahead without a loader (the Location geocoder): type now, so the
+    // network wait sits in the parallel lookups tier, not in the picks.
+    // General Matter's Location took 804 ms inside its pick before this.
+    if (!options.length && !optionLoaderOf(el)) options = await typedOptions(el, instance, value);
     return options;
   }
 
@@ -527,7 +633,15 @@ var FirstPlay = FirstPlay || {};
       return { ok: false, why: "react-select exposes no selection method" };
     }
 
-    // Poll the readback instead of napping a fixed 80 ms.
+    return confirmReactSelect(el, instance, chosen);
+  }
+
+  /**
+   * Wait for a react-select to show or hold the option just selected.
+   * Kept separate from the pick for readability; picks are confirmed one at
+   * a time on purpose (see the picks tier in applyPlan).
+   */
+  async function confirmReactSelect(el, instance, chosen) {
     // Readback: what the widget shows, or — when the page is hidden and its
     // rendering lags — what the widget holds. `selectValue` is what react-
     // select submits; the DOM catches up when the tab is visible again.
@@ -546,9 +660,27 @@ var FirstPlay = FirstPlay || {};
       const a = normalise(shownText), b = normalise(expected);
       return !!a && (a === b || (a.length >= 2 && b.includes(a)));
     };
+    // Visible: the rendered value is the commit signal — the wrapper owns
+    // the value, so the display changes only once the form's state has it.
+    // 0.4.24 accepted the widget's held state first, the dry-run submit ran
+    // before the form had committed, and every select was flagged required
+    // (Pacific Fusion, Rocket Lab, General Matter: false "plan said FILL"
+    // rows over correctly filled fields). Hidden: rendering lags, so the
+    // held state is the only signal there is.
+    // Rendered value first; the held state counts once one frame has passed
+    // (or when hidden, where nothing renders). Some widgets never expose a
+    // readable display — Lightmatter's gender select ran the whole 2 s wait
+    // before the held state was consulted.
+    // A tab covered mid-fill renders nothing, so the display never changes;
+    // Rocket Lab spent 25.6 s in picks that way (thirteen selects, 2 s cap
+    // each). Hidden, the wait is short and the held state decides.
+    let frames = 0;
+    const settled = () => displays(shown) || (held() && (document.hidden || frames >= 1));
+    const cap = () => (document.hidden ? 12 : 120);
     let shown = displayedValue(el);
-    for (let i = 0; i < 50 && !displays(shown) && !held(); i += 1) {
-      await sleep(40);
+    await Promise.resolve();
+    for (; frames < cap() && !settled(); frames += 1) {
+      await sleep(16);
       shown = displayedValue(el);
     }
 
@@ -721,8 +853,10 @@ var FirstPlay = FirstPlay || {};
 
     // A fieldset of radios or checkboxes (Greenhouse renders "How did you
     // hear about us?" this way on some boards): choose among its inputs.
-    if (el.tagName === "FIELDSET") {
+    if (el.tagName === "FIELDSET" || el.hasAttribute("data-field-path")) {
       const candidates = Array.from(el.querySelectorAll('input[type="radio"], input[type="checkbox"]'));
+      // A lone checkbox in an Ashby container is a yes/no question.
+      if (candidates.length === 1 && candidates[0].type === "checkbox") return fillChoiceInput(candidates[0], value);
       if (!candidates.length) return { ok: false, why: "fieldset holds no choices" };
       const textOf = (c) => { const l = c.id ? document.querySelector(`label[for="${CSS.escape(c.id)}"]`) : c.closest("label"); return l ? l.innerText : c.value; };
       const chosen = pickOption(candidates, textOf, value);
@@ -853,7 +987,7 @@ var FirstPlay = FirstPlay || {};
   }
 
   function widgetKind(el) {
-    if (el.tagName === "FIELDSET" && el.querySelector('input[type="radio"], input[type="checkbox"]')) return "instant";
+    if ((el.tagName === "FIELDSET" || el.hasAttribute("data-field-path")) && el.querySelector('input[type="radio"], input[type="checkbox"]')) return "instant";
     if (!["INPUT", "TEXTAREA", "SELECT"].includes(el.tagName) || el.matches('button[aria-haspopup="listbox"]')) return "listbox";
     if ((isReactSelect(el) && selectInstanceOf(el)) || looksLikeReactSelect(el)) return "react-select";
     if (el.getAttribute("role") === "combobox" ||
@@ -915,7 +1049,10 @@ var FirstPlay = FirstPlay || {};
    * they are looked at — and then wait for the selects to be owned.
    */
   async function pageReady() {
-    if (document.hidden) {
+    // Only a page with react-selects has anything to wait for while hidden
+    // (Greenhouse's hydration); Ashby's plain controls are written as they are.
+    const hasReactSelects = document.querySelector(".select__input") !== null;
+    if (document.hidden && hasReactSelects) {
       await new Promise((resolve) => {
         const onShow = () => { if (!document.hidden) { document.removeEventListener("visibilitychange", onShow); resolve(); } };
         document.addEventListener("visibilitychange", onShow);
@@ -926,10 +1063,27 @@ var FirstPlay = FirstPlay || {};
   }
 
   async function applyPlan(plan, context = {}) {
-    const outcome = { filled: 0, attach: 0, review: 0, failed: 0, missing: 0, details: [] };
+    const outcome = { filled: 0, attach: 0, review: 0, failed: 0, missing: 0, details: [], timing: {}, slow: [] };
     const work = { instant: [], "react-select": [], autocomplete: [], listbox: [] };
 
+    // Where the fill's time goes, per tier, and the slowest controls: the
+    // applicant's target is a fill under one second, and a number per tier is
+    // the only way to know which tier is over it.
+    const t0 = performance.now();
+    let tMark = t0;
+    const lap = (name) => { const now = performance.now(); outcome.timing[name] = Math.round(now - tMark); tMark = now; };
+    let phase = "instant";
+    const timed = async (item, fn) => {
+      const started = performance.now();
+      const result = await fn();
+      const ms = Math.round(performance.now() - started);
+      if (ms >= 300) outcome.slow.push({ label: (item.entry.label || item.entry.field_key || "").slice(0, 50), kind: `${widgetKind(item.el)} ${phase}`, ms });
+      return result;
+    };
+
     await pageReady();
+    lap("ready");
+    phase = "instant";
 
     const raceEntry = plan.entries.find((e) => e.field_key === "race" && e.value && !e.needs_review && !e.skipped);
     if (raceEntry && (await revealRace(raceEntry))) outcome.details.push({ label: "Hispanic/Latino", state: "answered from your stored race" });
@@ -993,6 +1147,12 @@ var FirstPlay = FirstPlay || {};
       if (result.ok) {
         outline(el, OUTLINE_FILLED, `FirstPlay: ${entry.reason || entry.source}`);
         outcome.filled += 1;
+      } else if (result.mismatch) {
+        // The widget worked; the form's own answer set excludes the value.
+        outline(el, OUTLINE_REVIEW, `FirstPlay: needs you — ${result.why}`);
+        try { badge(el, `FirstPlay: your answer ${JSON.stringify(value)} is not among this form's choices — ${result.why}`); } catch (e) { /* ignore */ }
+        outcome.review += 1;
+        outcome.details.push({ label: entry.label, state: "mismatch", why: result.why, value });
       } else {
         outline(el, OUTLINE_REVIEW, `FirstPlay: could not fill — ${result.why}`);
         // Drawing the note must never abort the run.
@@ -1009,13 +1169,25 @@ var FirstPlay = FirstPlay || {};
     };
 
     // Tier 1: instant.
-    for (const item of work.instant) record(item, await guarded(() => fillControl(item.el, item.entry, item.value)));
+    for (const item of work.instant) record(item, await timed(item, () => guarded(() => fillControl(item.el, item.entry, item.value))));
+    lap("instant");
+    phase = "lookup";
 
     // Tier 2: all react-select lookups at once, then synchronous picks —
     // after React owns the controls.
     if (work["react-select"].length) await hydrated(work["react-select"][0].el);
+    let typedChain = Promise.resolve();
     const prefetched = await Promise.all(
-      work["react-select"].map((item) => guarded(() => reactSelectOptions(item.el, item.value)).then((r) => (Array.isArray(r) ? r : [])))
+      work["react-select"].map((item) => {
+        const typed = selectInstanceOf(item.el) && !instanceOptions(selectInstanceOf(item.el)).length && !optionLoaderOf(item.el);
+        const run = () => timed(item, () => guarded(() => reactSelectOptions(item.el, item.value))).then((r) => (Array.isArray(r) ? r : []));
+        if (!typed) return run();
+        // Typeaheads take focus, so they run one after another — but
+        // alongside every loader lookup.
+        const next = typedChain.then(run);
+        typedChain = next.catch(() => []);
+        return next;
+      })
     );
 
     // Tier 3: start every autocomplete search before picking from any.
@@ -1023,18 +1195,40 @@ var FirstPlay = FirstPlay || {};
       try { startAutocomplete(item.el, item.value); } catch (e) { /* recorded by the pick below */ }
     }
 
+    lap("lookups");
+    phase = "pick";
+    // One pick per frame, never two in one tick. Greenhouse's wrapper folds
+    // each change into the form's state from a closure over the previous
+    // state: two picks fired in the same tick both *display* (the widgets
+    // hold their own value) but the form keeps only the last — measured on
+    // Lightmatter with a dry-run submit after each variant (DECISIONS §44).
+    // 0.4.23 fired every pick at once and the oracle flagged the losers as
+    // "required" over green outlines. A pick confirms on its rendered value,
+    // or on its held state once a frame has passed; the poll is 16 ms, so
+    // thirteen selects cost about a quarter of a second, not 581 ms.
     for (const [i, item] of work["react-select"].entries()) {
       if (!selectInstanceOf(item.el)) await hydrated(item.el);
-      record(item, await guarded(() => fillReactSelect(item.el, item.value, prefetched[i])));
+      record(item, await timed(item, () => guarded(() => fillReactSelect(item.el, item.value, prefetched[i]))));
       if (item.entry.values.length > 1) await guarded(() => fillControl(item.el, item.entry, item.value));
     }
-    for (const item of work.autocomplete) record(item, await guarded(() => pickAutocomplete(item.el, item.value)));
-    for (const item of work.listbox) record(item, await guarded(() => fillControl(item.el, item.entry, item.value)));
+    // One frame for the form to commit the last pick before anyone reads it
+    // (a hidden tab has no frames; a short unthrottled sleep instead).
+    if (document.hidden) await sleep(32);
+    else await new Promise((resolve) => requestAnimationFrame(() => setTimeout(resolve, 0)));
+    lap("picks");
+    for (const item of work.autocomplete) record(item, await timed(item, () => guarded(() => pickAutocomplete(item.el, item.value))));
+    lap("autocomplete");
+    for (const item of work.listbox) record(item, await timed(item, () => guarded(() => fillControl(item.el, item.entry, item.value))));
+    lap("listbox");
+    outcome.timing.total = Math.round(performance.now() - t0);
+    outcome.slow.sort((a, b) => b.ms - a.ms);
+    outcome.slow = outcome.slow.slice(0, 5);
 
     return outcome;
   }
 
   ns.applyPlan = applyPlan;
+  ns.warm = warm;
   ns.fillFile = fillFile;
   ns.selectInstanceOf = selectInstanceOf;
   ns.displayedValue = displayedValue;
