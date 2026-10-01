@@ -13,7 +13,19 @@
   "use strict";
 
   const PROFILE_KEY = "firstplay.profile";
-  const BACKEND = "http://localhost:8000";
+  const HOSTED_BACKEND = "https://firstplay-backend.onrender.com";
+  const BACKEND_KEY = "firstplay.backend";
+  const backendField = document.getElementById("backendUrl");
+  async function backendUrl() {
+    const stored = await chrome.storage.local.get(BACKEND_KEY);
+    const chosen = (stored[BACKEND_KEY] || "").trim().replace(/\/+$/, "");
+    return /^https?:\/\//.test(chosen) ? chosen : HOSTED_BACKEND;
+  }
+  chrome.storage.local.get(BACKEND_KEY).then((v) => { backendField.value = v[BACKEND_KEY] || ""; });
+  backendField.addEventListener("change", async () => {
+    await chrome.storage.local.set({ [BACKEND_KEY]: backendField.value.trim() });
+    location.reload();
+  });
 
   const area = document.getElementById("profile");
   const saved = document.getElementById("saved");
@@ -44,14 +56,14 @@
 
   // Reported so a backend that is not running is distinguishable from a bug in
   // the extension — the two look identical from the page.
-  fetch(`${BACKEND}/api/autofill/health`)
+  backendUrl().then((base) => fetch(`${base}/api/autofill/health`))
     .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
     .then((health) => {
       const model = health.model_available ? "model available" : "deterministic only";
       state.textContent += `  Backend up (${model}).`;
     })
     .catch(() => {
-      state.textContent += "  Backend unreachable — start it on :8000.";
+      state.textContent += "  Backend unreachable (the hosted one may be waking up — try again in a minute, or point to a local one below).";
       state.className = "status warn";
     });
 

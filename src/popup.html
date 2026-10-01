@@ -61,6 +61,10 @@
   <div id="proposals"></div>
   <p id="proposalsNote" style="margin:0 0 12px"></p>
 
+  <details style="margin:0 0 12px"><summary style="font-size:12px;cursor:pointer">Advanced: backend</summary>
+    <p style="font-size:12px;margin:4px 0">Leave empty to use the hosted backend (stateless — your profile is sent with each request and kept nowhere). Enter <code>http://localhost:8000</code> to keep every request on this machine.</p>
+    <input id="backendUrl" type="text" placeholder="https://firstplay-backend.onrender.com" style="width:100%;font-size:12px" />
+  </details>
   <p>Paste your profile — the contents of<br /><code>~/.config/firstplay/profile.json</code></p>
   <textarea id="profile" spellcheck="false" placeholder="{ &quot;facts&quot;: { … } }"></textarea>
 

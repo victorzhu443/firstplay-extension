@@ -11,7 +11,7 @@
  *     backend per request. It is never injected into the page, so a script on
  *     the application site cannot reach it.
  */
-import { BACKEND, PROFILE_KEY } from "./config.js";
+import { backendUrl, installToken, PROFILE_KEY } from "./config.js";
 
 /** The applicant's profile, or an empty one on first run. */
 async function loadProfile() {
@@ -82,7 +82,7 @@ function countAnswers(profile) {
  */
 async function engineFingerprint() {
   try {
-    const res = await fetch(`${BACKEND}/api/autofill/health`, { cache: "no-store" });
+    const res = await fetch(`${await backendUrl()}/api/autofill/health`, { cache: "no-store" });
     const body = await res.json();
     return body.engine || "unknown";
   } catch (_e) {
@@ -161,9 +161,9 @@ async function buildPlan({ posting, controls, page }) {
         };
   }
 
-  const response = await fetch(`${BACKEND}/api/autofill/plan`, {
+  const response = await fetch(`${await backendUrl()}/api/autofill/plan`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", "X-FirstPlay-Install": await installToken() },
     body: JSON.stringify(body),
   });
 
@@ -390,9 +390,9 @@ async function learn(observations, accept) {
   accept = Array.isArray(accept) ? accept : [];
   if (!observations.length && !accept.length) return { ok: true, learned: 0, proposals: 0, accepted: [] };
   const profile = await loadProfile();
-  const response = await fetch(`${BACKEND}/api/autofill/learn`, {
+  const response = await fetch(`${await backendUrl()}/api/autofill/learn`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", "X-FirstPlay-Install": await installToken() },
     body: JSON.stringify({ profile, observations, accept }),
   });
   if (!response.ok) {

@@ -22,95 +22,51 @@ changed, how it was verified — and section 4 is how the work was run.
 
 ## 1. Using it
 
-### What you need
+### Install (two minutes, nothing else to run)
 
-- Chrome (Manifest V3, developer mode).
-- The backend running locally on port 8000. It is stateless: it receives your
-  profile with each request, resolves the form, stores nothing.
-- A profile — your name, contact details, education, work authorisation,
-  preferences, and the protected-characteristic answers you *choose* to store.
-- Your résumé as a PDF.
+1. Download `firstplay-autofill-<version>.zip` from the latest
+   [release](https://github.com/victorzhu443/firstplay-extension/releases) and unzip it.
+2. In Chrome open `chrome://extensions`, turn on **Developer mode**, click
+   **Load unpacked**, and choose the unzipped folder.
+3. Click the FirstPlay icon, paste your profile (below), and attach your résumé.
 
-### Setup, once
+That is all. The extension talks to the hosted backend by default. The backend
+is stateless: your profile is sent with each request so the plan can be made,
+and it is stored nowhere but your own browser. If a backend is running on your
+machine on port 8000 the extension uses that instead, and the popup's
+*Advanced: backend* field pins either one explicitly.
 
-1. **Start the backend.**
+### Your profile
 
-   ```bash
-   cd firstplay-backend
-   .venv/bin/python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
-   ```
+Your profile is a JSON document with your name, contact details, education,
+work authorisation, preferences, standing consents, and only the
+self-identification answers you *choose* to store. Two ways to make one:
 
-2. **Build your profile.** The backend has an interactive setup that asks for
-   each fact in order of how many real application fields it answers, so
-   stopping early still leaves a useful profile:
+- **The guided setup** (needs the backend checkout): `python -m app.autofill.setup`
+  asks for each fact in the order of how many real application fields it
+  answers, so stopping early still leaves a useful profile. It writes
+  `~/.config/firstplay/profile.json`; paste that file's contents into the popup.
+- **By hand**: start from the template the popup shows and fill in what you
+  know. Leave anything you do not want filled empty; empty optional facts are
+  left blank on forms, and the popup tells you which questions still need you.
 
-   ```bash
-   .venv/bin/python -m app.autofill.setup
-   ```
+### Using it on a form
 
-   It writes `~/.config/firstplay/profile.json` — outside any repository on
-   purpose, since it holds your phone number, address and self-identification
-   answers.
+Open a Greenhouse or Ashby application. The extension fills what it can in
+under a second, outlines in green what it filled and in amber what it left to
+you, and attaches your résumé where the form takes one. Hover an amber field
+for the reason. **It never presses Submit** — you review and submit.
 
-3. **Load the extension.** Open `chrome://extensions`, turn on **Developer
-   mode**, click **Load unpacked**, choose this folder.
+### Running the backend yourself (optional)
 
-4. **Give it your profile.** Click the extension icon, paste the contents of
-   `profile.json` into the box, press **Save profile**. It lives in
-   `chrome.storage.local` on this machine and nowhere else.
+```bash
+cd firstplay-backend
+.venv/bin/python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
+```
 
-5. **Give it your résumé.** In the same popup, choose the file. It is stored
-   the moment you pick it (no Save button) and attached to every form as a real
-   file upload. ✕ forgets it. Files over 6 MB are refused.
-
-### Every application after that
-
-1. Open a posting on `job-boards.greenhouse.io`, `job-boards.eu.greenhouse.io`,
-   `boards.greenhouse.io` or `jobs.ashbyhq.com`. The fill starts by itself.
-2. **Keep the Chrome window on screen.** Greenhouse does not finish building
-   its form while the tab is hidden, and macOS reports a window covered by
-   another window as hidden. A posting opened in a background tab fills the
-   moment you look at it (§37).
-3. Read the outlines:
-
-   | outline | meaning |
-   |---|---|
-   | **green** | filled from your profile; hover for the reason |
-   | **amber** | needs you — nothing stored answers it, or it is an essay or a consent |
-   | **dashed blue** | attach this file yourself (only when the résumé is not stored) |
-   | **orange note beside a field** | the answer is known but the widget would not take it — a defect, please report it with the console log |
-
-4. The popup shows one line: `18 filled in 2.1s · 4 need you · form still wants 4`.
-   The last number is the form's own opinion: after every fill the extension
-   presses Submit in a **dry run** — every network write is blocked — and reads
-   which fields the form marks invalid (§32). Those are what stands between
-   you and submission.
-5. Fill the amber fields, check the green ones, press Submit yourself.
-
-### Employer-hosted postings
-
-Employers embed Greenhouse on their own domains (31 of 57 SWE-intern postings
-measured, §20). Those hosts cannot be enumerated, and `<all_urls>` would let the
-extension read every page you visit, so it does not ask for that. Instead:
-
-- If the form arrives in a `job-boards.greenhouse.io` iframe (Lyft's
-  careerpuck page), it fills automatically — the frame is a matched host.
-- If the form is served directly on the employer's domain (Duolingo), open the
-  popup and press **Fill this page**. This uses `activeTab`: access to this
-  tab, for this click, and nothing more. The board is inferred from the domain
-  or the embed script and verified against Greenhouse's API before anything is
-  written.
-
-### Reading the console (⌥⌘J)
-
-Every run logs, in order: the posting and plan summary with model-call count
-and cost; `applied: N filled, …`; `timing: page settled · plan ready · filled ·
-total`; then one `form wants: <field> ⇐ plan said <what>` line per field the
-dry-run submit rejected. `plan said FILL` on such a line means the filler
-failed — that is the line to paste into a bug report. The full plan is on
-`window.__firstplayPlan` and the outcome on `window.__firstplayOutcome`.
-
----
+With it running, the extension uses it automatically and no request leaves
+your machine. The model behind the bounded decisions needs `OPENROUTER_API_KEY`
+in the environment; without it the engine is deterministic only.
 
 ## 2. What it fills
 
