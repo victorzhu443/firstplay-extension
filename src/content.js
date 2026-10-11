@@ -241,6 +241,38 @@
     }
     window.__firstplayOutcome = outcome;
 
+    // Ashby restores the applicant's saved draft asynchronously, and a draft
+    // from an earlier visit can land *after* the fill and overwrite it. Seen
+    // on Forus (2026-10-09): the plan said Summer, the page showed the Winter
+    // chosen on an earlier visit. Two seconds after the fill, every filled
+    // entry is read back; anything that no longer holds the plan's value is
+    // applied once more and counted as drift.
+    if (posting.ats === "ashby" && ns._learn && ns._learn.readValue) {
+      await pause(2000);
+      const same = (a, b) => {
+        const norm = (v) => (Array.isArray(v) ? v : [v]).filter((x) => x !== null && x !== undefined)
+          .map((x) => String(x).trim().toLowerCase().replace(/\s+/g, " ")).sort().join("|");
+        return norm(a) === norm(b);
+      };
+      const drifted = [];
+      for (const entry of response.plan.entries) {
+        const planned = entry.values && entry.values.length ? entry.values : entry.value;
+        if (planned === null || planned === undefined || planned === "" || entry.needs_review || entry.skipped || entry.satisfied_by || entry.attach) continue;
+        const el = ns.locate(entry);
+        if (!el || (el.type || "").toLowerCase() === "file") continue;
+        let shown;
+        try { shown = ns._learn.readValue(el).value; } catch (e) { continue; }
+        if (shown === undefined || shown === null || shown === "" || (Array.isArray(shown) && !shown.length)) continue;  // not readable here; the check below still runs
+        if (!same(shown, planned)) drifted.push(entry);
+      }
+      outcome.drift = drifted.length;
+      if (drifted.length) {
+        console.warn(`${TAG} ${drifted.length} filled field(s) changed after the fill (a saved draft?): ` +
+          drifted.map((e) => e.label).join("; ") + " — applying once more");
+        try { await ns.applyPlan({ entries: drifted }, { resume }); } catch (e) { console.warn(`${TAG} re-apply failed: ${e && e.message}`); }
+      }
+    }
+
     const tApplied = performance.now();
     const secs = (ms) => (ms / 1000).toFixed(1) + "s";
 
@@ -336,6 +368,7 @@
         fill_ms: outcome.timing && outcome.timing.total, tiers: outcome.timing || null,
         slow: outcome.slow || [],
         plan_ms: Math.round(tPlanned - t0), backend_ms: response.elapsed_ms || 0, cached: !!response.cached,
+        drift: outcome.drift || 0,
         still_required: stillRequired,
         wants: wantRows.map((r) => ({ field: r.field.slice(0, 60), plan_said: r.plan_said, form_says: (r.form_says || "").slice(0, 60) })),
         failures: (outcome.details || []).filter((d) => d.state === "failed").map((d) => ({ label: (d.label || "").slice(0, 60), why: (d.why || "").slice(0, 80) })),
