@@ -1057,6 +1057,32 @@ the same label on a select whose options differ. 620 backend tests, 23
 node cases for the capture rules. Live test on a real form waits for the
 reload to 0.4.42. Backend DECISIONS §50.
 
+**43. Install and run; the first submissions; a draft that overwrote a
+fill (2026-10-01 → 10-09, extension 0.4.44–0.4.45, release v0.4.44).**
+*Why.* Victor: "how can I host FirstPlay so other people can use it on
+their own quickly … just download the extension and run it", then "let's
+continue to test … try to submit to trivial applications."
+*Install.* The backend already ran on Render for the main FirstPlay app,
+so the extension now picks its backend at run time — the popup's choice,
+else a local one answering on :8000, else the hosted one — and sends a
+per-install random token the backend rate-limits on. A release zip
+(`scripts/package.sh`, manifest + src only) and README section 1 rewritten
+as "Install (two minutes, nothing else to run)". A plan request against
+the hosted backend round-trips in 0.2 s. Until the landing PRs are merged
+and the model key is set in Render, the hosted engine is the old,
+deterministic-only one.
+*Submissions.* Forus, Melius and Apex — all on Victor's own spring list,
+all with nothing or one attestation left — were filled and read back value
+by value; he submitted Forus himself, chose to do Melius himself, declined
+Apex. The extension still submits nothing.
+*What went wrong.* The read-back on Forus showed "Winter (Jan–May 2027)"
+selected while the plan said Summer: Ashby had restored the draft saved on
+an earlier visit after the fill. A clean re-fill held Summer through ten
+seconds. 0.4.45 reads every filled Ashby field back two seconds after the
+fill, re-applies anything a draft changed, and records `drift`.
+*Also.* 0.4.44 retired the hard-coded localhost backend; an "Advanced:
+backend" field in the popup pins either. Backend DECISIONS §51.
+
 ### What the log says in one paragraph
 
 Two classes of defect account for nearly everything that ever went wrong on
