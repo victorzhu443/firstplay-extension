@@ -426,7 +426,7 @@
         asks: asksSent,
         still_required: stillRequired,
         wants: wantRows.map((r) => ({ field: r.field.slice(0, 60), plan_said: r.plan_said, form_says: (r.form_says || "").slice(0, 60) })),
-        failures: (outcome.details || []).filter((d) => d.state === "failed").map((d) => ({ label: (d.label || "").slice(0, 60), why: (d.why || "").slice(0, 80) })),
+        failures: (outcome.details || []).filter((d) => d.state === "failed").map((d) => ({ label: (d.label || "").slice(0, 60), why: scrubReason(d.why) })),
         fields: (outcome.fields || []).slice(0, 200),
         submit_clicked: !!(check && check.ok) && posting.ats !== "ashby",
         blocked: blocked ? { count: blocked.length, methods: Array.from(new Set(blocked)) } : null,
@@ -454,10 +454,21 @@
    * for this form is not handed to the page's scripts. The isolated world
    * keeps the full plan for the drift check and the learning watch.
    */
+  /** A reason with no quoted values in it — the same rule as fill.js's scrubWhy (that runs in the page's world). */
+  function scrubReason(why) {
+    if (!why) return why;
+    return String(why)
+      .replace(/"(?:[^"\\]|\\.)*"/g, '"…"')
+      .replace(/(^|[\s(;:,])'(?:[^'\\]|\\.)*'(?=$|[\s).;:,])/g, "$1'…'")
+      .slice(0, 80);
+  }
+
   function pagePlanFor(plan) {
     const entries = (plan.entries || []).map((e) => {
       const writes = !e.needs_review && !e.skipped && !e.satisfied_by && (e.value !== null || (e.values && e.values.length));
-      return writes ? e : { ...e, value: null, values: [], needs_fact: null };
+      // The reason can quote the value it refused ("'Ithaca, NY' is not an
+      // answer"); scrubbed along with the value (review of 2026-10-12).
+      return writes ? e : { ...e, value: null, values: [], needs_fact: null, reason: scrubReason(e.reason) };
     });
     return { ...plan, entries };
   }

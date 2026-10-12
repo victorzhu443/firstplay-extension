@@ -32,6 +32,11 @@ export function matches(node, selector) {
     part = part.trim();
     const tag = (part.match(/^[a-z]+/i) || [""])[0];
     if (tag && node.tagName !== tag.toUpperCase()) return false;
+    // Class selectors match on className, not on everything (a bare ".select__input"
+    // once matched every element, which would call every input a react-select).
+    for (const m of part.matchAll(/\.([A-Za-z0-9_-]+)/g)) {
+      if (!String(node.className || "").split(/\s+/).includes(m[1])) return false;
+    }
     const attrOf = (attr) => (attr === "type" ? node.type : attr === "class" ? node.className : node.getAttribute(attr));
     for (const m of part.matchAll(/\[([a-z-]+)(?:([*^$]?=)"([^"]*)")?\]/g)) {
       const [, attr, op, val] = m;
