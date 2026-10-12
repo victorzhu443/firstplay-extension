@@ -191,6 +191,11 @@
     return "learned";
   }
 
+  document.getElementById("forgetPlans").addEventListener("click", async () => {
+    const r = await chrome.runtime.sendMessage({ kind: "forgetPlans" });
+    document.getElementById("forgetPlansNote").textContent = r && r.ok ? `forgot ${r.forgotten} plan(s); the next page plans afresh` : "could not";
+  });
+
   // ----- fields it knew but could not enter: the diagnosis log -----
   const MISSES_KEY = "firstplay.misses";
   async function renderMisses() {

@@ -175,8 +175,10 @@ async function buildPlan({ posting, controls, page }) {
   const payload = await response.json();
 
   // Only a plan the model finished is worth remembering; one where it timed
-  // out should be retried next time.
-  if (cacheKey && !payload.model_skipped) {
+  // out, or where the model path was down (an expired key, 2026-10-12: the
+  // fallback plans made during the outage were served for a day after the
+  // fix), should be retried next time.
+  if (cacheKey && !payload.model_skipped && !payload.model_degraded) {
     chrome.storage.session.set({ [cacheKey]: { at: Date.now(), payload } }).catch(() => {});
   }
   rememberLookupTerms(payload);
@@ -428,7 +430,19 @@ async function learn(observations, accept) {
   return { ok: true, learned: payload.learned || 0, proposals: added, pending: proposals.length, accepted: payload.accepted || [] };
 }
 
+/** Drop every cached plan (the popup's "Forget cached plans"). */
+async function forgetPlans() {
+  const all = await chrome.storage.session.get(null);
+  const keys = Object.keys(all).filter((k) => k.startsWith("firstplay.plan."));
+  if (keys.length) await chrome.storage.session.remove(keys);
+  return { ok: true, forgotten: keys.length };
+}
+
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+  if (message.kind === "forgetPlans") {
+    forgetPlans().then(sendResponse).catch((e) => sendResponse({ ok: false, why: e.message }));
+    return true;
+  }
   if (message.kind === "learn") {
     learn(message.observations, message.accept)
       .then(sendResponse)
