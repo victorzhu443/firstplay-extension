@@ -28,6 +28,19 @@
   .proposal .acts { display: flex; gap: 6px; }
   .proposal .acts button { padding: 3px 9px; font-size: 11px; }
   .status { font-size: 12px; }
+  .field { margin: 0 0 7px; }
+  .field label { display: block; font-size: 11px; color: var(--muted); margin-bottom: 2px; }
+  .field label code { font-size: 11px; }
+  .field input, .field select { width: 100%; box-sizing: border-box; font: 12px inherit; padding: 5px 7px;
+                                border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--fg); }
+  .field .hint { font-size: 11px; color: var(--muted); margin-top: 2px; }
+  .ask { border: 1px solid var(--line); border-radius: 6px; padding: 7px 8px; margin: 0 0 6px; }
+  .ask .q { font-size: 12px; margin-bottom: 4px; }
+  .ask .acts { display: flex; gap: 6px; margin-top: 5px; }
+  .ask .acts button { padding: 3px 9px; font-size: 11px; }
+  details.section { border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; margin: 0 0 6px; }
+  details.section summary { font-size: 12px; cursor: pointer; }
+  details.section .count { color: var(--muted); font-size: 11px; }
   .ok { color: var(--ok); } .warn { color: var(--warn); }
   code { font-size: 11px; background: color-mix(in srgb, var(--fg) 8%, transparent);
          padding: 1px 4px; border-radius: 3px; }
@@ -36,6 +49,13 @@
 <body>
   <h1>FirstPlay Autofill</h1>
   <p id="state" class="status">Checking…</p>
+
+  <div id="asksBox" hidden style="margin:0 0 12px">
+    <p style="margin:0 0 6px"><strong id="asksTitle">This page asked for things your profile doesn't have</strong></p>
+    <p style="font-size:12px;margin:0 0 6px">Answer once here and every later form that asks the same gets it. Leave anything you'd rather not store.</p>
+    <div id="asksList"></div>
+    <div class="row" style="margin:0 0 4px"><button id="asksSaveAll">Save all</button><span id="asksNote" class="status"></span></div>
+  </div>
 
   <div class="row" style="margin:0 0 12px">
     <button id="fill" style="font-weight:600">Fill this page</button>
@@ -78,13 +98,22 @@
     <input id="backendUrl" type="text" placeholder="https://firstplay-backend.onrender.com" style="width:100%;font-size:12px" />
     <div class="row" style="margin:6px 0 0"><button id="forgetPlans">Forget cached plans</button><span id="forgetPlansNote" class="status" style="margin-left:8px"></span></div>
   </details>
-  <p>Paste your profile — the contents of<br /><code>~/.config/firstplay/profile.json</code></p>
-  <textarea id="profile" spellcheck="false" placeholder="{ &quot;facts&quot;: { … } }"></textarea>
-
-  <div class="row">
-    <button id="save">Save profile</button>
-    <span id="saved" class="status"></span>
+  <p style="margin-top:4px"><strong>Your profile</strong> — what the fill answers from. Ordered by how many application fields each answers.</p>
+  <p id="editorNote" class="status" style="margin:0 0 6px"></p>
+  <div id="editor"></div>
+  <div class="row" id="editorActions" hidden>
+    <button id="editorSave" style="font-weight:600">Save profile</button>
+    <span id="editorSaved" class="status"></span>
   </div>
+
+  <details id="rawBox" style="margin:12px 0 0"><summary style="font-size:12px;cursor:pointer">Advanced: raw profile (JSON)</summary>
+    <p style="font-size:12px;margin:4px 0">The same profile as text — the contents of <code>~/.config/firstplay/profile.json</code> if you keep one. Saving here refreshes the editor above.</p>
+    <textarea id="profile" spellcheck="false" placeholder="{ &quot;facts&quot;: { … } }"></textarea>
+    <div class="row">
+      <button id="save">Save raw profile</button>
+      <span id="saved" class="status"></span>
+    </div>
+  </details>
 
   <p style="margin-top:12px">
     Stored only in this browser. It is sent to your local backend to resolve a

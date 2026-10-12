@@ -63,7 +63,10 @@
     if (!user) return { emit: false, why: "empty" };
     if (lastSent !== undefined && lastSent === user) return { emit: false, why: "already sent" };
     const plan = normalise(planValue(entry));
-    if (!wasForApplicant(entry) && plan === user) return { emit: false, why: "same as plan" };
+    // An option label that extends the planned value ("United States +1" for
+    // "United States") is the plan's own fill, by the same rule pickOption
+    // selects it.
+    if (!wasForApplicant(entry) && (plan === user || (plan && user.startsWith(plan)))) return { emit: false, why: "same as plan" };
     return { emit: true, why: wasForApplicant(entry) ? "applicant answered" : "applicant corrected" };
   }
 
@@ -129,11 +132,15 @@
       }
       const reactish = el.getAttribute("role") === "combobox" || (el.className || "").includes("select__input");
       if (reactish) {
+        // The held option's own label first: the phone-country widget displays
+        // "+1" for "United States +1", and the display once went out as a
+        // correction to Country (IMC, 2026-10-12).
+        const held = ns.heldOptionText ? ns.heldOptionText(el) : null;
         const shown = ns.displayedValue ? ns.displayedValue(el) : null;
         const container = el.closest(".select__container") || el.parentElement;
         const multi = container && Array.from(container.querySelectorAll('[class*="multi-value__label"]')).map((m) => m.textContent.trim());
         if (multi && multi.length) return { value: multi, kind: "multi_select", options: [] };
-        return { value: shown || el.value || null, kind: "single_select", options: [] };
+        return { value: held || shown || el.value || null, kind: "single_select", options: [] };
       }
       const kind = ({ number: "number", date: "date", email: "email", tel: "phone", url: "url" })[type] || "text";
       return { value: el.value, kind, options: [] };

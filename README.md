@@ -1121,6 +1121,52 @@ master's date for a bachelor's student is not applicable; a secondary
 major is blank unless recorded) and the threshold stays. Backend
 DECISIONS §52.
 
+**45. Ask the applicant: a profile editor in the popup, and a page's
+unanswered facts become questions (2026-10-12, extension 0.4.49, backend
+DECISIONS §53).**
+*Why.* Victor, with IMC's form on screen — education start date empty,
+high-school graduation, test type, SAT and ACT required and empty: "you
+also need to be able to edit this stuff and ask the user for this
+information." The start date was in his profile file on disk and not in the
+copy the extension held, and nothing had told him.
+*What changed.* The backend marks every plan entry whose question it
+recognised but could not answer with what to ask (section, key, the form's
+own question, an example); it also serves the onboarding registry as a
+schema. The popup now renders a profile editor from that schema, grouped
+by section, raw JSON kept under "Advanced"; after each fill the page's
+unanswered facts appear at the top of the popup — "This page asked for N
+things your profile doesn't have" — each with an input, Save and Skip. A
+save writes the one key, drops the cached plans, and the next visit fills
+the field. Protected answers are typed and replayed exactly, never
+inferred, and the editor says so. The run record counts `asks` per page.
+*Also.* IMC's four facts (high-school graduation, test type, SAT, ACT) have
+a home; "May 2024" lands on a "2024" option; 1480 lands in its SAT bucket.
+
+**46. The loop that taught itself "+1" — a choice on a core field is never
+an episode (2026-10-12, extension 0.4.50, backend DECISIONS §54).**
+*Why.* On IMC after the 0.4.49 reload, Country failed: `no option matching
+"+1" among United States +1 | Afghanistan +93 | …`. A plan built from the
+same posting and the profile on disk said "United States". The extension's
+copy of the profile differed: with learning on, the capture had read the
+phone-country widget's display — "+1" for the option "United States +1" —
+on an earlier form, called it a correction to the plan's "United States",
+and stored it as the answer to "Country". Episodes replay ahead of every
+fact, so every Greenhouse form since was handed "+1".
+*What changed.* An episode on a select, multi-select or yes/no control of a
+core field (country, location, pronouns) is no longer stored or replayed:
+a select reports its rendering of an option, not the applicant's words, and
+the profile's fact already answers it. A different choice there becomes a
+proposed change to the fact, with the usual two-company support; a stale
+"+1" is dropped the next time the question is seen. Typed core answers (a
+preferred name) still replay. The capture now reads a react-select's held
+option by its own label, and both sides treat an option label that extends
+the planned value as the plan's own fill — the filler's own matching rule.
+*Measured.* 639 backend tests (+4). IMC re-run on the patched backend
+(extension still 0.4.49, so the stale "+1" was still in its profile and
+was ignored at resolve time): 21 filled, 0 failed, Country selected
+(United States, shown as "+1"), fill 1,074 ms; the 10 fields left are the
+six popup questions and the consents the extension's profile copy lacks.
+
 ### What the log says in one paragraph
 
 Two classes of defect account for nearly everything that ever went wrong on
