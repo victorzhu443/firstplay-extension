@@ -1051,6 +1051,29 @@ inferred, and the editor says so. The run record counts `asks` per page.
 *Also.* IMC's four facts (high-school graduation, test type, SAT, ACT) have
 a home; "May 2024" lands on a "2024" option; 1480 lands in its SAT bucket.
 
+**46. The loop that taught itself "+1" — a choice on a core field is never
+an episode (2026-10-12, extension 0.4.50, backend DECISIONS §54).**
+*Why.* On IMC after the 0.4.49 reload, Country failed: `no option matching
+"+1" among United States +1 | Afghanistan +93 | …`. A plan built from the
+same posting and the profile on disk said "United States". The extension's
+copy of the profile differed: with learning on, the capture had read the
+phone-country widget's display — "+1" for the option "United States +1" —
+on an earlier form, called it a correction to the plan's "United States",
+and stored it as the answer to "Country". Episodes replay ahead of every
+fact, so every Greenhouse form since was handed "+1".
+*What changed.* An episode on a select, multi-select or yes/no control of a
+core field (country, location, pronouns) is no longer stored or replayed:
+a select reports its rendering of an option, not the applicant's words, and
+the profile's fact already answers it. A different choice there becomes a
+proposed change to the fact, with the usual two-company support; a stale
+"+1" is dropped the next time the question is seen. Typed core answers (a
+preferred name) still replay. The capture now reads a react-select's held
+option by its own label, and both sides treat an option label that extends
+the planned value as the plan's own fill — the filler's own matching rule.
+*Measured.* 639 backend tests (+4). IMC re-run: see the next entry's
+numbers once the extension is reloaded; the backend side alone makes
+Country fill, since the stale episode is ignored at resolve time.
+
 ### What the log says in one paragraph
 
 Two classes of defect account for nearly everything that ever went wrong on

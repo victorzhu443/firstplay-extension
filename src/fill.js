@@ -569,6 +569,21 @@ var FirstPlay = FirstPlay || {};
     return String(option.label !== undefined ? option.label : option.value);
   }
 
+  /**
+   * The option a react-select holds, by its own label — not what it displays.
+   * The phone-country widget displays "+1" for the option "United States +1";
+   * the learning capture read the display, sent "+1" as a correction, and
+   * the backend replayed it on every later form (IMC, 2026-10-12).
+   */
+  function heldOptionText(el) {
+    const instance = selectInstanceOf(el);
+    if (!instance) return null;
+    const state = (instance.state && instance.state.selectValue) || [];
+    const value = instance.props && instance.props.value;
+    const values = Array.isArray(state) && state.length ? state : (Array.isArray(value) ? value : value ? [value] : []);
+    return values.length === 1 && values[0] && typeof values[0] === "object" ? optionText(values[0]) : null;
+  }
+
   /** What a react-select currently displays as its chosen value. */
   function displayedValue(el) {
     const container = el.closest(".select__container") || el.parentElement;
@@ -1302,6 +1317,7 @@ var FirstPlay = FirstPlay || {};
   ns.fillFile = fillFile;
   ns.selectInstanceOf = selectInstanceOf;
   ns.displayedValue = displayedValue;
+  ns.heldOptionText = heldOptionText;
   ns.locate = locate;
   ns.setNativeValue = setNativeValue;
   ns.fillReactSelect = fillReactSelect;
