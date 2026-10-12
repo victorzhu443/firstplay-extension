@@ -194,8 +194,9 @@
 
     // The resume lives in extension storage, put there once through the
     // popup; content scripts may read chrome.storage directly.
-    const stored = await chrome.storage.local.get("firstplay.resume");
+    const stored = await chrome.storage.local.get(["firstplay.resume", "firstplay.transcript"]);
     const resume = stored["firstplay.resume"] || null;
+    const transcript = stored["firstplay.transcript"] || null;
 
     // Wait for the tab to be looked at *here*, before asking the service
     // worker to run the fill: a worker call that waits out a hidden tab dies
@@ -224,7 +225,7 @@
     // which the select driver needs, are invisible from this isolated world.
     // A closed message channel is the worker having been stopped mid-call,
     // not a page problem: ask again once before giving up on the page world.
-    const runInPage = () => chrome.runtime.sendMessage({ kind: "applyPlan", plan: response.plan, resume })
+    const runInPage = () => chrome.runtime.sendMessage({ kind: "applyPlan", plan: response.plan, resume, transcript })
       .catch((e) => ({ ok: false, why: e && e.message }));
     let inPage = await runInPage();
     if (!(inPage && inPage.ok && inPage.outcome) && /message channel closed|context invalidated/i.test((inPage && inPage.why) || "")) {
@@ -237,9 +238,62 @@
     } else {
       console.warn(`${TAG} could not run the fill in the page's world (${(inPage && inPage.why) || "no result"}); ` +
         `falling back — dropdowns may not take values`);
-      outcome = await ns.applyPlan(response.plan, { resume });
+      outcome = await ns.applyPlan(response.plan, { resume, transcript });
     }
     window.__firstplayOutcome = outcome;
+
+    // Every field the plan knew but the page would not take is kept, with the
+    // page and the reason, so "FirstPlay knows this one — please pick it" can
+    // be diagnosed from real use instead of from a report. Victor, 2026-10-12:
+    // "I keep getting that it knows what should be chosen but can't choose it."
+    // No values: label, widget reason, host and path only.
+    try {
+      const misses = (outcome.details || []).filter((d) => d.state === "failed" || d.state === "mismatch");
+      if (misses.length) {
+        const where = `${location.host}${location.pathname}`.slice(0, 120);
+        const rows = misses.map((d) => ({
+          at: new Date().toISOString(), ats: posting.ats, where, title: (document.title || "").slice(0, 80),
+          label: (d.label || "").slice(0, 80), state: d.state, why: (d.why || "").slice(0, 160),
+          version: chrome.runtime.getManifest().version,
+        }));
+        chrome.storage.local.get("firstplay.misses").then((stored) => {
+          const kept = (stored["firstplay.misses"] || []).concat(rows).slice(-100);
+          return chrome.storage.local.set({ "firstplay.misses": kept });
+        }).catch(() => {});
+      }
+    } catch (e) { /* never let the log break the run */ }
+
+    // Ashby restores the applicant's saved draft asynchronously, and a draft
+    // from an earlier visit can land *after* the fill and overwrite it. Seen
+    // on Forus (2026-10-09): the plan said Summer, the page showed the Winter
+    // chosen on an earlier visit. Two seconds after the fill, every filled
+    // entry is read back; anything that no longer holds the plan's value is
+    // applied once more and counted as drift.
+    if (posting.ats === "ashby" && ns._learn && ns._learn.readValue) {
+      await pause(2000);
+      const same = (a, b) => {
+        const norm = (v) => (Array.isArray(v) ? v : [v]).filter((x) => x !== null && x !== undefined)
+          .map((x) => String(x).trim().toLowerCase().replace(/\s+/g, " ")).sort().join("|");
+        return norm(a) === norm(b);
+      };
+      const drifted = [];
+      for (const entry of response.plan.entries) {
+        const planned = entry.values && entry.values.length ? entry.values : entry.value;
+        if (planned === null || planned === undefined || planned === "" || entry.needs_review || entry.skipped || entry.satisfied_by || entry.attach) continue;
+        const el = ns.locate(entry);
+        if (!el || (el.type || "").toLowerCase() === "file") continue;
+        let shown;
+        try { shown = ns._learn.readValue(el).value; } catch (e) { continue; }
+        if (shown === undefined || shown === null || shown === "" || (Array.isArray(shown) && !shown.length)) continue;  // not readable here; the check below still runs
+        if (!same(shown, planned)) drifted.push(entry);
+      }
+      outcome.drift = drifted.length;
+      if (drifted.length) {
+        console.warn(`${TAG} ${drifted.length} filled field(s) changed after the fill (a saved draft?): ` +
+          drifted.map((e) => e.label).join("; ") + " — applying once more");
+        try { await ns.applyPlan({ entries: drifted }, { resume, transcript }); } catch (e) { console.warn(`${TAG} re-apply failed: ${e && e.message}`); }
+      }
+    }
 
     const tApplied = performance.now();
     const secs = (ms) => (ms / 1000).toFixed(1) + "s";
@@ -336,12 +390,19 @@
         fill_ms: outcome.timing && outcome.timing.total, tiers: outcome.timing || null,
         slow: outcome.slow || [],
         plan_ms: Math.round(tPlanned - t0), backend_ms: response.elapsed_ms || 0, cached: !!response.cached,
+        drift: outcome.drift || 0,
         still_required: stillRequired,
         wants: wantRows.map((r) => ({ field: r.field.slice(0, 60), plan_said: r.plan_said, form_says: (r.form_says || "").slice(0, 60) })),
         failures: (outcome.details || []).filter((d) => d.state === "failed").map((d) => ({ label: (d.label || "").slice(0, 60), why: (d.why || "").slice(0, 80) })),
         check_skipped: check && !check.ok ? check.why : null,
       }));
     } catch (_e) { /* the record is a convenience */ }
+
+    // From here on the applicant edits; what they type, pick and correct is
+    // the ground truth this plan lacked (learn.js). Watching, never writing.
+    if (ns.watchForLearning) {
+      try { ns.watchForLearning(posting, response.plan); } catch (e) { console.warn(`${TAG} learning watch not started: ${e && e.message}`); }
+    }
 
     return {
       still_required: stillRequired,
@@ -364,9 +425,11 @@
       const file = container.querySelector('input[type="file"]');
       const control = container.querySelector('input:not([type="hidden"]):not([type="radio"]):not([type="checkbox"]):not([type="file"]), textarea, select');
       const choices = container.querySelectorAll('input[type="radio"], input[type="checkbox"]');
+      const pressed = container.querySelectorAll('button[aria-pressed="true"]');
       let holds;
       if (file) holds = (file.files && file.files.length > 0) || /\.(pdf|docx?|rtf|txt)\b/i.test(container.innerText);
       else if (control) holds = (control.value || "").trim() !== "";
+      else if (pressed.length) holds = true;   // Ashby yes/no: a pressed button is the answer
       else if (choices.length) holds = Array.from(choices).some((c) => c.checked);
       else holds = false;
       if (!holds) invalid.push({ id: entry.field_key, name: entry.field_key, label: entry.label || entry.field_key, message: "required (Ashby form definition)" });

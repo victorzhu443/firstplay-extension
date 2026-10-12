@@ -4,8 +4,8 @@ Fills job applications from answers you have already given, on the real form,
 in about two seconds. You review what it wrote and you press Submit. **It never
 submits for you.**
 
-Measured so far on **116 live Greenhouse postings** on boards never opened
-before (a fresh draw every round): **1849 fields filled**, **21 cases** where
+Measured so far on **117 live Greenhouse postings** on boards never opened
+before (a fresh draw every round): **1866 fields filled**, **21 cases** where
 it knew the answer but could not enter it — all 21 on three boards whose
 defects are fixed and recorded below. What a form still asks for after a fill
 is essays, consent boxes and one-off questions ("which office?", "can you lift
@@ -22,95 +22,51 @@ changed, how it was verified — and section 4 is how the work was run.
 
 ## 1. Using it
 
-### What you need
+### Install (two minutes, nothing else to run)
 
-- Chrome (Manifest V3, developer mode).
-- The backend running locally on port 8000. It is stateless: it receives your
-  profile with each request, resolves the form, stores nothing.
-- A profile — your name, contact details, education, work authorisation,
-  preferences, and the protected-characteristic answers you *choose* to store.
-- Your résumé as a PDF.
+1. Download `firstplay-autofill-<version>.zip` from the latest
+   [release](https://github.com/victorzhu443/firstplay-extension/releases) and unzip it.
+2. In Chrome open `chrome://extensions`, turn on **Developer mode**, click
+   **Load unpacked**, and choose the unzipped folder.
+3. Click the FirstPlay icon, paste your profile (below), and attach your résumé.
 
-### Setup, once
+That is all. The extension talks to the hosted backend by default. The backend
+is stateless: your profile is sent with each request so the plan can be made,
+and it is stored nowhere but your own browser. If a backend is running on your
+machine on port 8000 the extension uses that instead, and the popup's
+*Advanced: backend* field pins either one explicitly.
 
-1. **Start the backend.**
+### Your profile
 
-   ```bash
-   cd firstplay-backend
-   .venv/bin/python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
-   ```
+Your profile is a JSON document with your name, contact details, education,
+work authorisation, preferences, standing consents, and only the
+self-identification answers you *choose* to store. Two ways to make one:
 
-2. **Build your profile.** The backend has an interactive setup that asks for
-   each fact in order of how many real application fields it answers, so
-   stopping early still leaves a useful profile:
+- **The guided setup** (needs the backend checkout): `python -m app.autofill.setup`
+  asks for each fact in the order of how many real application fields it
+  answers, so stopping early still leaves a useful profile. It writes
+  `~/.config/firstplay/profile.json`; paste that file's contents into the popup.
+- **By hand**: start from the template the popup shows and fill in what you
+  know. Leave anything you do not want filled empty; empty optional facts are
+  left blank on forms, and the popup tells you which questions still need you.
 
-   ```bash
-   .venv/bin/python -m app.autofill.setup
-   ```
+### Using it on a form
 
-   It writes `~/.config/firstplay/profile.json` — outside any repository on
-   purpose, since it holds your phone number, address and self-identification
-   answers.
+Open a Greenhouse or Ashby application. The extension fills what it can in
+under a second, outlines in green what it filled and in amber what it left to
+you, and attaches your résumé where the form takes one. Hover an amber field
+for the reason. **It never presses Submit** — you review and submit.
 
-3. **Load the extension.** Open `chrome://extensions`, turn on **Developer
-   mode**, click **Load unpacked**, choose this folder.
+### Running the backend yourself (optional)
 
-4. **Give it your profile.** Click the extension icon, paste the contents of
-   `profile.json` into the box, press **Save profile**. It lives in
-   `chrome.storage.local` on this machine and nowhere else.
+```bash
+cd firstplay-backend
+.venv/bin/python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
+```
 
-5. **Give it your résumé.** In the same popup, choose the file. It is stored
-   the moment you pick it (no Save button) and attached to every form as a real
-   file upload. ✕ forgets it. Files over 6 MB are refused.
-
-### Every application after that
-
-1. Open a posting on `job-boards.greenhouse.io`, `job-boards.eu.greenhouse.io`,
-   `boards.greenhouse.io` or `jobs.ashbyhq.com`. The fill starts by itself.
-2. **Keep the Chrome window on screen.** Greenhouse does not finish building
-   its form while the tab is hidden, and macOS reports a window covered by
-   another window as hidden. A posting opened in a background tab fills the
-   moment you look at it (§37).
-3. Read the outlines:
-
-   | outline | meaning |
-   |---|---|
-   | **green** | filled from your profile; hover for the reason |
-   | **amber** | needs you — nothing stored answers it, or it is an essay or a consent |
-   | **dashed blue** | attach this file yourself (only when the résumé is not stored) |
-   | **orange note beside a field** | the answer is known but the widget would not take it — a defect, please report it with the console log |
-
-4. The popup shows one line: `18 filled in 2.1s · 4 need you · form still wants 4`.
-   The last number is the form's own opinion: after every fill the extension
-   presses Submit in a **dry run** — every network write is blocked — and reads
-   which fields the form marks invalid (§32). Those are what stands between
-   you and submission.
-5. Fill the amber fields, check the green ones, press Submit yourself.
-
-### Employer-hosted postings
-
-Employers embed Greenhouse on their own domains (31 of 57 SWE-intern postings
-measured, §20). Those hosts cannot be enumerated, and `<all_urls>` would let the
-extension read every page you visit, so it does not ask for that. Instead:
-
-- If the form arrives in a `job-boards.greenhouse.io` iframe (Lyft's
-  careerpuck page), it fills automatically — the frame is a matched host.
-- If the form is served directly on the employer's domain (Duolingo), open the
-  popup and press **Fill this page**. This uses `activeTab`: access to this
-  tab, for this click, and nothing more. The board is inferred from the domain
-  or the embed script and verified against Greenhouse's API before anything is
-  written.
-
-### Reading the console (⌥⌘J)
-
-Every run logs, in order: the posting and plan summary with model-call count
-and cost; `applied: N filled, …`; `timing: page settled · plan ready · filled ·
-total`; then one `form wants: <field> ⇐ plan said <what>` line per field the
-dry-run submit rejected. `plan said FILL` on such a line means the filler
-failed — that is the line to paste into a bug report. The full plan is on
-`window.__firstplayPlan` and the outcome on `window.__firstplayOutcome`.
-
----
+With it running, the extension uses it automatically and no request leaves
+your machine. The model behind the bounded decisions needs `OPENROUTER_API_KEY`
+in the environment; without it the engine is deterministic only.
 
 ## 2. What it fills
 
@@ -963,6 +919,208 @@ company hires. The widget worked; the form's answer set excludes the
 value. 0.4.38 reports that as a mismatch for the applicant, with what was
 offered, not as a filler failure. Backend DECISIONS §46–§47.
 
+**40. Everything except the essays, round 1 (2026-09-30 → 10-01, backend
+PR #23, extension 0.4.39 on PR #11).**
+*Why.* Victor: "create it so that for Greenhouse and for Ashby it fills out
+everything except for the essays. Everything else is a simple decision.
+Make sure to continuously train and test and train and test and
+hypothesize."
+*How the loop runs.* Measure offline first: a new backend tool scores the
+engine over frozen forms with the real profile — 578 Greenhouse forms and
+a new corpus of 413 live Ashby form definitions pulled through the
+ApiJobPosting replay (the API rate-limits above two parallel requests; the
+first pull at eight workers "lost" 353 of 459). Coverage is filled over
+everything that is not an essay or a file; a stated decision to leave a
+field blank counts. Every uncovered field is kept with its label, kind,
+options and reason, grouped — that list is the hypothesis list. Then a
+mechanism per cluster, tests, the offline delta, and a fresh held-out draw
+through the installed extension.
+*Baseline → round 1 (real profile, with the model).* Greenhouse 74.2% →
+76.4%; Ashby 76.5% → 80.5%. With the new onboarding facts answered (a
+placeholder copy of the profile, never the real one): 85.2% / 81.8%. The
+biggest single cluster is the education start month/year on 411 of 578
+Greenhouse forms — a fact the profile already has a slot for and that is
+still empty.
+*What changed in the engine.* Aliases and sentence-shaped patterns for
+Ashby custom fields that restate a core fact ("Current Location", "Please
+include your LinkedIn profile", "Your Phone Number"); optional "If other,
+please specify" fields blank when the choice before them was not Other;
+yes/no polarity read from the opening words, so "I am not a protected
+veteran" lands on "No, I am not a veteran or active member"; a `consents`
+section of standing decisions (privacy notice, certification, terms, SMS,
+marketing) replayed only once set, with the AI-policy attestation and
+arbitration never in it; ordered second choices for "How did you hear
+about us?"; an internship-end theme; class standing computed for "Are you
+a Freshman or Sophomore?"; essays in single-line controls recognised as
+essays. New facts the applicant is asked for: start date, address, salary
+expectation, interview language, years of experience, consents, two
+protected answers.
+*The held-out round, R48-1.* Twelve unused Ashby organisations in a hidden
+tab on 0.4.38: 103 filled, 42 for the applicant, median fill 0.4 s, 9 of 12
+under one second.
+*What went wrong, and how it was found.* Crusoe, Fab and Exegy each
+reported a yes/no (sponsorship, worked here before) as filled while the
+page's own required check still listed it. Reading the container: Ashby's
+yes/no is two buttons that toggle `aria-pressed`, with a hidden checkbox
+behind them. The filler had treated the checkbox as the control and, for a
+No, "left it unchecked" — and called that filled. Clicking the No button
+by hand flipped `aria-pressed` to true. 0.4.39 presses the button the value
+names and believes it only when it reads pressed; the local check counts a
+pressed button. The same read found Saronic's university pick failing its
+own confirmation: the option is three spans (name, country, domain), so
+its text runs longer than the input shows; a non-empty prefix is now the
+proof. Greenhouse's half of the draw ran one board (IMC: 20 filled, 0
+failures, 1.07 s) before the window left the screen; Greenhouse fills only
+while visible, so the other eleven wait for the window. Backend DECISIONS
+§48.
+
+**41. The live hundreds, the unanswered list, and the second pass
+(2026-10-01, backend PR #23, extension 0.4.39 on PR #11).**
+*Why.* Victor: "those were only four runs, let's do 100 runs across
+Greenhouse and 100 across Ashby", then "compile the questions we couldn't
+answer, decide yes or no whether we have the information, and answer it as
+well — for both Greenhouse and Ashby".
+*The Ashby hundred.* 100 unused organisations on 0.4.39 with the round-1
+facts answered: 719 filled, 250 for the applicant, 1 could-not-enter
+(Rivian/VW's Location geocoder), 22 forms with nothing left, median fill
+110 ms, 83 under one second — all in a hidden tab. Four organisations
+needed a second visit because the page navigated mid-poll; two text fields
+(a notice period, a phone) were reported filled yet still wanted and are
+on the list to inspect.
+*The Greenhouse hundred.* Drawn (100 live unused postings over 68 boards)
+and batched; 8 ran clean before the window left the screen. Greenhouse
+fills only while visible, so the rest wait for the window and are
+recorded as they land.
+*The unanswered list.* Every R48 posting re-planned through the backend
+with the real profile; every open question clustered: 443 clusters, each
+with a decision — YES the profile holds it (a wiring gap), NO it does not,
+PARTLY, MAYBE (model read under threshold), ESSAY, N/A — in the backend's
+`docs/unanswered-R48.md`. Still unanswered of 3,741 entries: 663 after
+round 1, 609 after the round-2 wiring (salary expectations had no route to
+the stored answer; privacy-policy acknowledgements were not consents;
+LinkedIn-link wordings; a cover-letter file input; "based in the United
+States?" as a checkbox), 597 after the second pass.
+*The second pass.* The agent Victor described: for each free-text question
+still open, the model is asked from the profile alone whether the profile
+contains the asked-for fact, and which stored key answers it; a second
+call verifies the value against the question; only the stored value is
+ever written, behind three gates, and essays, protected questions and
+consents never enter. Every answer it wrote across the 224 postings was
+read by hand: 14 of 14 correct (GitHub and LinkedIn wordings, a preferred
+last name, self-described pronouns, an availability date); 44 declined as
+not in the profile; 33 left as "touches it but no stored value answers it"
+(a university email address, rightly). Backend DECISIONS §49.
+
+**42. The learning loop — built in parallel, from the research first
+(2026-10-01, backend PR #24, extension 0.4.40–0.4.42 on PR #12).**
+*Why.* Victor: "build an agent that as we use it improves and understands
+what I do to answer questions and starts being able to answer my own
+questions … build these in parallel, then test and iterate … based off of
+research about agents … a product that can be given to the world and let
+people focus on editing their résumé and learning, not applying as if it
+is their life and job."
+*Research first.* A 53-source note (backend `docs/research/learning-agents.md`)
+on agent memory (CoALA, Reflexion, Voyager, Generative Agents, Agent
+Workflow Memory, Synapse, a June 2026 budget-matched study showing memory
+wins must be measured as fewer repeated questions, not benchmark lift),
+on correction learning (Chromium Autofill's per-field votes from what the
+user actually submitted; Simplify's exact-question reuse), on propose-vs-
+auto-apply (mixed-initiative evidence that pre-applied suggestions reduce
+agency), on the products (Simplify, Jobright, LazyApply, Teal, Huntr,
+Sonara, Massive — every incumbent complaint is wrong values, fabricated
+content, unreviewed submissions or billing), on ATS terms (no
+candidate-facing Greenhouse or Ashby term forbids assisted filling; Ashby's
+robots.txt disallows /api/, so posting reads stay to the applicant's own
+open posting), on Chrome Web Store Limited Use (learning is a post-install
+change in data handling: disclose and opt in), and on self-identification
+law in flux (never generalised, never judged, default decline).
+*What was built, in parallel.* Two builders against one contract. Backend:
+`POST /api/autofill/learn` takes the profile and the applicant's
+observations and returns the profile with every differing answer saved for
+exact replay (episodic), proposals for facts judged stable by two bounded
+Jev questions (semantic), and `learned` facts read by the second pass and
+the gate (procedural); nothing is applied without the applicant's Accept;
+protected and consent answers are never proposed. Extension: `learn.js`
+watches the fields the plan knew, reads the applicant's final value the
+way the dry run reads values back, and sends observations on change, on a
+Submit click (never preventing it) and on leaving the page; the popup shows
+replay counts and proposal cards with Accept / Ignore; an opt-in switch
+gates all of it.
+*What the research changed after the first build.* Proposals now require
+the same answer at two different companies (the vote model); the opt-in
+switch; Accept routed through the backend so the pending record is
+settled.
+*Measured.* Offline replay simulation over the frozen corpora: Greenhouse
+1,045 simulated answers, 1,666 later occurrences of the same question,
+1,571 replayed (94.3%); Ashby 360 / 234 / 226 (96.6%). The remainder are
+the same label on a select whose options differ. 620 backend tests, 23
+node cases for the capture rules. Live test on a real form waits for the
+reload to 0.4.42. Backend DECISIONS §50.
+
+**43. Install and run; the first submissions; a draft that overwrote a
+fill (2026-10-01 → 10-09, extension 0.4.44–0.4.45, release v0.4.44).**
+*Why.* Victor: "how can I host FirstPlay so other people can use it on
+their own quickly … just download the extension and run it", then "let's
+continue to test … try to submit to trivial applications."
+*Install.* The backend already ran on Render for the main FirstPlay app,
+so the extension now picks its backend at run time — the popup's choice,
+else a local one answering on :8000, else the hosted one — and sends a
+per-install random token the backend rate-limits on. A release zip
+(`scripts/package.sh`, manifest + src only) and README section 1 rewritten
+as "Install (two minutes, nothing else to run)". A plan request against
+the hosted backend round-trips in 0.2 s. Until the landing PRs are merged
+and the model key is set in Render, the hosted engine is the old,
+deterministic-only one.
+*Submissions.* Forus, Melius and Apex — all on Victor's own spring list,
+all with nothing or one attestation left — were filled and read back value
+by value; he submitted Forus himself, chose to do Melius himself, declined
+Apex. The extension still submits nothing.
+*What went wrong.* The read-back on Forus showed "Winter (Jan–May 2027)"
+selected while the plan said Summer: Ashby had restored the draft saved on
+an earlier visit after the fill. A clean re-fill held Summer through ten
+seconds. 0.4.45 reads every filled Ashby field back two seconds after the
+fill, re-applies anything a draft changed, and records `drift`.
+*Also.* 0.4.44 retired the hard-coded localhost backend; an "Advanced:
+backend" field in the popup pins either. Backend DECISIONS §51.
+
+**44. "It knows the answer but can't pick it" — the expired key, the cached
+fallback plans, and attachments by kind (2026-10-11 → 10-12, extension
+0.4.46–0.4.48).**
+*Why.* Victor: "I keep getting FirstPlay knows what should be chosen but
+can't choose it — let's diagnose this issue", then a screenshot: the résumé
+attached as the undergraduate and the graduate transcript, and a required
+office choice left empty.
+*How it was diagnosed.* Nine dropdown-heavy Ashby forms reproduced nothing
+on 0.4.46, so the extension gained a persistent log of every field it knew
+but could not enter (page, widget reason, version) with Copy in the popup.
+The page's run record then showed two things at once: the installed
+version was still 0.4.42, and the backend's new health field said the model
+path was degraded — the OpenRouter key had expired on the 11th, every plan
+had fallen back to deterministic, and the extension had cached those
+fallback plans for six hours per page. With the key renewed, the same
+pages still came back "cached" with the old amber fields.
+*What changed.* 0.4.47 never caches a plan the model path was down for and
+adds "Forget cached plans"; the backend reports `model_degraded` on health
+and on every plan. After reload and a cache clear: Decagon 10 of 10 with
+the university selected, Vital 10 filled, Sail 3 of 3 — "now it works."
+*Attachments.* Victor: "automatically any file attachment gets the resume,
+which is incorrect — what is the field asking for? do we have that
+attachment? if not, note it, especially if required." That is now the
+design: the plan marks every file field with the document it asks for
+(résumé, cover letter, transcript, portfolio, other); 0.4.48 stores a
+transcript beside the résumé in the popup, attaches the document of the
+slot's own kind or nothing, and outlines the rest with the kind named and
+"(required)" when it is. A graduate transcript asked of a bachelor's
+student is skipped.
+*The audit.* With the key back, every model-decided value across 419
+held-out forms was read by hand: 289 decisions, 283 correct, 5 wrong, 1
+unsure; the second pass 43 of 43. The threshold sweep showed the wrong
+ones sat at high confidence, so each became a rule (protected questions
+asked as custom labels are now memory-only wherever they appear; a
+master's date for a bachelor's student is not applicable; a secondary
+major is blank unless recorded) and the threshold stays. Backend
+DECISIONS §52.
+
 ### What the log says in one paragraph
 
 Two classes of defect account for nearly everything that ever went wrong on
@@ -1145,7 +1303,8 @@ the only number that measures the extension rather than the profile.
 | 7 | 3 | 48 | 0 | — |
 | 9 | 10 | 146 | 0 | — |
 | 10 | 5 | 78 | 0 | — |
-| **all** | **116** | **1849** | **21** | |
+| R48-2 | 1 | 17 | 0 | — |
+| **all** | **117** | **1866** | **21** | |
 
 Round 1 in the ledger holds the two boards the extension was developed
 against (Duolingo, Coinbase); DECISIONS §34 counts fourteen boards opened
@@ -1159,7 +1318,7 @@ set before moving on to Ashby, Workday and Oracle.
 
 ---
 
-## 6. Notes for whoever edits this next
+## 7. Notes for whoever edits this next
 
 - **Content scripts are classic scripts.** An `export` in one is a syntax
   error at load and the script silently never runs, which looks exactly like

@@ -130,3 +130,4 @@
 {"round":10,"board":"opentable","filled":16,"failed":0,"wants":["acknowledgement consent"],"note":"new-grad list; fill 8.8s — one loader hung to the 8s cap (fixed 0.4.28: 3s)"}
 {"round":10,"board":"insurify","filled":18,"failed":0,"wants":["why-this-role essay"],"note":"new-grad list; fill 327ms"}
 {"round":10,"board":"trace3","filled":0,"failed":0,"wants":[],"note":"page did not load (chrome network error) — excluded","closed":true}
+{"round": "R48-2", "board": "altentechnologyusa", "id": "5235055007", "version": "0.4.39", "filled": 17, "failed": 0, "review": 2, "fill_ms": 940, "wants": ["What is your full legal n|review", "To prove you are a real p|review"], "failures": [], "profile": "2026-10-01 (round-1 facts added)"}

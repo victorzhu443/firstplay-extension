@@ -384,8 +384,17 @@ var FirstPlay = FirstPlay || {};
     // suggestion's text AND, where the field is backed by a hidden input
     // (Duolingo writes the chosen id there), that hidden value is set.
     const hidden = el.dataset.firstplayHidden ? document.getElementById(el.dataset.firstplayHidden) : null;
-    const committed = () =>
-      normalise(el.value) === normalise(text) && (!hidden || hidden.value !== "");
+    // Saronic (Ashby, R48-1): the option is three spans — name, country,
+    // domain — so its textContent reads "Cornell UniversityUnited
+    // Statescornell.edu" while the input shows "Cornell University". The
+    // input holding a non-empty prefix of the option's text is the same
+    // proof; the input holding something else is not.
+    const committed = () => {
+      const shown = normalise(el.value);
+      const wantedText = normalise(text);
+      const same = shown !== "" && (shown === wantedText || wantedText.startsWith(shown));
+      return same && (!hidden || hidden.value !== "");
+    };
     for (let i = 0; i < 150 && !committed(); i += 1) await sleep(20);
 
     if (!committed()) {
@@ -710,7 +719,16 @@ var FirstPlay = FirstPlay || {};
     // hit. Measured on Ashby: "Are you authorized to work lawfully…" is one
     // checkbox in its own container.
     if (candidates.length === 1 && (el.type || "").toLowerCase() === "checkbox") {
-      const yes = /^(yes|true|y)$/.test(wanted);
+      // OpenAI (Ashby, R49): "I hereby certify that I have read…" is a
+      // one-option select in the API and a single checkbox on the page; the
+      // plan's value is that option's own label ("I confirm I have read the
+      // above."). The label of the box *is* the yes.
+      const ownLabel = (() => {
+        const byFor = el.id ? document.querySelector(`label[for="${CSS.escape(el.id)}"]`) : null;
+        const label = byFor || el.closest("label");
+        return label ? normalise(label.innerText) : "";
+      })();
+      const yes = /^(yes|true|y)$/.test(wanted) || (ownLabel !== "" && wanted === ownLabel);
       const no = /^(no|false|n)$/.test(wanted);
       if (!yes && !no) return { ok: false, why: `${JSON.stringify(value)} is not yes/no` };
       if (el.checked !== yes) el.click();
@@ -854,6 +872,26 @@ var FirstPlay = FirstPlay || {};
     // A fieldset of radios or checkboxes (Greenhouse renders "How did you
     // hear about us?" this way on some boards): choose among its inputs.
     if (el.tagName === "FIELDSET" || el.hasAttribute("data-field-path")) {
+      // Ashby's Boolean field is two buttons ("Yes" / "No") that toggle
+      // aria-pressed, with a hidden checkbox behind them. Held-out round
+      // R48-1 (2026-10-01): on Crusoe, Fab and Exegy a "No" was reported
+      // filled while neither button was pressed — the lone-checkbox rule
+      // below had "left it unchecked" and called that an answer. Press the
+      // button the value names, and believe it only when it reads pressed.
+      const yesNo = el.querySelector(".ashby-application-form-input-yesno, [class*='input-yesno']");
+      if (yesNo) {
+        const wanted = normalise(value);
+        const option = /^(yes|true|y)$/.test(wanted) ? "yes" : /^(no|false|n)$/.test(wanted) ? "no" : null;
+        if (!option) return { ok: false, why: `${JSON.stringify(value)} is not yes/no` };
+        const button = yesNo.querySelector(`button[data-option="${option}"]`) ||
+          Array.from(yesNo.querySelectorAll("button")).find((b) => normalise(b.textContent) === option);
+        if (!button) return { ok: false, why: `no ${option} button in the yes/no control` };
+        if (button.getAttribute("aria-pressed") !== "true") button.click();
+        for (let i = 0; i < 25 && button.getAttribute("aria-pressed") !== "true"; i += 1) await sleep(20);
+        const pressed = button.getAttribute("aria-pressed") === "true";
+        return pressed ? { ok: true, chose: button.textContent.trim() }
+                       : { ok: false, why: `clicked ${option} but the button did not register as pressed` };
+      }
       const candidates = Array.from(el.querySelectorAll('input[type="radio"], input[type="checkbox"]'));
       // A lone checkbox in an Ashby container is a yes/no question.
       if (candidates.length === 1 && candidates[0].type === "checkbox") return fillChoiceInput(candidates[0], value);
@@ -887,6 +925,22 @@ var FirstPlay = FirstPlay || {};
         result = { ok: true, chose: option.textContent.trim() };
       } else {
         result = { ok: false, why: "no matching option" };
+      }
+    } else if ((el.type || "").toLowerCase() === "number") {
+      // R48-2: TELUS "Phone" and Atominvest "notice period (in months)" are
+      // <input type=number>; a dashed phone and "8 weeks +" left them empty
+      // while the fill reported success. A phone becomes its digits; any
+      // other non-numeric value is refused here rather than silently dropped.
+      const digits = String(value).replace(/\D/g, "");
+      const numeric = /^\s*-?\d+([.,]\d+)?\s*$/.test(String(value));
+      const asNumber = numeric ? String(value).trim().replace(",", ".") : (digits.length >= 7 ? digits : null);
+      if (asNumber === null) {
+        result = { ok: false, why: `this field takes a number; ${JSON.stringify(String(value).slice(0, 30))} is not one` };
+      } else {
+        setNativeValue(el, asNumber);
+        el.dispatchEvent(new Event("change", { bubbles: true }));
+        result = (el.value || "") !== "" ? { ok: true, chose: asNumber }
+                                         : { ok: false, why: `the number input rejected ${JSON.stringify(asNumber)}` };
       }
     } else {
       setNativeValue(el, value);
@@ -1111,8 +1165,21 @@ var FirstPlay = FirstPlay || {};
       if (entry.skipped || entry.satisfied_by) continue;
 
       if ((el.type || "").toLowerCase() === "file") {
-        if (context.resume) {
-          const attached = fillFile(el, context.resume);
+        // What this slot asks for is the plan's decision (entry.document:
+        // resume, cover_letter, transcript, portfolio, other), with a label
+        // read as the fallback for an older backend. A slot takes the stored
+        // document of its own kind or nothing — the résumé went into "Please
+        // provide a recent transcript of your undergraduate studies" before
+        // 0.4.48, which was a wrong document under the applicant's name.
+        const kind = entry.document ||
+          (/transcript|academic record/i.test(`${entry.label || ""} ${entry.value || ""}`) ? "transcript"
+            : /cover letter/i.test(entry.label || "") ? "cover_letter"
+            : /portfolio|sample/i.test(entry.label || "") ? "portfolio"
+            : /resume|résumé|\bcv\b/i.test(`${entry.label || ""} ${entry.field_key || ""}`) ? "resume" : "other");
+        const doc = kind === "resume" ? context.resume : kind === "transcript" ? context.transcript : null;
+        const docName = kind.replace("_", " ");
+        if (doc) {
+          const attached = fillFile(el, doc);
           if (attached.ok) {
             outline(el, OUTLINE_FILLED, `FirstPlay: attached ${attached.chose}`);
             outcome.filled += 1;
@@ -1121,10 +1188,13 @@ var FirstPlay = FirstPlay || {};
           }
           outcome.details.push({ label: entry.label, state: "failed", why: attached.why });
         }
-        // No stored resume (or the input refused it): say what to drag in.
-        outline(el, OUTLINE_ATTACH, `FirstPlay: attach ${entry.value || "your file"}`);
-        badge(el, "FirstPlay: attach your resume here — or upload it once in the " +
-                  "extension popup and it will be attached for you next time.");
+        // No stored document of that kind (or the input refused it): say what
+        // to drag in, and say when the form requires it.
+        const req = entry.required ? " (required)" : "";
+        outline(el, OUTLINE_ATTACH, `FirstPlay: attach your ${docName}${req}`);
+        badge(el, kind === "resume" || kind === "transcript"
+          ? `FirstPlay: attach your ${docName} here${req} — or upload it once in the extension popup and it will be attached for you next time.`
+          : `FirstPlay: this asks for a ${docName}${req} — attach it by hand.`);
         outcome.attach += 1;
         outcome.details.push({ label: entry.label, state: "attach by hand",
                                value: entry.value });

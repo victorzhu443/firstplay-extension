@@ -21,6 +21,12 @@
            cursor: pointer; }
   button:hover { border-color: var(--muted); }
   .row { display: flex; gap: 8px; align-items: center; margin-top: 9px; }
+  .proposal { border: 1px solid var(--line); border-radius: 6px; padding: 7px 8px; margin: 0 0 6px; }
+  .proposal .q { color: var(--muted); font-size: 11px; margin-bottom: 2px; }
+  .proposal .kv { font-size: 12px; margin-bottom: 5px; word-break: break-word; }
+  .proposal .kv code { font-size: 11px; }
+  .proposal .acts { display: flex; gap: 6px; }
+  .proposal .acts button { padding: 3px 9px; font-size: 11px; }
   .status { font-size: 12px; }
   .ok { color: var(--ok); } .warn { color: var(--warn); }
   code { font-size: 11px; background: color-mix(in srgb, var(--fg) 8%, transparent);
@@ -48,6 +54,30 @@
   </div>
   <p id="resumeStatus" class="status" style="margin-bottom:12px"></p>
 
+  <p style="margin-top:4px"><strong>Your transcript</strong> — attached where a form asks for one (many internships do).</p>
+  <div class="row" style="margin:0 0 4px">
+    <input id="transcriptFile" type="file" accept=".pdf,.doc,.docx,.txt,.rtf" style="font-size:12px;max-width:240px" />
+    <button id="removeTranscript" title="Forget the stored transcript">✕</button>
+  </div>
+  <p id="transcriptStatus" class="status" style="margin-bottom:12px"></p>
+
+  <p style="margin-top:4px"><strong>Learned from you</strong></p>
+  <label class="row" style="margin:0 0 6px;font-size:12px"><input id="learnEnabled" type="checkbox" style="margin-right:6px" />
+    Learn from my answers — remember what I type into fields the fill left to me, on this computer only, and suggest facts to add after I've given the same answer at two companies.</label>
+  <p id="learnedStatus" class="status" style="margin-bottom:6px"></p>
+  <div id="proposals"></div>
+  <p id="proposalsNote" style="margin:0 0 12px"></p>
+
+  <details id="missesBox" style="margin:0 0 12px"><summary style="font-size:12px;cursor:pointer">Fields it knew but could not enter (<span id="missesCount">0</span>)</summary>
+    <p style="font-size:12px;margin:4px 0">The last 100, newest first, with the page and the widget's reason. Copy and paste them to whoever is debugging.</p>
+    <div class="row" style="margin:0 0 6px"><button id="copyMisses">Copy as text</button><button id="clearMisses">Clear</button></div>
+    <pre id="missesList" style="font-size:11px;max-height:180px;overflow:auto;white-space:pre-wrap;margin:0"></pre>
+  </details>
+  <details style="margin:0 0 12px"><summary style="font-size:12px;cursor:pointer">Advanced: backend</summary>
+    <p style="font-size:12px;margin:4px 0">Leave empty to use the hosted backend (stateless — your profile is sent with each request and kept nowhere). Enter <code>http://localhost:8000</code> to keep every request on this machine.</p>
+    <input id="backendUrl" type="text" placeholder="https://firstplay-backend.onrender.com" style="width:100%;font-size:12px" />
+    <div class="row" style="margin:6px 0 0"><button id="forgetPlans">Forget cached plans</button><span id="forgetPlansNote" class="status" style="margin-left:8px"></span></div>
+  </details>
   <p>Paste your profile — the contents of<br /><code>~/.config/firstplay/profile.json</code></p>
   <textarea id="profile" spellcheck="false" placeholder="{ &quot;facts&quot;: { … } }"></textarea>
 
