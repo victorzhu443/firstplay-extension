@@ -351,13 +351,13 @@ async function warmLookupsInPage(sender) {
   return { ok: true, started: (results && results[0] && results[0].result) || [] };
 }
 
-async function applyPlanInPage(sender, plan, resume) {
+async function applyPlanInPage(sender, plan, resume, transcript) {
   const target = { tabId: sender.tab.id, frameIds: [sender.frameId || 0] };
   await chrome.scripting.executeScript({ target, world: "MAIN", files: ["src/fill.js"] });
   const results = await chrome.scripting.executeScript({
     target, world: "MAIN",
-    func: (p, r) => window.FirstPlay.applyPlan(p, { resume: r }),
-    args: [plan, resume || null],
+    func: (p, r, t) => window.FirstPlay.applyPlan(p, { resume: r, transcript: t }),
+    args: [plan, resume || null, transcript || null],
   });
   return (results && results[0] && results[0].result) || null;
 }
@@ -456,7 +456,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     return true;
   }
   if (message.kind === "applyPlan") {
-    applyPlanInPage(_sender, message.plan, message.resume)
+    applyPlanInPage(_sender, message.plan, message.resume, message.transcript)
       .then((outcome) => sendResponse({ ok: !!outcome, outcome }))
       .catch((e) => sendResponse({ ok: false, why: e.message }));
     return true;

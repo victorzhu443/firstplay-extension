@@ -1165,8 +1165,21 @@ var FirstPlay = FirstPlay || {};
       if (entry.skipped || entry.satisfied_by) continue;
 
       if ((el.type || "").toLowerCase() === "file") {
-        if (context.resume) {
-          const attached = fillFile(el, context.resume);
+        // What this slot asks for is the plan's decision (entry.document:
+        // resume, cover_letter, transcript, portfolio, other), with a label
+        // read as the fallback for an older backend. A slot takes the stored
+        // document of its own kind or nothing — the résumé went into "Please
+        // provide a recent transcript of your undergraduate studies" before
+        // 0.4.48, which was a wrong document under the applicant's name.
+        const kind = entry.document ||
+          (/transcript|academic record/i.test(`${entry.label || ""} ${entry.value || ""}`) ? "transcript"
+            : /cover letter/i.test(entry.label || "") ? "cover_letter"
+            : /portfolio|sample/i.test(entry.label || "") ? "portfolio"
+            : /resume|résumé|\bcv\b/i.test(`${entry.label || ""} ${entry.field_key || ""}`) ? "resume" : "other");
+        const doc = kind === "resume" ? context.resume : kind === "transcript" ? context.transcript : null;
+        const docName = kind.replace("_", " ");
+        if (doc) {
+          const attached = fillFile(el, doc);
           if (attached.ok) {
             outline(el, OUTLINE_FILLED, `FirstPlay: attached ${attached.chose}`);
             outcome.filled += 1;
@@ -1175,10 +1188,13 @@ var FirstPlay = FirstPlay || {};
           }
           outcome.details.push({ label: entry.label, state: "failed", why: attached.why });
         }
-        // No stored resume (or the input refused it): say what to drag in.
-        outline(el, OUTLINE_ATTACH, `FirstPlay: attach ${entry.value || "your file"}`);
-        badge(el, "FirstPlay: attach your resume here — or upload it once in the " +
-                  "extension popup and it will be attached for you next time.");
+        // No stored document of that kind (or the input refused it): say what
+        // to drag in, and say when the form requires it.
+        const req = entry.required ? " (required)" : "";
+        outline(el, OUTLINE_ATTACH, `FirstPlay: attach your ${docName}${req}`);
+        badge(el, kind === "resume" || kind === "transcript"
+          ? `FirstPlay: attach your ${docName} here${req} — or upload it once in the extension popup and it will be attached for you next time.`
+          : `FirstPlay: this asks for a ${docName}${req} — attach it by hand.`);
         outcome.attach += 1;
         outcome.details.push({ label: entry.label, state: "attach by hand",
                                value: entry.value });
