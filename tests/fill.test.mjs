@@ -36,6 +36,17 @@ assert.equal(F.textHolds("(301) 555-0100", "301-555-0100", "tel"), true, "a mask
 assert.equal(F.textHolds("+1 (301) 555-0100", "3015550100", "text"), true, "a mask that adds the country code");
 assert.equal(F.textHolds("301-555-0100", "+1 301 555 0100", "tel"), true, "or drops it");
 assert.equal(F.textHolds("(301) 555-0199", "301-555-0100", "tel"), false, "different digits are a different number");
+assert.equal(F.textHolds("$85,000", "85000", "text"), true, "a currency mask decorates a number; the digits are the value");
+assert.equal(F.textHolds("85,000", "85000", "text"), true);
+assert.equal(F.textHolds("$8,500", "85000", "text"), false, "different digits are a different number");
+assert.equal(F.textHolds("", "85000", "text"), false);
+
+// --- scrubWhy: no quoted value reaches the run record, whichever quote the reason used
+assert.equal(F.scrubWhy('no option matching "Cornell University" among A | B'), 'no option matching "…" among A | B');
+assert.equal(F.scrubWhy("this is a yes/no question; 'Ithaca, NY' is not an answer to it"), "this is a yes/no question; '…' is not an answer to it");
+assert.equal(F.scrubWhy("you answered 'Yes' above, so this needs your detail"), "you answered '…' above, so this needs your detail");
+assert.equal(F.scrubWhy("the form's lookup returned nothing"), "the form's lookup returned nothing", "an apostrophe is not a quote");
+assert.equal(F.scrubWhy("2 fields on this page share the label Other — left for you"), "2 fields on this page share the label Other — left for you");
 assert.equal(F.textHolds("", "May 2024", "date"), false, "a date input that rejected the value reads empty");
 assert.equal(F.textHolds("2024-05-01", "2024-05-01", "date"), true);
 
@@ -79,7 +90,7 @@ assert.equal(unique.el.id, "p");
 assert.equal(unique.why, undefined);
 const ambiguous = G.locateWithReason({ field_key: "question_12", label: "Other" });
 assert.equal(ambiguous.el, null, "two labels reading Other: neither is taken");
-assert.match(ambiguous.why, /2 fields on this page share the label "Other"/);
+assert.match(ambiguous.why, /2 fields on this page share the label Other/);
 assert.equal(G.locate({ field_key: "question_12", label: "Other" }), null);
 assert.equal(JSON.stringify(G.locateWithReason({ field_key: "question_13", label: "Nothing here" })), JSON.stringify({ el: null }), "no match is silent: 'not on page'");
 // Two labels pointing at the same control are one match.

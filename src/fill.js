@@ -262,7 +262,7 @@ var FirstPlay = FirstPlay || {};
     if (matches.size === 1) return { el: matches.values().next().value };
     if (matches.size > 1) {
       return { el: null, why: `${matches.size} fields on this page share the label ` +
-        JSON.stringify(String(entry.label || "").slice(0, 60)) + "; left for you" };
+        String(entry.label || "").slice(0, 60) + " — left for you" };
     }
     return { el: null };
   }
@@ -282,10 +282,13 @@ var FirstPlay = FirstPlay || {};
     const na = normalise(a), nw = normalise(w);
     if (na === nw) return true;
     if (nw.length >= 3 && na.includes(nw)) return true;
-    const phoneShaped = (type || "").toLowerCase() === "tel" || /^[\s\d()+.\-]{7,}$/.test(w);
-    if (!phoneShaped) return false;
     const da = a.replace(/\D/g, ""), dw = w.replace(/\D/g, "");
-    return dw.length >= 7 && da.length >= 7 && (da.endsWith(dw) || dw.endsWith(da));
+    const phoneShaped = (type || "").toLowerCase() === "tel" || /^[\s\d()+.\-]{7,}$/.test(w);
+    if (phoneShaped) return dw.length >= 7 && da.length >= 7 && (da.endsWith(dw) || dw.endsWith(da));
+    // A number the page decorates on input ("85000" shown as "$85,000"):
+    // the digits are the value. Review of 2026-10-12.
+    if (/^\d[\d.,]*$/.test(w.trim())) return dw.length > 0 && da === dw;
+    return false;
   }
 
   /**
@@ -1224,8 +1227,21 @@ var FirstPlay = FirstPlay || {};
       state,
       ok: !!ok,
     };
-    if (why) row.why = String(why).replace(/"(?:[^"\\]|\\.)*"/g, '"…"').slice(0, 80);
+    if (why) row.why = scrubWhy(why);
     return row;
+  }
+
+  /**
+   * A reason with no values in it. Backend reasons quote the value they
+   * refused with Python's single quotes ("'Ithaca, NY' is not an answer")
+   * and the filler's with double quotes; both are blanked before anything
+   * reaches the run record (review of 2026-10-12).
+   */
+  function scrubWhy(why) {
+    return String(why)
+      .replace(/"(?:[^"\\]|\\.)*"/g, '"…"')
+      .replace(/(^|[\s(;:,])'(?:[^'\\]|\\.)*'(?=$|[\s).;:,])/g, "$1'…'")
+      .slice(0, 80);
   }
 
   /** One frame for the form to commit the last write before anyone reads it (a hidden tab has no frames). */
@@ -1302,6 +1318,9 @@ var FirstPlay = FirstPlay || {};
 
     for (const entry of plan.entries) {
       if (eeo.state !== "absent" && entry.field_key === "hispanic_ethnicity") continue;
+      // A board that mounts race without the Hispanic/Latino question (2 of
+      // 9 surveyed) has nothing for this entry; not a miss.
+      if (entry.field_key === "hispanic_ethnicity" && !document.getElementById("hispanic_ethnicity")) continue;
       if (eeo.state !== "absent" && eeo.state !== "filled" && entry.field_key === "race" && !entry.skipped && !entry.satisfied_by) {
         const why = "shown once the Hispanic/Latino question above is answered — yours to answer";
         outcome.review += 1;
@@ -1310,6 +1329,11 @@ var FirstPlay = FirstPlay || {};
         continue;
       }
 
+      // Entries the fill never writes do not get a label scan (each one
+      // walks every label and forces layout).
+      if (entry.skipped || entry.satisfied_by) {
+        if (!locateByKey(entry)) continue;
+      }
       const found = locateWithReason(entry);
       const el = found.el;
 
@@ -1495,10 +1519,11 @@ var FirstPlay = FirstPlay || {};
   ns.selectInstanceOf = selectInstanceOf;
   ns.displayedValue = displayedValue;
   ns.heldOptionText = heldOptionText;
+  ns.scrubWhy = scrubWhy;
   ns.locate = locate;
   ns.locateWithReason = locateWithReason;
   ns.setNativeValue = setNativeValue;
   ns.fillReactSelect = fillReactSelect;
   // Pure pieces, for the node tests.
-  ns._fill = { normalise, pickOption, textHolds, hispanicAnswerFrom, fieldRecord, locateWithReason };
+  ns._fill = { normalise, pickOption, textHolds, hispanicAnswerFrom, fieldRecord, locateWithReason, scrubWhy };
 })(FirstPlay);
