@@ -194,8 +194,9 @@
 
     // The resume lives in extension storage, put there once through the
     // popup; content scripts may read chrome.storage directly.
-    const stored = await chrome.storage.local.get("firstplay.resume");
+    const stored = await chrome.storage.local.get(["firstplay.resume", "firstplay.transcript"]);
     const resume = stored["firstplay.resume"] || null;
+    const transcript = stored["firstplay.transcript"] || null;
 
     // Wait for the tab to be looked at *here*, before asking the service
     // worker to run the fill: a worker call that waits out a hidden tab dies
@@ -224,7 +225,7 @@
     // which the select driver needs, are invisible from this isolated world.
     // A closed message channel is the worker having been stopped mid-call,
     // not a page problem: ask again once before giving up on the page world.
-    const runInPage = () => chrome.runtime.sendMessage({ kind: "applyPlan", plan: response.plan, resume })
+    const runInPage = () => chrome.runtime.sendMessage({ kind: "applyPlan", plan: response.plan, resume, transcript })
       .catch((e) => ({ ok: false, why: e && e.message }));
     let inPage = await runInPage();
     if (!(inPage && inPage.ok && inPage.outcome) && /message channel closed|context invalidated/i.test((inPage && inPage.why) || "")) {
@@ -237,7 +238,7 @@
     } else {
       console.warn(`${TAG} could not run the fill in the page's world (${(inPage && inPage.why) || "no result"}); ` +
         `falling back — dropdowns may not take values`);
-      outcome = await ns.applyPlan(response.plan, { resume });
+      outcome = await ns.applyPlan(response.plan, { resume, transcript });
     }
     window.__firstplayOutcome = outcome;
 
@@ -290,7 +291,7 @@
       if (drifted.length) {
         console.warn(`${TAG} ${drifted.length} filled field(s) changed after the fill (a saved draft?): ` +
           drifted.map((e) => e.label).join("; ") + " — applying once more");
-        try { await ns.applyPlan({ entries: drifted }, { resume }); } catch (e) { console.warn(`${TAG} re-apply failed: ${e && e.message}`); }
+        try { await ns.applyPlan({ entries: drifted }, { resume, transcript }); } catch (e) { console.warn(`${TAG} re-apply failed: ${e && e.message}`); }
       }
     }
 

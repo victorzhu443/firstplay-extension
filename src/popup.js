@@ -170,6 +170,36 @@
     showResume(null);
   });
 
+  // ----- transcript: the same shape as the resume, its own slot -----
+  const TRANSCRIPT_KEY = "firstplay.transcript";
+  const transcriptStatus = document.getElementById("transcriptStatus");
+  function showTranscript(doc) {
+    if (doc && doc.name) {
+      transcriptStatus.textContent = `Stored: ${doc.name} (${Math.round((doc.size || 0) / 1024)} KB)`;
+      transcriptStatus.className = "status ok";
+    } else {
+      transcriptStatus.textContent = "No transcript stored — forms that ask for one will be outlined for you.";
+      transcriptStatus.className = "status warn";
+    }
+  }
+  chrome.storage.local.get(TRANSCRIPT_KEY).then((stored) => showTranscript(stored[TRANSCRIPT_KEY]));
+  document.getElementById("transcriptFile").addEventListener("change", async (event) => {
+    const file = event.target.files && event.target.files[0];
+    if (!file) return;
+    if (file.size > 6 * 1024 * 1024) {
+      transcriptStatus.textContent = "That file is over 6 MB."; transcriptStatus.className = "status warn"; return;
+    }
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    let binary = "";
+    for (let i = 0; i < bytes.length; i += 0x8000) binary += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+    const doc = { name: file.name, type: file.type, size: file.size, data: btoa(binary), stored_at: new Date().toISOString() };
+    await chrome.storage.local.set({ [TRANSCRIPT_KEY]: doc });
+    showTranscript(doc);
+  });
+  document.getElementById("removeTranscript").addEventListener("click", async () => {
+    await chrome.storage.local.remove(TRANSCRIPT_KEY); showTranscript(null);
+  });
+
   // ----- learned from you: replayed answers, and facts proposed for your say-so -----
   const PROPOSALS_KEY = "firstplay.learning.proposals";
   const IGNORED_KEY = "firstplay.learning.ignored";
