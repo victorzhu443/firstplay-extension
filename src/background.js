@@ -438,7 +438,45 @@ async function forgetPlans() {
   return { ok: true, forgotten: keys.length };
 }
 
+/**
+ * Questions the profile could not answer, deduped by section.key, for the
+ * popup to ask. A key the applicant skipped stays out for 30 days.
+ */
+const ASKS_KEY = "firstplay.asks";
+const ASKS_SKIPPED_KEY = "firstplay.asks.skipped";
+
+async function recordAsks(asks) {
+  if (!Array.isArray(asks) || !asks.length) return { ok: true, pending: 0 };
+  const stored = await chrome.storage.local.get([ASKS_KEY, ASKS_SKIPPED_KEY]);
+  const now = Date.now();
+  const skipped = (stored[ASKS_SKIPPED_KEY] || []).filter((s) => now - (s.at || 0) < 30 * 24 * 3600 * 1000);
+  const skip = new Set(skipped.map((s) => `${s.section}.${s.key}`));
+  const pending = stored[ASKS_KEY] || [];
+  const byId = new Map(pending.map((a) => [`${a.section}.${a.key}`, a]));
+  for (const ask of asks) {
+    if (!ask || !ask.key || !ask.section) continue;
+    const id = `${ask.section}.${ask.key}`;
+    if (skip.has(id)) continue;
+    const prior = byId.get(id);
+    byId.set(id, {
+      section: ask.section, key: ask.key, prompt: ask.prompt || (prior && prior.prompt) || "",
+      example: ask.example || (prior && prior.example) || "", note: ask.note || (prior && prior.note) || "",
+      label: ask.label || (prior && prior.label) || "", required: !!(ask.required || (prior && prior.required)),
+      where: ask.where || (prior && prior.where) || "",
+      pages: ((prior && prior.pages) || 0) + (prior && prior.where === ask.where ? 0 : 1),
+      at: new Date().toISOString(),
+    });
+  }
+  const next = Array.from(byId.values()).slice(-60);
+  await chrome.storage.local.set({ [ASKS_KEY]: next, [ASKS_SKIPPED_KEY]: skipped });
+  return { ok: true, pending: next.length };
+}
+
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+  if (message.kind === "asks") {
+    recordAsks(message.asks).then(sendResponse).catch((e) => sendResponse({ ok: false, why: e.message }));
+    return true;
+  }
   if (message.kind === "forgetPlans") {
     forgetPlans().then(sendResponse).catch((e) => sendResponse({ ok: false, why: e.message }));
     return true;

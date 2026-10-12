@@ -340,5 +340,229 @@
     await chrome.storage.local.set({ [PROFILE_KEY]: parsed });
     saved.textContent = `Saved — ${describe(parsed)} answers.`;
     saved.className = "status ok";
+    try { await chrome.runtime.sendMessage({ kind: "forgetPlans" }); } catch (e) { /* ignore */ }
+    renderEditor();
+    renderAsks();
   });
+
+  // ----- the profile, edited as a form instead of JSON -----
+  //
+  // The backend's onboarding registry (GET /api/autofill/profile-schema) is the
+  // list of questions, in the order of how many application fields each one
+  // answers. The editor writes only the keys the applicant changed, so
+  // `answers`, `learned`, `learned_pending`, `skip` and anything else in the
+  // stored profile survive untouched. Nothing but the schema GET leaves the
+  // machine.
+  const SECTION_TITLES = {
+    facts: "About you", education: "Education", legal_status: "Work authorization",
+    preferences: "Preferences", consents: "Standing consents", protected: "Self-identification (optional)",
+  };
+  const SECTION_ORDER = ["facts", "education", "legal_status", "preferences", "consents", "protected"];
+  const CONSENT_CHOICES = ["", "Agree", "Yes", "No"];
+  let schemaRows = null;      // null until fetched; [] when the fetch failed
+
+  async function fetchSchema() {
+    try {
+      const base = await backendUrl();
+      const res = await fetch(`${base}/api/autofill/profile-schema`, { cache: "no-store" });
+      if (!res.ok) throw new Error(String(res.status));
+      const body = await res.json();
+      schemaRows = Array.isArray(body.fields) ? body.fields : [];
+    } catch (e) {
+      schemaRows = [];
+    }
+    return schemaRows;
+  }
+
+  function sectionOf(profile, name) {
+    if (!profile[name] || typeof profile[name] !== "object" || Array.isArray(profile[name])) profile[name] = {};
+    return profile[name];
+  }
+
+  function fieldRow(row, current) {
+    const wrap = document.createElement("div"); wrap.className = "field";
+    const label = document.createElement("label");
+    const code = document.createElement("code"); code.textContent = row.key.replace(/_/g, " ");
+    label.appendChild(code);
+    if (row.answers) label.appendChild(document.createTextNode(`  · answers ${row.answers} field${row.answers === 1 ? "" : "s"}`));
+    wrap.appendChild(label);
+    let input;
+    if (row.section === "consents") {
+      input = document.createElement("select");
+      for (const choice of CONSENT_CHOICES) {
+        const opt = document.createElement("option"); opt.value = choice; opt.textContent = choice || "— decide each time —";
+        input.appendChild(opt);
+      }
+      if (current && !CONSENT_CHOICES.includes(current)) { const opt = document.createElement("option"); opt.value = current; opt.textContent = current; input.appendChild(opt); }
+      input.value = current || "";
+    } else {
+      input = document.createElement("input"); input.type = "text";
+      input.value = current || "";
+      input.placeholder = row.example ? `e.g. ${row.example}` : "";
+    }
+    input.dataset.section = row.section; input.dataset.key = row.key; input.dataset.initial = current || "";
+    wrap.appendChild(input);
+    if (row.note) { const hint = document.createElement("div"); hint.className = "hint"; hint.textContent = row.note; wrap.appendChild(hint); }
+    return wrap;
+  }
+
+  async function renderEditor() {
+    const editor = document.getElementById("editor");
+    const note = document.getElementById("editorNote");
+    const actions = document.getElementById("editorActions");
+    if (schemaRows === null) await fetchSchema();
+    const stored = await chrome.storage.local.get(PROFILE_KEY);
+    const profile = stored[PROFILE_KEY] || {};
+    editor.textContent = "";
+    if (!schemaRows || !schemaRows.length) {
+      note.textContent = "The backend is unreachable, so the question list could not be loaded — edit the raw profile below for now.";
+      note.className = "status warn";
+      actions.hidden = true;
+      document.getElementById("rawBox").open = true;
+      return;
+    }
+    note.textContent = "";
+    actions.hidden = false;
+    const bySection = new Map();
+    for (const row of schemaRows) {
+      if (!bySection.has(row.section)) bySection.set(row.section, []);
+      bySection.get(row.section).push(row);
+    }
+    for (const name of SECTION_ORDER) {
+      const rows = bySection.get(name);
+      if (!rows) continue;
+      const section = profile[name] || {};
+      const filled = rows.filter((r) => section[r.key]).length;
+      const box = document.createElement("details"); box.className = "section";
+      box.open = name === "facts" && filled < rows.length / 2;
+      const summary = document.createElement("summary");
+      summary.textContent = `${SECTION_TITLES[name] || name} `;
+      const count = document.createElement("span"); count.className = "count"; count.textContent = `${filled}/${rows.length} answered`;
+      summary.appendChild(count);
+      box.appendChild(summary);
+      if (name === "protected") {
+        const warn = document.createElement("p"); warn.style.fontSize = "11px"; warn.style.margin = "4px 0 6px";
+        warn.textContent = "Replayed exactly as typed, never inferred, never sent to a model. Leave one empty to answer that question yourself each time.";
+        box.appendChild(warn);
+      }
+      if (name === "consents") {
+        const warn = document.createElement("p"); warn.style.fontSize = "11px"; warn.style.margin = "4px 0 6px";
+        warn.textContent = "Standing decisions. Empty means the form leaves that box for you.";
+        box.appendChild(warn);
+      }
+      for (const row of rows) box.appendChild(fieldRow(row, section[row.key]));
+      editor.appendChild(box);
+    }
+  }
+
+  document.getElementById("editorSave").addEventListener("click", async () => {
+    const out = document.getElementById("editorSaved");
+    const stored = await chrome.storage.local.get(PROFILE_KEY);
+    const profile = stored[PROFILE_KEY] || {};
+    let changed = 0;
+    for (const input of document.querySelectorAll("#editor [data-key]")) {
+      const value = (input.value || "").trim();
+      if (value === (input.dataset.initial || "")) continue;
+      sectionOf(profile, input.dataset.section)[input.dataset.key] = value;
+      input.dataset.initial = value;
+      changed += 1;
+    }
+    if (!changed) { out.textContent = "nothing changed"; out.className = "status"; return; }
+    await chrome.storage.local.set({ [PROFILE_KEY]: profile });
+    area.value = JSON.stringify(profile, null, 2);
+    try { await chrome.runtime.sendMessage({ kind: "forgetPlans" }); } catch (e) { /* ignore */ }
+    out.textContent = `saved ${changed} change${changed === 1 ? "" : "s"} — the next page plans afresh`;
+    out.className = "status ok";
+    state.textContent = `Profile loaded — ${describe(profile)} answers stored.`;
+    renderEditor();
+  });
+
+  // ----- questions from the last page -----
+  const ASKS_KEY = "firstplay.asks";
+  const ASKS_SKIPPED_KEY = "firstplay.asks.skipped";
+
+  async function saveAsk(ask, value) {
+    const stored = await chrome.storage.local.get([PROFILE_KEY, ASKS_KEY]);
+    const profile = stored[PROFILE_KEY] || {};
+    sectionOf(profile, ask.section)[ask.key] = value;
+    const remaining = (stored[ASKS_KEY] || []).filter((a) => !(a.section === ask.section && a.key === ask.key));
+    await chrome.storage.local.set({ [PROFILE_KEY]: profile, [ASKS_KEY]: remaining });
+    area.value = JSON.stringify(profile, null, 2);
+    state.textContent = `Profile loaded — ${describe(profile)} answers stored.`;
+  }
+
+  async function skipAsk(ask) {
+    const stored = await chrome.storage.local.get([ASKS_KEY, ASKS_SKIPPED_KEY]);
+    const remaining = (stored[ASKS_KEY] || []).filter((a) => !(a.section === ask.section && a.key === ask.key));
+    const skipped = (stored[ASKS_SKIPPED_KEY] || []).filter((s) => !(s.section === ask.section && s.key === ask.key));
+    skipped.push({ section: ask.section, key: ask.key, at: Date.now() });
+    await chrome.storage.local.set({ [ASKS_KEY]: remaining, [ASKS_SKIPPED_KEY]: skipped.slice(-200) });
+  }
+
+  async function renderAsks() {
+    const box = document.getElementById("asksBox");
+    const list = document.getElementById("asksList");
+    const title = document.getElementById("asksTitle");
+    const noteEl = document.getElementById("asksNote");
+    const stored = await chrome.storage.local.get([ASKS_KEY, PROFILE_KEY]);
+    const profile = stored[PROFILE_KEY] || {};
+    // An ask the profile has since answered (through the editor, or a paste) is settled.
+    const asks = (stored[ASKS_KEY] || []).filter((a) => !((profile[a.section] || {})[a.key]));
+    if (asks.length !== (stored[ASKS_KEY] || []).length) await chrome.storage.local.set({ [ASKS_KEY]: asks });
+    list.textContent = "";
+    if (!asks.length) { box.hidden = true; return; }
+    box.hidden = false;
+    title.textContent = `This page asked for ${asks.length} thing${asks.length === 1 ? "" : "s"} your profile doesn't have`;
+    const inputs = [];
+    for (const ask of asks) {
+      const card = document.createElement("div"); card.className = "ask";
+      const q = document.createElement("div"); q.className = "q";
+      q.textContent = (ask.label || ask.prompt || ask.key) + (ask.required ? "  (required there)" : "");
+      card.appendChild(q);
+      if (ask.pages > 1) { const seen = document.createElement("div"); seen.className = "hint"; seen.textContent = `asked on ${ask.pages} pages`; card.appendChild(seen); }
+      if (ask.section === "protected") {
+        const warn = document.createElement("div"); warn.className = "hint";
+        warn.textContent = "Self-identification: stored exactly as typed, never inferred. Skip to keep answering it yourself.";
+        card.appendChild(warn);
+      }
+      const field = document.createElement("div"); field.className = "field";
+      const label = document.createElement("label");
+      const code = document.createElement("code"); code.textContent = `${ask.section}.${ask.key}`;
+      label.appendChild(code); field.appendChild(label);
+      const input = document.createElement("input"); input.type = "text"; input.placeholder = ask.example ? `e.g. ${ask.example}` : "";
+      field.appendChild(input);
+      if (ask.note) { const hint = document.createElement("div"); hint.className = "hint"; hint.textContent = ask.note; field.appendChild(hint); }
+      card.appendChild(field);
+      const acts = document.createElement("div"); acts.className = "acts";
+      const save = document.createElement("button"); save.textContent = "Save";
+      const skip = document.createElement("button"); skip.textContent = "Skip";
+      acts.appendChild(save); acts.appendChild(skip); card.appendChild(acts);
+      list.appendChild(card);
+      inputs.push({ ask, input });
+      save.addEventListener("click", async () => {
+        const value = input.value.trim();
+        if (!value) { noteEl.textContent = "type an answer first, or Skip"; noteEl.className = "status warn"; return; }
+        await saveAsk(ask, value);
+        try { await chrome.runtime.sendMessage({ kind: "forgetPlans" }); } catch (e) { /* ignore */ }
+        noteEl.textContent = "saved — reopen the page to fill it"; noteEl.className = "status ok";
+        renderAsks(); renderEditor();
+      });
+      skip.addEventListener("click", async () => { await skipAsk(ask); renderAsks(); });
+    }
+    document.getElementById("asksSaveAll").onclick = async () => {
+      let n = 0;
+      for (const { ask, input } of inputs) {
+        const value = input.value.trim();
+        if (!value) continue;
+        await saveAsk(ask, value); n += 1;
+      }
+      if (n) { try { await chrome.runtime.sendMessage({ kind: "forgetPlans" }); } catch (e) { /* ignore */ } }
+      noteEl.textContent = n ? `saved ${n} — reopen the page to fill them` : "nothing typed";
+      noteEl.className = n ? "status ok" : "status warn";
+      renderAsks(); renderEditor();
+    };
+  }
+
+  renderAsks();
+  renderEditor();
 })();

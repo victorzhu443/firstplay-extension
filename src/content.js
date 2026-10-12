@@ -245,6 +245,26 @@
     // Every field the plan knew but the page would not take is kept, with the
     // page and the reason, so "FirstPlay knows this one — please pick it" can
     // be diagnosed from real use instead of from a report. Victor, 2026-10-12:
+    // Questions the profile could not answer: the plan marks each such entry
+    // with the profile key, section, prompt and example it needs. They go to
+    // the popup, which asks the applicant and saves the answer into the
+    // profile (Victor, 2026-10-12: "you also need to be able to edit this
+    // stuff and ask the user for this information"). No values leave here.
+    let asksSent = 0;
+    try {
+      const where = `${location.host}${location.pathname}`.slice(0, 120);
+      const asks = (response.plan.entries || [])
+        .filter((e) => e && e.needs_fact && e.needs_fact.key)
+        .map((e) => ({
+          section: e.needs_fact.section, key: e.needs_fact.key,
+          prompt: (e.needs_fact.prompt || "").slice(0, 160), example: e.needs_fact.example || "",
+          note: (e.needs_fact.note || "").slice(0, 200), label: (e.label || "").slice(0, 120),
+          required: !!e.required, where,
+        }));
+      asksSent = asks.length;
+      if (asks.length) chrome.runtime.sendMessage({ kind: "asks", asks }).catch(() => {});
+    } catch (e) { /* asking is a convenience; never break the run */ }
+
     // "I keep getting that it knows what should be chosen but can't choose it."
     // No values: label, widget reason, host and path only.
     try {
@@ -391,6 +411,7 @@
         slow: outcome.slow || [],
         plan_ms: Math.round(tPlanned - t0), backend_ms: response.elapsed_ms || 0, cached: !!response.cached,
         drift: outcome.drift || 0,
+        asks: asksSent,
         still_required: stillRequired,
         wants: wantRows.map((r) => ({ field: r.field.slice(0, 60), plan_said: r.plan_said, form_says: (r.form_says || "").slice(0, 60) })),
         failures: (outcome.details || []).filter((d) => d.state === "failed").map((d) => ({ label: (d.label || "").slice(0, 60), why: (d.why || "").slice(0, 80) })),
