@@ -71,6 +71,23 @@ assert.equal(L.decide({ ...review, reason: "this question is only ever answered 
 assert.equal(L.decide({ ...review, reason: "set consents.sms_messages once to answer this every time" }, "Yes").emit, false, "unset consents never");
 assert.equal(L.decide({ ...review, reason: "answer once during onboarding, then reused" }, "No").emit, false, "unstored protected never");
 assert.equal(L.decide({ ...review, attach: "resume" }, "cv.pdf").emit, false, "attachments never");
+// Custom-keyed protected questions: the key is vendor-neutral, the reason names the profile key (audit F7).
+assert.equal(L.observable({ ...review, field_key: "question_12", reason: "stored as race_ethnicity" }), false, "a custom-keyed race question is not observed");
+assert.equal(L.observable({ ...review, field_key: "question_12", reason: "could not tell which option means Decline for veteran_status" }), false);
+assert.equal(L.observable({ ...review, field_key: "question_3", reason: "no option for gender" }), false);
+assert.equal(L.observable({ ...review, field_key: "question_4", reason: "stored as disability_status" }), false);
+assert.equal(L.observable({ ...review, field_key: "question_5", reason: "stored as hispanic_latino" }), false);
+assert.equal(L.observable({ ...review, field_key: "question_6", reason: "stored as sexual_orientation" }), false);
+assert.equal(L.observable({ ...review, field_key: "question_7", reason: "stored as transgender" }), false);
+assert.equal(L.observable({ ...review, field_key: "question_8", reason: "stored as pronouns" }), true, "pronouns are a core fact and stay observable");
+assert.equal(L.observable({ ...review, field_key: "question_9", reason: "stored as gender_pronouns_note" }), true, "a key that merely contains the word is not the key");
+assert.equal(L.observable({ ...review, field_key: "question_10", reason: "nothing stored answers this yet" }), true, "an ordinary custom question is observed");
+// Forward compatible: a classified entry is final whatever the key or reason says.
+assert.equal(L.observable({ ...review, field_key: "question_11", protected: true }), false);
+assert.equal(L.observable({ ...review, field_key: "question_11", field_class: "legal" }), false);
+assert.equal(L.observable({ ...review, field_key: "question_11", field_class: "consent" }), false, "consents are never observed");
+assert.equal(L.observable({ ...review, field_key: "question_11", field_class: "screening" }), true);
+assert.equal(L.observable({ ...review, field_key: "question_11", field_class: "core" }), true);
 assert.deepEqual(L.decide({ ...review, values: [], value: null }, ["New York, NY", "Remote"], undefined).emit, true, "a multi-select answer");
 assert.equal(L.decide({ ...filled, values: ["A", "B"], value: null }, ["A", "B"], undefined).emit, false, "a multi-select equal to the plan is not");
 
