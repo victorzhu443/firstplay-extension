@@ -279,11 +279,7 @@
       const misses = (outcome.details || []).filter((d) => d.state === "failed" || d.state === "mismatch");
       if (misses.length) {
         const where = `${location.host}${location.pathname}`.slice(0, 120);
-        const rows = misses.map((d) => ({
-          at: new Date().toISOString(), ats: posting.ats, where, title: (document.title || "").slice(0, 80),
-          label: (d.label || "").slice(0, 80), state: d.state, why: (d.why || "").slice(0, 160),
-          version: chrome.runtime.getManifest().version,
-        }));
+        const rows = misses.map((d) => missRow(d, posting, where));
         chrome.storage.local.get("firstplay.misses").then((stored) => {
           const kept = (stored["firstplay.misses"] || []).concat(rows).slice(-100);
           return chrome.storage.local.set({ "firstplay.misses": kept });
@@ -463,6 +459,20 @@
       .slice(0, 80);
   }
 
+  /**
+   * One row of the misses log (`firstplay.misses`, shown and copied from the
+   * popup). The widget's reason quotes the value it refused ("no choice is
+   * exactly "…""), so it is scrubbed here the way the run record's is;
+   * docs/PRIVACY.md says the log holds no values (audit F6).
+   */
+  function missRow(d, posting, where) {
+    return {
+      at: new Date().toISOString(), ats: posting.ats, where, title: (document.title || "").slice(0, 80),
+      label: (d.label || "").slice(0, 80), state: d.state, why: scrubReason(d.why) || "",
+      version: chrome.runtime.getManifest().version,
+    };
+  }
+
   function pagePlanFor(plan) {
     const entries = (plan.entries || []).map((e) => {
       const writes = !e.needs_review && !e.skipped && !e.satisfied_by && (e.value !== null || (e.values && e.values.length));
@@ -498,6 +508,9 @@
     }
     return { ok: true, invalid, blocked: [], submitButton: "(not clicked — Ashby)" };
   }
+
+  // Pure pieces, for the node tests.
+  ns._content = { missRow, scrubReason, pagePlanFor };
 
   let inFlight = null;
 

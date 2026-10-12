@@ -38,8 +38,10 @@ export function matches(node, selector) {
       if (!String(node.className || "").split(/\s+/).includes(m[1])) return false;
     }
     const attrOf = (attr) => (attr === "type" ? node.type : attr === "class" ? node.className : node.getAttribute(attr));
-    for (const m of part.matchAll(/\[([a-z-]+)(?:([*^$]?=)"([^"]*)")?\]/g)) {
-      const [, attr, op, val] = m;
+    // Attribute values may be quoted either way ([class*='input-yesno'] in fill.js).
+    for (const m of part.matchAll(/\[([a-z-]+)(?:([*^$]?=)(?:"([^"]*)"|'([^']*)'))?\]/g)) {
+      const [, attr, op] = m;
+      const val = m[3] !== undefined ? m[3] : m[4];
       const actual = attrOf(attr);
       if (op === undefined) { if (actual == null) return false; }
       else if (op === "=") { if (actual !== val) return false; }
@@ -47,8 +49,8 @@ export function matches(node, selector) {
       else if (op === "^=") { if (!(actual || "").startsWith(val)) return false; }
       else if (op === "$=") { if (!(actual || "").endsWith(val)) return false; }
     }
-    for (const m of part.matchAll(/:not\(\[([a-z-]+)="([^"]*)"\]\)/g)) {
-      if (attrOf(m[1]) === m[2]) return false;
+    for (const m of part.matchAll(/:not\(\[([a-z-]+)=(?:"([^"]*)"|'([^']*)')\]\)/g)) {
+      if (attrOf(m[1]) === (m[2] !== undefined ? m[2] : m[3])) return false;
     }
     return true;
   });
