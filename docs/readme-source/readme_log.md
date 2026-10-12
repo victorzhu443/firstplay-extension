@@ -1130,7 +1130,8 @@ Hispanic entry rule). Deterministic coverage over the frozen corpora moved
 77.8% → 76.2% (Greenhouse) and 74.9% → 74.3% (Ashby): the synthetic
 Hispanic/Latino field joins the denominator unset on 284 forms, and ~80
 city-specific in-office fields plus 21 sensitive-topic fields left the
-confident path on purpose. One live data point so far: on IMC all six
+confident path on purpose; with the model the same run reads 85.0% /
+85.5% ($0.32), so the gate recovers most of it. One live data point so far: on IMC all six
 text controls FirstPlay outlined held their values after React settled.
 The twelve live checks the extension stream listed (EEO block with the
 answer set and unset, masked phone, lone checkbox, `fields` and `blocked`
