@@ -191,6 +191,25 @@
     return "learned";
   }
 
+  // ----- fields it knew but could not enter: the diagnosis log -----
+  const MISSES_KEY = "firstplay.misses";
+  async function renderMisses() {
+    const stored = await chrome.storage.local.get(MISSES_KEY);
+    const rows = (stored[MISSES_KEY] || []).slice().reverse();
+    document.getElementById("missesCount").textContent = String(rows.length);
+    document.getElementById("missesList").textContent = rows.map((r) =>
+      `${(r.at || "").slice(0, 16)} ${r.ats || "?"} ${r.where || ""}\n  ${r.state}: ${r.label}\n  ${r.why}`).join("\n\n") || "none so far";
+  }
+  renderMisses();
+  document.getElementById("copyMisses").addEventListener("click", async () => {
+    const stored = await chrome.storage.local.get(MISSES_KEY);
+    const text = JSON.stringify(stored[MISSES_KEY] || [], null, 1);
+    try { await navigator.clipboard.writeText(text); } catch (e) { /* ignore */ }
+  });
+  document.getElementById("clearMisses").addEventListener("click", async () => {
+    await chrome.storage.local.set({ [MISSES_KEY]: [] }); renderMisses();
+  });
+
   // Opt-in, off until the applicant turns it on: learning is a change in how
   // their data is handled after install, so it is disclosed and chosen here
   // (Chrome Web Store Limited Use; docs/research/learning-agents.md §4).

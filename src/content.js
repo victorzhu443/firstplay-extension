@@ -241,6 +241,27 @@
     }
     window.__firstplayOutcome = outcome;
 
+    // Every field the plan knew but the page would not take is kept, with the
+    // page and the reason, so "FirstPlay knows this one — please pick it" can
+    // be diagnosed from real use instead of from a report. Victor, 2026-10-12:
+    // "I keep getting that it knows what should be chosen but can't choose it."
+    // No values: label, widget reason, host and path only.
+    try {
+      const misses = (outcome.details || []).filter((d) => d.state === "failed" || d.state === "mismatch");
+      if (misses.length) {
+        const where = `${location.host}${location.pathname}`.slice(0, 120);
+        const rows = misses.map((d) => ({
+          at: new Date().toISOString(), ats: posting.ats, where, title: (document.title || "").slice(0, 80),
+          label: (d.label || "").slice(0, 80), state: d.state, why: (d.why || "").slice(0, 160),
+          version: chrome.runtime.getManifest().version,
+        }));
+        chrome.storage.local.get("firstplay.misses").then((stored) => {
+          const kept = (stored["firstplay.misses"] || []).concat(rows).slice(-100);
+          return chrome.storage.local.set({ "firstplay.misses": kept });
+        }).catch(() => {});
+      }
+    } catch (e) { /* never let the log break the run */ }
+
     // Ashby restores the applicant's saved draft asynchronously, and a draft
     // from an earlier visit can land *after* the fill and overwrite it. Seen
     // on Forus (2026-10-09): the plan said Summer, the page showed the Winter

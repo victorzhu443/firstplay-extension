@@ -61,6 +61,11 @@
   <div id="proposals"></div>
   <p id="proposalsNote" style="margin:0 0 12px"></p>
 
+  <details id="missesBox" style="margin:0 0 12px"><summary style="font-size:12px;cursor:pointer">Fields it knew but could not enter (<span id="missesCount">0</span>)</summary>
+    <p style="font-size:12px;margin:4px 0">The last 100, newest first, with the page and the widget's reason. Copy and paste them to whoever is debugging.</p>
+    <div class="row" style="margin:0 0 6px"><button id="copyMisses">Copy as text</button><button id="clearMisses">Clear</button></div>
+    <pre id="missesList" style="font-size:11px;max-height:180px;overflow:auto;white-space:pre-wrap;margin:0"></pre>
+  </details>
   <details style="margin:0 0 12px"><summary style="font-size:12px;cursor:pointer">Advanced: backend</summary>
     <p style="font-size:12px;margin:4px 0">Leave empty to use the hosted backend (stateless — your profile is sent with each request and kept nowhere). Enter <code>http://localhost:8000</code> to keep every request on this machine.</p>
     <input id="backendUrl" type="text" placeholder="https://firstplay-backend.onrender.com" style="width:100%;font-size:12px" />
