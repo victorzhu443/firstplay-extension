@@ -897,9 +897,11 @@ needed a second visit because the page navigated mid-poll; two text fields
 (a notice period, a phone) were reported filled yet still wanted and are
 on the list to inspect.
 *The Greenhouse hundred.* Drawn (100 live unused postings over 68 boards)
-and batched; 8 ran clean before the window left the screen. Greenhouse
-fills only while visible, so the rest wait for the window and are
-recorded as they land.
+and batched. Greenhouse fills only while visible, so the rest wait for the
+window and are recorded as they land. (Corrected 2026-10-12 after the
+outside audit: only one of the hundred, Alten, is in the survey; seven
+more ran before the window left the screen but their rows were never
+appended, so the "8 ran clean" first written here is not in the record.)
 *The unanswered list.* Every R48 posting re-planned through the backend
 with the real profile; every open question clustered: 443 clusters, each
 with a decision — YES the profile holds it (a wiring gap), NO it does not,
