@@ -225,7 +225,15 @@
     // which the select driver needs, are invisible from this isolated world.
     // A closed message channel is the worker having been stopped mid-call,
     // not a page problem: ask again once before giving up on the page world.
-    const runInPage = () => chrome.runtime.sendMessage({ kind: "applyPlan", plan: response.plan, resume, transcript })
+    // What crosses into the page's world is readable by any script there,
+    // so only what the fill needs goes: the values of entries it will write
+    // (review, skipped and sibling entries travel without theirs), and the
+    // documents only when the page has a file input to put them in (audit L7).
+    const pagePlan = pagePlanFor(response.plan);
+    const hasFileSlot = document.querySelector('input[type="file"]') !== null;
+    const pageResume = hasFileSlot ? resume : null;
+    const pageTranscript = hasFileSlot ? transcript : null;
+    const runInPage = () => chrome.runtime.sendMessage({ kind: "applyPlan", plan: pagePlan, resume: pageResume, transcript: pageTranscript })
       .catch((e) => ({ ok: false, why: e && e.message }));
     let inPage = await runInPage();
     if (!(inPage && inPage.ok && inPage.outcome) && /message channel closed|context invalidated/i.test((inPage && inPage.why) || "")) {
@@ -238,7 +246,7 @@
     } else {
       console.warn(`${TAG} could not run the fill in the page's world (${(inPage && inPage.why) || "no result"}); ` +
         `falling back — dropdowns may not take values`);
-      outcome = await ns.applyPlan(response.plan, { resume, transcript });
+      outcome = await ns.applyPlan(pagePlan, { resume: pageResume, transcript: pageTranscript });
     }
     window.__firstplayOutcome = outcome;
 
@@ -400,8 +408,12 @@
 
     // The run's record, on the document for anything that reads the page
     // (the survey harness, a bug report): counts, tiers, what the form still
-    // wants. No values, no profile.
+    // wants, every field's source, confidence and result, and what the dry
+    // run blocked (method names only — a run where nothing was blocked and a
+    // run where the block was bypassed looked the same before, audit M3).
+    // No values, no profile.
     try {
+      const blocked = check && check.ok && Array.isArray(check.blocked) ? check.blocked.map((b) => String(b).slice(0, 24)) : null;
       document.documentElement.setAttribute("data-firstplay-outcome", JSON.stringify({
         version: chrome.runtime.getManifest().version,
         at: new Date().toISOString(),
@@ -415,6 +427,9 @@
         still_required: stillRequired,
         wants: wantRows.map((r) => ({ field: r.field.slice(0, 60), plan_said: r.plan_said, form_says: (r.form_says || "").slice(0, 60) })),
         failures: (outcome.details || []).filter((d) => d.state === "failed").map((d) => ({ label: (d.label || "").slice(0, 60), why: (d.why || "").slice(0, 80) })),
+        fields: (outcome.fields || []).slice(0, 200),
+        submit_clicked: !!(check && check.ok) && posting.ats !== "ashby",
+        blocked: blocked ? { count: blocked.length, methods: Array.from(new Set(blocked)) } : null,
         check_skipped: check && !check.ok ? check.why : null,
       }));
     } catch (_e) { /* the record is a convenience */ }
@@ -430,6 +445,21 @@
       filled: outcome.filled, attach: outcome.attach, review: outcome.review,
       failed: outcome.failed, missing: outcome.missing, seconds: (tApplied - t0) / 1000,
     };
+  }
+
+  /**
+   * The plan as the page's world may see it. Entries the fill will not write
+   * — review, skipped, answered by a sibling — keep their key, label, flags
+   * and reason but not their value, so an answer the applicant never approved
+   * for this form is not handed to the page's scripts. The isolated world
+   * keeps the full plan for the drift check and the learning watch.
+   */
+  function pagePlanFor(plan) {
+    const entries = (plan.entries || []).map((e) => {
+      const writes = !e.needs_review && !e.skipped && !e.satisfied_by && (e.value !== null || (e.values && e.values.length));
+      return writes ? e : { ...e, value: null, values: [], needs_fact: null };
+    });
+    return { ...plan, entries };
   }
 
   /**
