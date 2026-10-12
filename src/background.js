@@ -335,12 +335,16 @@ async function fetchAshbyPosting(org, postingId) {
   return jobPosting;
 }
 
-/** The education terms this plan will look up; the next board warms them before its plan arrives. */
+/**
+ * The Greenhouse education terms this plan will look up; the next board
+ * warms them (loader reads, nothing written) before its plan arrives. Ashby's
+ * location is not here: warming it meant typing into the form before the
+ * plan existed (audit F17).
+ */
 const TERM_CONTROLS = [
   [/^educations\[0\]\.school_name_id$/, "school--0"],
   [/^educations\[0\]\.degree_id$/, "degree--0"],
   [/^educations\[0\]\.discipline_id$/, "discipline--0"],
-  [/^_systemfield_location$/, "_systemfield_location"],   // Ashby's geocoder
 ];
 
 function rememberLookupTerms(payload) {

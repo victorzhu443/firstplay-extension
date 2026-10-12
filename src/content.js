@@ -140,9 +140,10 @@
     const earlyPlan = requestPlan(posting, []);
 
     const controls = await settledControls();
-    // Warm the education lookups with the last plan's terms while this
-    // plan is still being built (fill.js `warm`). Fire and forget.
-    if (posting.ats === "greenhouse" || posting.ats === "ashby") {
+    // Warm the Greenhouse education lookups with the last plan's terms while
+    // this plan is still being built (fill.js `warm`): loader reads only,
+    // nothing typed. Never on Ashby, which autosaves what is typed (F17).
+    if (posting.ats === "greenhouse") {
       chrome.runtime.sendMessage({ kind: "warmLookups" })
         .then((r) => { if (r && r.started && r.started.length) console.log(`${TAG} warming lookups: ${r.started.join(", ")}`); })
         .catch(() => {});

@@ -558,27 +558,20 @@ var FirstPlay = FirstPlay || {};
   /**
    * Start the loader lookups for the terms the last plan used, if this
    * page has the matching controls. Called by the content script as soon as
-   * the page has settled, ahead of the plan. Nothing is written; results
-   * only wait in `lookupCache`.
+   * a Greenhouse page has settled, ahead of the plan. Nothing is written to
+   * the form: a loader is a read of the board API, and its results only
+   * wait in `lookupCache`.
+   *
+   * Only loaders. Until 0.4.52 this also typed the stored location into
+   * Ashby's geocoder before the page's plan existed; Ashby autosaves a draft
+   * on the employer's server as the form is typed into, so a page whose plan
+   * then failed had the applicant's location in a draft they never
+   * reviewed (audit F17). Nothing is typed anywhere before the plan arrives.
    */
   async function warm(terms) {
     const started = [];
     for (const [id, term] of Object.entries(terms || {})) {
       if (!term) continue;
-      // Ashby's Location: a remote geocoder that takes 0.4–3.3 s. Typing the
-      // stored location as soon as the form renders means its suggestions
-      // are already open when the plan arrives and the pick is a click.
-      if (id === "_systemfield_location") {
-        const container = document.querySelector('[data-field-path="_systemfield_location"]');
-        const box = container && container.querySelector('input[role="combobox"], input');
-        if (!box || box.value) continue;
-        box.focus();
-        box.dispatchEvent(new FocusEvent("focusin", { bubbles: true }));
-        setNativeValue(box, term);
-        box.dispatchEvent(new Event("input", { bubbles: true }));
-        started.push(id);
-        continue;
-      }
       const el = document.getElementById(id);
       if (!el || !optionLoaderOf(el)) continue;
       started.push(id);
