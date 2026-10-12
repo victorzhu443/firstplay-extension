@@ -268,14 +268,20 @@ var FirstPlay = FirstPlay || {};
   }
 
   /**
-   * Does a text control hold what was written? Compared normalised; a phone
-   * (a tel input, or a phone-shaped value) is compared by its digits, since
-   * masks reformat and some add or drop the country code.
+   * Does a text control hold what was written? Compared normalised; a value
+   * the page decorated (a URL field prepending https://, a mask adding a
+   * suffix) still holds the written one, so the written text may sit inside
+   * the read one — never the other way round, since a truncated or emptied
+   * field is the defect this exists to catch. A phone (a tel input, or a
+   * phone-shaped value) is compared by its digits, since masks reformat and
+   * some add or drop the country code.
    */
   function textHolds(actual, written, type) {
     const a = String(actual === null || actual === undefined ? "" : actual);
     const w = String(written === null || written === undefined ? "" : written);
-    if (normalise(a) === normalise(w)) return true;
+    const na = normalise(a), nw = normalise(w);
+    if (na === nw) return true;
+    if (nw.length >= 3 && na.includes(nw)) return true;
     const phoneShaped = (type || "").toLowerCase() === "tel" || /^[\s\d()+.\-]{7,}$/.test(w);
     if (!phoneShaped) return false;
     const da = a.replace(/\D/g, ""), dw = w.replace(/\D/g, "");
