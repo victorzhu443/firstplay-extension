@@ -1083,6 +1083,44 @@ fill, re-applies anything a draft changed, and records `drift`.
 *Also.* 0.4.44 retired the hard-coded localhost backend; an "Advanced:
 backend" field in the popup pins either. Backend DECISIONS §51.
 
+**44. "It knows the answer but can't pick it" — the expired key, the cached
+fallback plans, and attachments by kind (2026-10-11 → 10-12, extension
+0.4.46–0.4.48).**
+*Why.* Victor: "I keep getting FirstPlay knows what should be chosen but
+can't choose it — let's diagnose this issue", then a screenshot: the résumé
+attached as the undergraduate and the graduate transcript, and a required
+office choice left empty.
+*How it was diagnosed.* Nine dropdown-heavy Ashby forms reproduced nothing
+on 0.4.46, so the extension gained a persistent log of every field it knew
+but could not enter (page, widget reason, version) with Copy in the popup.
+The page's run record then showed two things at once: the installed
+version was still 0.4.42, and the backend's new health field said the model
+path was degraded — the OpenRouter key had expired on the 11th, every plan
+had fallen back to deterministic, and the extension had cached those
+fallback plans for six hours per page. With the key renewed, the same
+pages still came back "cached" with the old amber fields.
+*What changed.* 0.4.47 never caches a plan the model path was down for and
+adds "Forget cached plans"; the backend reports `model_degraded` on health
+and on every plan. After reload and a cache clear: Decagon 10 of 10 with
+the university selected, Vital 10 filled, Sail 3 of 3 — "now it works."
+*Attachments.* Victor: "automatically any file attachment gets the resume,
+which is incorrect — what is the field asking for? do we have that
+attachment? if not, note it, especially if required." That is now the
+design: the plan marks every file field with the document it asks for
+(résumé, cover letter, transcript, portfolio, other); 0.4.48 stores a
+transcript beside the résumé in the popup, attaches the document of the
+slot's own kind or nothing, and outlines the rest with the kind named and
+"(required)" when it is. A graduate transcript asked of a bachelor's
+student is skipped.
+*The audit.* With the key back, every model-decided value across 419
+held-out forms was read by hand: 289 decisions, 283 correct, 5 wrong, 1
+unsure; the second pass 43 of 43. The threshold sweep showed the wrong
+ones sat at high confidence, so each became a rule (protected questions
+asked as custom labels are now memory-only wherever they appear; a
+master's date for a bachelor's student is not applicable; a secondary
+major is blank unless recorded) and the threshold stays. Backend
+DECISIONS §52.
+
 ### What the log says in one paragraph
 
 Two classes of defect account for nearly everything that ever went wrong on
