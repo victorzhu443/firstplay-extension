@@ -1070,9 +1070,11 @@ proposed change to the fact, with the usual two-company support; a stale
 preferred name) still replay. The capture now reads a react-select's held
 option by its own label, and both sides treat an option label that extends
 the planned value as the plan's own fill — the filler's own matching rule.
-*Measured.* 639 backend tests (+4). IMC re-run: see the next entry's
-numbers once the extension is reloaded; the backend side alone makes
-Country fill, since the stale episode is ignored at resolve time.
+*Measured.* 639 backend tests (+4). IMC re-run on the patched backend
+(extension still 0.4.49, so the stale "+1" was still in its profile and
+was ignored at resolve time): 21 filled, 0 failed, Country selected
+(United States, shown as "+1"), fill 1,074 ms; the 10 fields left are the
+six popup questions and the consents the extension's profile copy lacks.
 
 ### What the log says in one paragraph
 
