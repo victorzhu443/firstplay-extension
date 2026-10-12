@@ -2,9 +2,13 @@
  * Profile editor.
  *
  * The profile is pasted rather than synced because there is no account to sync
- * with: the backend stores nothing, so this browser holds the only copy. That is
- * the whole privacy posture in one design choice — protected characteristics and
- * a home postcode never sit on a server.
+ * with: this browser holds the only stored copy (chrome.storage.local,
+ * unencrypted), and the backend keeps nothing between requests. It is not
+ * blind, though: the whole profile — protected answers and consents included —
+ * travels to the configured backend with every plan and learn request, is used
+ * for that request, and is not stored or logged there. Its non-protected parts
+ * may go on to the model provider for bounded yes/no and option decisions;
+ * protected answers and consents never do. docs/PRIVACY.md says the same.
  *
  * Classic script (popup scripts may be modules, but keeping every non-worker
  * script classic removes one way to get the manifest wrong).

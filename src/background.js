@@ -74,28 +74,44 @@ function countAnswers(profile) {
 }
 
 /**
- * Which engine the backend is running, from its health route. A plan is a
- * function of the engine as much as of the posting and profile: after a
- * backend change a cached pre-change plan was served for twelve minutes on
- * the board meant to test the change (DECISIONS §40). Local and fast; on
- * failure the key carries "unknown" and a cached plan is still better than none.
+ * Which engine the backend is running, and whether it has a model, from its
+ * health route. A plan is a function of the engine as much as of the posting
+ * and profile: after a backend change a cached pre-change plan was served for
+ * twelve minutes on the board meant to test the change (DECISIONS §40). Local
+ * and fast. On failure: null, and nothing is cached this time — a key built
+ * on "unknown" collapsed every engine into one (audit L4).
  */
-async function engineFingerprint() {
+async function backendHealth() {
   try {
     const res = await fetch(`${await backendUrl()}/api/autofill/health`, { cache: "no-store" });
     const body = await res.json();
-    return body.engine || "unknown";
+    return body && body.engine ? { engine: body.engine, model_available: body.model_available } : null;
   } catch (_e) {
-    return "unknown";
+    return null;
   }
 }
 
 /** A short, stable key for "this posting, this profile, this engine": the plan is a pure function of the three. */
-async function planCacheKey(posting, profile) {
-  const engine = await engineFingerprint();
+async function planCacheKey(posting, profile, engine) {
   const text = JSON.stringify([posting.ats, posting.board || posting.org, posting.jobId || posting.postingId, profile, engine]);
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
   return "firstplay.plan." + Array.from(new Uint8Array(digest)).slice(0, 12).map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+/**
+ * Only a plan the model finished is worth remembering: one where it timed
+ * out, where the model path was down (an expired key, 2026-10-12: the
+ * fallback plans made during the outage were served for a day after the
+ * fix), or where the backend has no model at all — the hosted engine ran
+ * without a key and its deterministic plans were cached for six hours
+ * because `model_degraded` was false (audit M6) — is retried next time.
+ * `model_available` comes with the plan on current backends; the health
+ * route's value stands in for older ones.
+ */
+function shouldCachePlan(payload, health) {
+  if (!payload || payload.model_skipped || payload.model_degraded) return false;
+  const available = payload.model_available !== undefined ? payload.model_available : health && health.model_available;
+  return available !== false;
 }
 
 async function buildPlan({ posting, controls, page }) {
@@ -110,8 +126,9 @@ async function buildPlan({ posting, controls, page }) {
   // Greenhouse and Ashby plans are both pure functions of an API payload
   // and the profile (Ashby's form comes from its ApiJobPosting operation,
   // DECISIONS §46), so both are cached; a DOM-read Ashby plan is not.
-  const cacheKey = posting.ats === "greenhouse" || (posting.ats === "ashby" && !(controls && controls.length))
-    ? await planCacheKey(posting, profile) : null;
+  const cacheable = posting.ats === "greenhouse" || (posting.ats === "ashby" && !(controls && controls.length));
+  const health = cacheable ? await backendHealth() : null;
+  const cacheKey = health ? await planCacheKey(posting, profile, health.engine) : null;
   if (cacheKey) {
     const hit = (await chrome.storage.session.get(cacheKey))[cacheKey];
     if (hit && Date.now() - hit.at < 6 * 60 * 60 * 1000) {
@@ -174,11 +191,7 @@ async function buildPlan({ posting, controls, page }) {
 
   const payload = await response.json();
 
-  // Only a plan the model finished is worth remembering; one where it timed
-  // out, or where the model path was down (an expired key, 2026-10-12: the
-  // fallback plans made during the outage were served for a day after the
-  // fix), should be retried next time.
-  if (cacheKey && !payload.model_skipped && !payload.model_degraded) {
+  if (cacheKey && shouldCachePlan(payload, health)) {
     chrome.storage.session.set({ [cacheKey]: { at: Date.now(), payload } }).catch(() => {});
   }
   rememberLookupTerms(payload);

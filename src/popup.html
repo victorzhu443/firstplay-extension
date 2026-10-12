@@ -83,7 +83,7 @@
 
   <p style="margin-top:4px"><strong>Learned from you</strong></p>
   <label class="row" style="margin:0 0 6px;font-size:12px"><input id="learnEnabled" type="checkbox" style="margin-right:6px" />
-    Learn from my answers — remember what I type into fields the fill left to me, on this computer only, and suggest facts to add after I've given the same answer at two companies.</label>
+    Learn from my answers — what I type into fields the fill left to me is sent with my profile to the backend to be judged, stored on this computer only, and after the same answer at two companies a fact is suggested. Self-identification and consent answers are never captured.</label>
   <p id="learnedStatus" class="status" style="margin-bottom:6px"></p>
   <div id="proposals"></div>
   <p id="proposalsNote" style="margin:0 0 12px"></p>
@@ -94,7 +94,7 @@
     <pre id="missesList" style="font-size:11px;max-height:180px;overflow:auto;white-space:pre-wrap;margin:0"></pre>
   </details>
   <details style="margin:0 0 12px"><summary style="font-size:12px;cursor:pointer">Advanced: backend</summary>
-    <p style="font-size:12px;margin:4px 0">Leave empty to use the hosted backend (stateless — your profile is sent with each request and kept nowhere). Enter <code>http://localhost:8000</code> to keep every request on this machine.</p>
+    <p style="font-size:12px;margin:4px 0">Leave empty to use the hosted backend (Render): your whole profile is sent with each plan and learn request, used for that request, and not stored or logged there. Enter <code>http://localhost:8000</code> to keep every request on this machine.</p>
     <input id="backendUrl" type="text" placeholder="https://firstplay-backend.onrender.com" style="width:100%;font-size:12px" />
     <div class="row" style="margin:6px 0 0"><button id="forgetPlans">Forget cached plans</button><span id="forgetPlansNote" class="status" style="margin-left:8px"></span></div>
   </details>
@@ -116,8 +116,12 @@
   </details>
 
   <p style="margin-top:12px">
-    Stored only in this browser. It is sent to your local backend to resolve a
-    form and is never stored there.
+    Stored only in this browser, unencrypted, and on no server. The whole
+    profile is sent to the backend above with every plan and learn request,
+    used for that request and not stored or logged; its non-protected parts
+    may go to the model provider (OpenRouter) for bounded yes/no and option
+    decisions. Self-identification and consent answers never go to the model.
+    Details: <code>docs/PRIVACY.md</code> in the extension folder.
   </p>
 
   <script src="popup.js"></script>

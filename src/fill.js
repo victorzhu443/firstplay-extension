@@ -177,7 +177,8 @@ var FirstPlay = FirstPlay || {};
     return null;
   }
 
-  function locate(entry) {
+  /** The control an entry names by key, id or name — never by label. */
+  function locateByKey(entry) {
     const key = entry.field_key;
 
     // Ashby: every field's container carries data-field-path equal to the
@@ -221,30 +222,70 @@ var FirstPlay = FirstPlay || {};
       if (bySuffix) return bySuffix;
     }
 
-    // The fallback that catches race -> hispanic_ethnicity. Matched on the
-    // label's text, which is the one thing the API and the DOM agree on.
-    const wanted = normalise(entry.label);
-    if (!wanted) return null;
+    return null;
+  }
 
+  function locate(entry) {
+    return locateWithReason(entry).el;
+  }
+
+  /**
+   * The control for an entry, or why there is none. By key first; then the
+   * fallback that catches race -> hispanic_ethnicity, matched on the label's
+   * text, which is the one thing the API and the DOM agree on. The label
+   * match must be UNIQUE: "Other", "Please specify" and "Start date" each
+   * appear twice on some forms, and the first of two same-labelled controls
+   * is nobody's answer (audit M4). `why` is set only in that case, so the
+   * miss log can say so instead of a value landing in the wrong field.
+   */
+  function locateWithReason(entry) {
+    const byKey = locateByKey(entry);
+    if (byKey) return { el: byKey };
+
+    const wanted = normalise(entry.label);
+    if (!wanted) return { el: null };
+
+    const matches = new Set();
     for (const label of document.querySelectorAll("label")) {
       if (normalise(label.innerText) !== wanted) continue;
       const forId = label.getAttribute("for");
-      if (forId) {
-        const target = document.getElementById(forId);
-        if (target) return target;
-      }
-      const nested = label.querySelector("input, textarea, select");
-      if (nested) return nested;
-
+      const target = (forId && document.getElementById(forId)) || null;
+      const nested = target || label.querySelector("input, textarea, select");
       // Ashby: the label's `for` names an id nothing carries, and the control
       // is a sibling inside the same field container.
-      const container = label.closest('[class*="fieldEntry"], [class*="field-entry"]');
-      const inContainer = container &&
-        container.querySelector('input:not([type="hidden"]), textarea, select');
-      if (inContainer) return inContainer;
+      const container = nested ? null : label.closest('[class*="fieldEntry"], [class*="field-entry"]');
+      const inContainer = container && container.querySelector('input:not([type="hidden"]), textarea, select');
+      const control = nested || inContainer;
+      if (control) matches.add(control);
     }
 
-    return null;
+    if (matches.size === 1) return { el: matches.values().next().value };
+    if (matches.size > 1) {
+      return { el: null, why: `${matches.size} fields on this page share the label ` +
+        JSON.stringify(String(entry.label || "").slice(0, 60)) + "; left for you" };
+    }
+    return { el: null };
+  }
+
+  /**
+   * Does a text control hold what was written? Compared normalised; a value
+   * the page decorated (a URL field prepending https://, a mask adding a
+   * suffix) still holds the written one, so the written text may sit inside
+   * the read one — never the other way round, since a truncated or emptied
+   * field is the defect this exists to catch. A phone (a tel input, or a
+   * phone-shaped value) is compared by its digits, since masks reformat and
+   * some add or drop the country code.
+   */
+  function textHolds(actual, written, type) {
+    const a = String(actual === null || actual === undefined ? "" : actual);
+    const w = String(written === null || written === undefined ? "" : written);
+    const na = normalise(a), nw = normalise(w);
+    if (na === nw) return true;
+    if (nw.length >= 3 && na.includes(nw)) return true;
+    const phoneShaped = (type || "").toLowerCase() === "tel" || /^[\s\d()+.\-]{7,}$/.test(w);
+    if (!phoneShaped) return false;
+    const da = a.replace(/\D/g, ""), dw = w.replace(/\D/g, "");
+    return dw.length >= 7 && da.length >= 7 && (da.endsWith(dw) || dw.endsWith(da));
   }
 
   /**
@@ -747,7 +788,13 @@ var FirstPlay = FirstPlay || {};
       const no = /^(no|false|n)$/.test(wanted);
       if (!yes && !no) return { ok: false, why: `${JSON.stringify(value)} is not yes/no` };
       if (el.checked !== yes) el.click();
-      return { ok: true, chose: yes ? "checked" : "left unchecked" };
+      // Read back. A controlled box the page's state refused snaps back as
+      // the click's handler returns; a "Yes" that is not checked is not a
+      // fill, whatever was clicked. A "No" over a box already clear is one.
+      if (el.checked !== yes) {
+        return { ok: false, why: yes ? "clicked the box but it did not stay checked" : "clicked the box but it did not clear" };
+      }
+      return { ok: true, chose: yes ? "Yes" : "No" };
     }
 
     const textOf = (candidate) => {
@@ -758,7 +805,10 @@ var FirstPlay = FirstPlay || {};
     };
     const chosen = pickOption(candidates, textOf, value);
     if (chosen) {
-      chosen.click();
+      // A click on a checked checkbox clears it, so one already holding the
+      // answer is left alone; and the answer counts only once it reads checked.
+      if (!chosen.checked) chosen.click();
+      if (!chosen.checked) return { ok: false, why: "clicked the option but it did not register as chosen" };
       return { ok: true, chose: textOf(chosen).trim() };
     }
 
@@ -937,7 +987,15 @@ var FirstPlay = FirstPlay || {};
       if (option) {
         el.value = option.value;
         el.dispatchEvent(new Event("change", { bubbles: true }));
-        result = { ok: true, chose: option.textContent.trim() };
+        // Read back: a controlled <select> the page re-renders over keeps
+        // its old selectedIndex, and the change event alone proved nothing.
+        const check = () => {
+          const selected = el.options[el.selectedIndex];
+          return selected && el.value === option.value && normalise(selected.textContent) === normalise(option.textContent)
+            ? { ok: true, chose: option.textContent.trim() }
+            : { ok: false, why: "the menu did not keep the choice" };
+        };
+        result = { ...check(), verify: check };
       } else {
         result = { ok: false, why: "no matching option" };
       }
@@ -954,13 +1012,24 @@ var FirstPlay = FirstPlay || {};
       } else {
         setNativeValue(el, asNumber);
         el.dispatchEvent(new Event("change", { bubbles: true }));
-        result = (el.value || "") !== "" ? { ok: true, chose: asNumber }
-                                         : { ok: false, why: `the number input rejected ${JSON.stringify(asNumber)}` };
+        const check = () => ((el.value || "") !== "" ? { ok: true, chose: asNumber }
+                                                     : { ok: false, why: `the number input rejected ${JSON.stringify(asNumber)}` });
+        result = { ...check(), verify: check };
       }
     } else {
       setNativeValue(el, value);
       el.dispatchEvent(new Event("change", { bubbles: true }));
-      result = { ok: true, chose: value };
+      // Read back, and again a frame later (the instant tier re-asks every
+      // `verify` after one frame before recording): a controlled input whose
+      // state the page did not take re-renders empty, a mask reformats a
+      // phone, a date input rejects anything but ISO. Reported ok without
+      // looking until 0.4.51 — R48-2's two "filled yet still wanted" text
+      // fields were this path (audit M4).
+      const check = () => (textHolds(el.value, value, el.type)
+        ? { ok: true, chose: value }
+        : { ok: false, why: (el.value || "") === "" ? "wrote it but the field reads empty"
+                                                    : "wrote it but the field now reads something else" });
+      result = { ...check(), verify: check };
     }
 
     // Multi-select: tick the rest too. On react-select this only makes sense
@@ -1082,31 +1151,87 @@ var FirstPlay = FirstPlay || {};
    * @param {object} [context]  `{ resume }` — the stored resume document, if any
    */
   /**
+   * The answer a plan entry carries for the Hispanic/Latino question, or null
+   * when there is none to write: no entry (an older backend), needs_review,
+   * skipped, a sibling's, or empty. Nothing is derived from any other answer.
+   */
+  function hispanicAnswerFrom(entry) {
+    if (!entry || entry.needs_review || entry.skipped || entry.satisfied_by) return null;
+    const value = entry.values && entry.values.length ? entry.values[0] : entry.value;
+    if (value === null || value === undefined || String(value).trim() === "") return null;
+    return String(value);
+  }
+
+  const HISPANIC_LABEL = "Are you Hispanic or Latino?";
+  const NEVER_INFERRED = "answer this yourself; FirstPlay never infers ethnicity";
+
+  /**
    * Greenhouse's two-question EEO block. The API lists one compliance field,
    * `race`, but 7 of 9 surveyed boards render `hispanic_ethnicity` (Yes / No
-   * / Decline) first and mount `race` only after it is answered. The
-   * Hispanic answer is a deterministic reading of the applicant's own stored
-   * race — "Hispanic or Latino" is Yes, a decline stays a decline, anything
-   * else is No — so this is replay, not judgement; no model is involved.
-   * Returns the `race` entry's control once revealed, or null.
+   * / Decline) first and mount `race` only after it is answered.
+   *
+   * The Hispanic answer is the applicant's own stored answer to that exact
+   * question, carried by the plan as its `hispanic_ethnicity` entry. Until
+   * 0.4.51 it was derived from the stored race by substring — Ashby's own
+   * wording "White (Not Hispanic or Latino)" read as Yes, a stored "I don't
+   * wish to answer" read as No (audit H1). Nothing is inferred now: without
+   * a usable entry the question is outlined for the applicant and `race`
+   * stays unmounted; the caller counts both as review.
+   *
+   * Returns { state, el, why }: "absent" when the page has no such block (or
+   * already shows `race`, so the main loop handles both by id), "filled"
+   * with the `race` control once it mounts, "review" when the question was
+   * left, "failed" when the widget refused the stored answer.
    */
-  async function revealRace(raceEntry) {
-    if (document.getElementById("race")) return document.getElementById("race");
+  async function revealRace(hispanicEntry) {
     const hispanic = document.getElementById("hispanic_ethnicity");
-    if (!hispanic) return null;
+    if (!hispanic || document.getElementById("race")) return { state: "absent", el: document.getElementById("race") };
 
-    const stored = normalise(raceEntry.value || "");
-    const answer = /hispanic|latin/.test(stored) ? "Yes"
-      : /decline|prefer not|do not wish/.test(stored) ? "Decline To Self Identify"
-      : "No";
+    const answer = hispanicAnswerFrom(hispanicEntry);
+    if (answer === null) {
+      const why = (hispanicEntry && hispanicEntry.reason) || NEVER_INFERRED;
+      outline(hispanic, OUTLINE_REVIEW, `FirstPlay: needs you — ${why}`);
+      return { state: "review", el: null, why };
+    }
 
     await hydrated(hispanic);
     const result = await fillReactSelect(hispanic, answer);
-    if (!result.ok) return null;
-    outline(hispanic, OUTLINE_FILLED, `FirstPlay: from your stored race — ${answer}`);
+    if (!result.ok) {
+      outline(hispanic, OUTLINE_REVIEW, `FirstPlay: could not fill — ${result.why}`);
+      return { state: "failed", el: null, why: result.why };
+    }
+    outline(hispanic, OUTLINE_FILLED, `FirstPlay: ${hispanicEntry.reason || hispanicEntry.source || "your stored answer"}`);
 
     for (let i = 0; i < 100 && !document.getElementById("race"); i += 1) await sleep(20);
-    return document.getElementById("race");
+    return { state: "filled", el: document.getElementById("race") };
+  }
+
+  /**
+   * One row of the run record's `fields`: what the plan said about a field
+   * (key, label, source, confidence) and what happened to it — never the
+   * value. Quoted strings inside a reason are the values the widget messages
+   * quote, so they are blanked. This is what lets precision be audited from
+   * survey rows: a model-decided fill and a replay were indistinguishable
+   * there before (audit M4).
+   */
+  function fieldRecord(entry, state, ok, why) {
+    const e = entry || {};
+    const row = {
+      key: String(e.field_key || "").slice(0, 80),
+      label: String(e.label || "").slice(0, 60),
+      source: e.source || null,
+      confidence: typeof e.confidence === "number" ? Math.round(e.confidence * 100) / 100 : null,
+      state,
+      ok: !!ok,
+    };
+    if (why) row.why = String(why).replace(/"(?:[^"\\]|\\.)*"/g, '"…"').slice(0, 80);
+    return row;
+  }
+
+  /** One frame for the form to commit the last write before anyone reads it (a hidden tab has no frames). */
+  function frame() {
+    if (document.hidden) return sleep(32);
+    return new Promise((resolve) => requestAnimationFrame(() => setTimeout(resolve, 0)));
   }
 
   /**
@@ -1132,7 +1257,8 @@ var FirstPlay = FirstPlay || {};
   }
 
   async function applyPlan(plan, context = {}) {
-    const outcome = { filled: 0, attach: 0, review: 0, failed: 0, missing: 0, details: [], timing: {}, slow: [] };
+    const outcome = { filled: 0, attach: 0, review: 0, failed: 0, missing: 0, details: [], fields: [], timing: {}, slow: [] };
+    const note = (entry, state, ok, why) => outcome.fields.push(fieldRecord(entry, state, ok, why));
     const work = { instant: [], "react-select": [], autocomplete: [], listbox: [] };
 
     // Where the fill's time goes, per tier, and the slowest controls: the
@@ -1154,19 +1280,54 @@ var FirstPlay = FirstPlay || {};
     lap("ready");
     phase = "instant";
 
-    const raceEntry = plan.entries.find((e) => e.field_key === "race" && e.value && !e.needs_review && !e.skipped);
-    if (raceEntry && (await revealRace(raceEntry))) outcome.details.push({ label: "Hispanic/Latino", state: "answered from your stored race" });
+    // The Greenhouse EEO block first: `race` mounts only once the Hispanic
+    // question is answered, and only the plan's own `hispanic_ethnicity`
+    // entry may answer it. When it does not, both questions are the
+    // applicant's and both count as review.
+    const hispanicEntry = plan.entries.find((e) => e.field_key === "hispanic_ethnicity") || null;
+    const eeo = await revealRace(hispanicEntry);
+    const eeoEntry = hispanicEntry || { field_key: "hispanic_ethnicity", label: HISPANIC_LABEL, source: null };
+    if (eeo.state === "filled") {
+      outcome.filled += 1;
+      note(hispanicEntry, "filled", true);
+    } else if (eeo.state === "review") {
+      outcome.review += 1;
+      outcome.details.push({ label: HISPANIC_LABEL, state: "needs you", why: eeo.why });
+      note(eeoEntry, "review", false, eeo.why);
+    } else if (eeo.state === "failed") {
+      outcome.failed += 1;
+      outcome.details.push({ label: HISPANIC_LABEL, state: "failed", why: eeo.why });
+      note(eeoEntry, "failed", false, eeo.why);
+    }
 
     for (const entry of plan.entries) {
-      const el = locate(entry);
+      if (eeo.state !== "absent" && entry.field_key === "hispanic_ethnicity") continue;
+      if (eeo.state !== "absent" && eeo.state !== "filled" && entry.field_key === "race" && !entry.skipped && !entry.satisfied_by) {
+        const why = "shown once the Hispanic/Latino question above is answered — yours to answer";
+        outcome.review += 1;
+        outcome.details.push({ label: entry.label, state: "needs you", why });
+        note(entry, "review", false, why);
+        continue;
+      }
+
+      const found = locateWithReason(entry);
+      const el = found.el;
 
       if (!el) {
+        if (entry.skipped || entry.satisfied_by) continue;
+        // Two controls under one label: the answer is known and the page
+        // would not take it unambiguously, so it is a miss, with the reason.
+        if (found.why) {
+          outcome.failed += 1;
+          outcome.details.push({ label: entry.label, state: "failed", why: found.why });
+          note(entry, "failed", false, found.why);
+          continue;
+        }
         // Expected for a sibling control the page does not render — Greenhouse
         // offers a resume textarea in its API that Figma's form omits.
-        if (!entry.satisfied_by) {
-          outcome.missing += 1;
-          outcome.details.push({ label: entry.label, state: "not on page" });
-        }
+        outcome.missing += 1;
+        outcome.details.push({ label: entry.label, state: "not on page" });
+        note(entry, "missing", false);
         continue;
       }
 
@@ -1199,6 +1360,7 @@ var FirstPlay = FirstPlay || {};
             outline(el, OUTLINE_FILLED, `FirstPlay: attached ${attached.chose}`);
             outcome.filled += 1;
             outcome.details.push({ label: entry.label, state: "attached", value: attached.chose });
+            note(entry, "attached", true);
             continue;
           }
           outcome.details.push({ label: entry.label, state: "failed", why: attached.why });
@@ -1213,6 +1375,7 @@ var FirstPlay = FirstPlay || {};
         outcome.attach += 1;
         outcome.details.push({ label: entry.label, state: "attach by hand",
                                value: entry.value });
+        note(entry, "attach", false, `attach your ${docName} by hand`);
         continue;
       }
 
@@ -1220,6 +1383,7 @@ var FirstPlay = FirstPlay || {};
         outline(el, OUTLINE_REVIEW,
                 `FirstPlay: needs you — ${entry.reason || "no stored answer"}`);
         outcome.review += 1;
+        note(entry, "review", false, entry.reason || "no stored answer");
         continue;
       }
 
@@ -1227,23 +1391,31 @@ var FirstPlay = FirstPlay || {};
       work[widgetKind(el)].push({ entry, el, value });
     }
 
-    const record = (item, result) => {
+    const record = (item, written) => {
       const { entry, el, value } = item;
+      // A writer that reads back later hands over `verify`; asked now.
+      let result = written || { ok: false, why: "no result" };
+      if (typeof result.verify === "function") {
+        try { result = result.verify(); } catch (e) { result = { ok: false, why: `read-back threw ${e && e.message}` }; }
+      }
       if (result.ok) {
         outline(el, OUTLINE_FILLED, `FirstPlay: ${entry.reason || entry.source}`);
         outcome.filled += 1;
+        note(entry, "filled", true);
       } else if (result.mismatch) {
         // The widget worked; the form's own answer set excludes the value.
         outline(el, OUTLINE_REVIEW, `FirstPlay: needs you — ${result.why}`);
         try { badge(el, `FirstPlay: your answer ${JSON.stringify(value)} is not among this form's choices — ${result.why}`); } catch (e) { /* ignore */ }
         outcome.review += 1;
         outcome.details.push({ label: entry.label, state: "mismatch", why: result.why, value });
+        note(entry, "mismatch", false, result.why);
       } else {
         outline(el, OUTLINE_REVIEW, `FirstPlay: could not fill — ${result.why}`);
         // Drawing the note must never abort the run.
         try { badge(el, `FirstPlay knows this one: ${value} — please pick it (${result.why})`); } catch (e) { /* ignore */ }
         outcome.failed += 1;
         outcome.details.push({ label: entry.label, state: "failed", why: result.why, value });
+        note(entry, "failed", false, result.why);
       }
     };
     // One control that throws must not stop the rest of the form (seen on
@@ -1253,8 +1425,15 @@ var FirstPlay = FirstPlay || {};
       try { return await fn(); } catch (e) { return { ok: false, why: `threw ${e && e.message}` }; }
     };
 
-    // Tier 1: instant.
-    for (const item of work.instant) record(item, await timed(item, () => guarded(() => fillControl(item.el, item.entry, item.value))));
+    // Tier 1: instant. Written in one pass; the text, number and native-
+    // select writers hand back a `verify`, asked once one frame has passed so
+    // a controlled input the page re-rendered over is seen empty rather than
+    // as it stood in the write's own tick. One frame for the tier, not one
+    // per field.
+    const written = [];
+    for (const item of work.instant) written.push([item, await timed(item, () => guarded(() => fillControl(item.el, item.entry, item.value)))]);
+    if (written.some(([, r]) => r && typeof r.verify === "function")) await frame();
+    for (const [item, result] of written) record(item, result);
     lap("instant");
     phase = "lookup";
 
@@ -1296,10 +1475,8 @@ var FirstPlay = FirstPlay || {};
       record(item, await timed(item, () => guarded(() => fillReactSelect(item.el, item.value, prefetched[i]))));
       if (item.entry.values.length > 1) await guarded(() => fillControl(item.el, item.entry, item.value));
     }
-    // One frame for the form to commit the last pick before anyone reads it
-    // (a hidden tab has no frames; a short unthrottled sleep instead).
-    if (document.hidden) await sleep(32);
-    else await new Promise((resolve) => requestAnimationFrame(() => setTimeout(resolve, 0)));
+    // One frame for the form to commit the last pick before anyone reads it.
+    await frame();
     lap("picks");
     for (const item of work.autocomplete) record(item, await timed(item, () => guarded(() => pickAutocomplete(item.el, item.value))));
     lap("autocomplete");
@@ -1319,6 +1496,9 @@ var FirstPlay = FirstPlay || {};
   ns.displayedValue = displayedValue;
   ns.heldOptionText = heldOptionText;
   ns.locate = locate;
+  ns.locateWithReason = locateWithReason;
   ns.setNativeValue = setNativeValue;
   ns.fillReactSelect = fillReactSelect;
+  // Pure pieces, for the node tests.
+  ns._fill = { normalise, pickOption, textHolds, hispanicAnswerFrom, fieldRecord, locateWithReason };
 })(FirstPlay);

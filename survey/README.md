@@ -46,8 +46,14 @@ python3 docs/readme-source/build_readme.py docs/readme-source README.md
 | 7 | 3 | 48 | 0 |
 | 9 | 10 | 146 | 0 |
 | **all** | **116** | **1849** | **21** |
+| R48-2 | 1 | 17 | 0 |
+| **all, 2026-10-12** | **117** | **1866** | **21** |
 
-16 boards excluded. Zero "could not enter" since extension 0.4.19.
+16 boards excluded. Zero "could not enter" since extension 0.4.19 — a
+claim that rests on round order and `rerun_notes.jsonl`, not on the rows:
+132 of the 133 Greenhouse rows were written before `version` was recorded
+(the outside audit of 2026-10-12 pointed this out). Every Greenhouse row
+appended from now on carries `version`, as the Ashby rows already do.
 
 ### Ashby
 
