@@ -1,9 +1,11 @@
 // Where the resolver lives. Everything that decides anything runs there; this
 // extension only reads the page and writes to it. The hosted backend is the
 // default so a person can install the extension and use it with nothing else
-// to run; it is stateless (the profile travels with each request and is kept
-// nowhere). A local backend can be chosen in the popup for development or
-// for keeping every request on this machine.
+// to run. It is stateless, not blind: the whole profile travels with every
+// plan and learn request, is used for that request, and is not stored or
+// logged there; its non-protected parts may go on to the model provider. A
+// local backend can be chosen in the popup for development or for keeping
+// every request on this machine (docs/PRIVACY.md).
 export const HOSTED_BACKEND = "https://firstplay-backend.onrender.com";
 export const LOCAL_BACKEND = "http://localhost:8000";
 export const BACKEND_KEY = "firstplay.backend";
@@ -49,6 +51,7 @@ export async function installToken() {
   return token;
 }
 
-// Storage keys. The profile lives here and nowhere else — the backend is
-// stateless by design, so this is the only copy and it stays on this machine.
+// Storage keys. The profile's only stored copy is here (chrome.storage.local,
+// unencrypted); the backend is stateless by design and keeps none. It leaves
+// this machine in transit, with every request to the backend.
 export const PROFILE_KEY = "firstplay.profile";

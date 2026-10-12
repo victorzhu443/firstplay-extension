@@ -35,6 +35,7 @@ is stateless: your profile is sent with each request so the plan can be made,
 and it is stored nowhere but your own browser. If a backend is running on your
 machine on port 8000 the extension uses that instead, and the popup's
 *Advanced: backend* field pins either one explicitly.
+What leaves your machine, to whom, and how to delete it: [docs/PRIVACY.md](docs/PRIVACY.md).
 
 ### Your profile
 
