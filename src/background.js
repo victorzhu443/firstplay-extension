@@ -11,7 +11,7 @@
  *     backend per request. It is never injected into the page, so a script on
  *     the application site cannot reach it.
  */
-import { backendUrl, installToken, PROFILE_KEY } from "./config.js";
+import { backendUrl, resolveBackend, installToken, PROFILE_KEY } from "./config.js";
 
 /** The applicant's profile, or an empty one on first run. */
 async function loadProfile() {
@@ -127,12 +127,15 @@ async function buildPlan({ posting, controls, page }) {
   // and the profile (Ashby's form comes from its ApiJobPosting operation,
   // DECISIONS §46), so both are cached; a DOM-read Ashby plan is not.
   const cacheable = posting.ats === "greenhouse" || (posting.ats === "ashby" && !(controls && controls.length));
+  // Resolved once per plan and reported by host (never the path), so the
+  // run record says where this plan's request went (audit F16, F21).
+  const backend = await resolveBackend();
   const health = cacheable ? await backendHealth() : null;
   const cacheKey = health ? await planCacheKey(posting, profile, health.engine) : null;
   if (cacheKey) {
     const hit = (await chrome.storage.session.get(cacheKey))[cacheKey];
     if (hit && Date.now() - hit.at < 6 * 60 * 60 * 1000) {
-      return { ok: true, profileAnswers: answers, cached: true, ...hit.payload };
+      return { ok: true, profileAnswers: answers, cached: true, backend: backend.host, ...hit.payload };
     }
   }
 
@@ -178,7 +181,7 @@ async function buildPlan({ posting, controls, page }) {
         };
   }
 
-  const response = await fetch(`${await backendUrl()}/api/autofill/plan`, {
+  const response = await fetch(`${backend.url}/api/autofill/plan`, {
     method: "POST",
     headers: { "Content-Type": "application/json", "X-FirstPlay-Install": await installToken() },
     body: JSON.stringify(body),
@@ -199,7 +202,7 @@ async function buildPlan({ posting, controls, page }) {
   // Reported so an empty profile is distinguishable from a broken resolver.
   // Without it, "0 to fill, 19 need you" looks identical to a bug, and the
   // actual cause — nothing saved in this browser — is invisible.
-  return { ok: true, profileAnswers: answers, ...payload };
+  return { ok: true, profileAnswers: answers, backend: backend.host, ...payload };
 }
 
 /**
@@ -486,6 +489,12 @@ async function recordAsks(asks) {
 }
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+  // The popup asks the worker where the profile goes, rather than deciding
+  // for itself: one selector, one answer (audit F16).
+  if (message.kind === "backend") {
+    resolveBackend().then(sendResponse).catch((e) => sendResponse({ ok: false, why: e.message }));
+    return true;
+  }
   if (message.kind === "asks") {
     recordAsks(message.asks).then(sendResponse).catch((e) => sendResponse({ ok: false, why: e.message }));
     return true;

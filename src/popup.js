@@ -10,24 +10,51 @@
  * may go on to the model provider for bounded yes/no and option decisions;
  * protected answers and consents never do. docs/PRIVACY.md says the same.
  *
- * Classic script (popup scripts may be modules, but keeping every non-worker
- * script classic removes one way to get the manifest wrong).
+ * A module, so it shares config.js with the service worker: the backend the
+ * popup describes is the one the worker sends the profile to (audit F16).
+ * Content scripts stay classic (see extract.js); this page is loaded by
+ * popup.html, not by the manifest, so a module is safe here.
  */
+import { resolveBackend, BACKEND_KEY, ALLOW_LOCAL_KEY } from "./config.js";
+
 (function () {
   "use strict";
 
   const PROFILE_KEY = "firstplay.profile";
-  const HOSTED_BACKEND = "https://firstplay-backend.onrender.com";
-  const BACKEND_KEY = "firstplay.backend";
   const backendField = document.getElementById("backendUrl");
-  async function backendUrl() {
-    const stored = await chrome.storage.local.get(BACKEND_KEY);
-    const chosen = (stored[BACKEND_KEY] || "").trim().replace(/\/+$/, "");
-    return /^https?:\/\//.test(chosen) ? chosen : HOSTED_BACKEND;
+  const backendLine = document.getElementById("backendLine");
+  const allowLocal = document.getElementById("allowLocal");
+
+  // The worker's answer first (it holds the probe result that decides where
+  // requests actually go); the same resolver here if the worker is asleep.
+  async function resolvedBackend() {
+    try {
+      const r = await chrome.runtime.sendMessage({ kind: "backend" });
+      if (r && r.url) return r;
+    } catch (e) { /* worker not reachable: resolve here */ }
+    return resolveBackend();
   }
-  chrome.storage.local.get(BACKEND_KEY).then((v) => { backendField.value = v[BACKEND_KEY] || ""; });
+  async function backendUrl() { return (await resolvedBackend()).url; }
+
+  function showBackend(b) {
+    const how = b.how === "stored" ? "the address you entered"
+      : b.how === "local" ? "a backend on this machine, plain HTTP"
+      : "the hosted backend, HTTPS";
+    backendLine.textContent = `Your profile goes to ${b.host} (${how}) with every plan and learn request, and nowhere else.`;
+    backendLine.className = "status" + (b.how === "local" ? " warn" : "");
+  }
+  resolvedBackend().then(showBackend).catch(() => { backendLine.textContent = "Could not resolve the backend."; });
+
+  chrome.storage.local.get([BACKEND_KEY, ALLOW_LOCAL_KEY]).then((v) => {
+    backendField.value = v[BACKEND_KEY] || "";
+    allowLocal.checked = v[ALLOW_LOCAL_KEY] === true;
+  });
   backendField.addEventListener("change", async () => {
     await chrome.storage.local.set({ [BACKEND_KEY]: backendField.value.trim() });
+    location.reload();
+  });
+  allowLocal.addEventListener("change", async () => {
+    await chrome.storage.local.set({ [ALLOW_LOCAL_KEY]: allowLocal.checked });
     location.reload();
   });
 

@@ -94,8 +94,11 @@
     <pre id="missesList" style="font-size:11px;max-height:180px;overflow:auto;white-space:pre-wrap;margin:0"></pre>
   </details>
   <details style="margin:0 0 12px"><summary style="font-size:12px;cursor:pointer">Advanced: backend</summary>
+    <p id="backendLine" class="status" style="margin:4px 0 6px">Resolving the backend…</p>
     <p style="font-size:12px;margin:4px 0">Leave empty to use the hosted backend (Render): your whole profile is sent with each plan and learn request, used for that request, and not stored or logged there. Enter <code>http://localhost:8000</code> to keep every request on this machine.</p>
     <input id="backendUrl" type="text" placeholder="https://firstplay-backend.onrender.com" style="width:100%;font-size:12px" />
+    <label class="row" style="margin:6px 0 0;font-size:12px"><input id="allowLocal" type="checkbox" style="margin-right:6px" />
+      Use a backend running on this machine (<code>localhost:8000</code>, plain HTTP) when one answers. Off by default: until you turn this on, nothing is sent to a local port unless you typed its address above.</label>
     <div class="row" style="margin:6px 0 0"><button id="forgetPlans">Forget cached plans</button><span id="forgetPlansNote" class="status" style="margin-left:8px"></span></div>
   </details>
   <p style="margin-top:4px"><strong>Your profile</strong> — what the fill answers from. Ordered by how many application fields each answers.</p>
@@ -124,6 +127,6 @@
     Details: <code>docs/PRIVACY.md</code> in the extension folder.
   </p>
 
-  <script src="popup.js"></script>
+  <script type="module" src="popup.js"></script>
 </body>
 </html>

@@ -6,36 +6,69 @@
 // logged there; its non-protected parts may go on to the model provider. A
 // local backend can be chosen in the popup for development or for keeping
 // every request on this machine (docs/PRIVACY.md).
+//
+// This module is the ONE place the backend is chosen: the service worker
+// imports it, and so does the popup, so what the popup shows is what the
+// worker sends the profile to (audit F16: two selectors disagreed, and the
+// worker could be talking to a local port while the popup described Render).
 export const HOSTED_BACKEND = "https://firstplay-backend.onrender.com";
 export const LOCAL_BACKEND = "http://localhost:8000";
 export const BACKEND_KEY = "firstplay.backend";
+//: Opt-in, off by default: may the worker look for a backend on this
+//: machine? Until it is on, nothing is ever sent to localhost unless the
+//: applicant typed that address into the backend field themselves.
+export const ALLOW_LOCAL_KEY = "firstplay.backend.allowLocal";
 export const INSTALL_KEY = "firstplay.install";
 
 let localProbe = null;   // one probe per worker lifetime: is a local backend running?
 
+// A changed choice must not be served from the old probe.
+try {
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area === "local" && (changes[BACKEND_KEY] || changes[ALLOW_LOCAL_KEY])) localProbe = null;
+  });
+} catch (e) { /* no storage events here */ }
+
 /**
- * The backend to use right now: the popup's choice if set; otherwise a local
- * backend when one answers on :8000 (development, or someone who prefers to
- * keep requests on their machine); otherwise the hosted one.
+ * The backend in use right now, with how it was chosen:
+ *
+ *   { url, host, how }   how ∈ "stored" | "local" | "hosted"
+ *
+ * The popup's explicit address wins ("stored"). Otherwise, only when the
+ * applicant turned the local option on, a backend answering on :8000 is
+ * used ("local"; plain HTTP, this machine only). Otherwise the hosted one.
  */
-export async function backendUrl() {
-  try {
-    const stored = await chrome.storage.local.get(BACKEND_KEY);
-    const chosen = (stored[BACKEND_KEY] || "").trim().replace(/\/+$/, "");
-    if (/^https?:\/\//.test(chosen)) return chosen;
-  } catch (e) { /* storage unavailable: fall through */ }
-  if (localProbe === null) {
-    localProbe = (async () => {
-      try {
-        const controller = new AbortController();
-        const timer = setTimeout(() => controller.abort(), 400);
-        const res = await fetch(`${LOCAL_BACKEND}/api/autofill/health`, { cache: "no-store", signal: controller.signal });
-        clearTimeout(timer);
-        return res.ok;
-      } catch (e) { return false; }
-    })();
+export async function resolveBackend() {
+  let stored = {};
+  try { stored = await chrome.storage.local.get([BACKEND_KEY, ALLOW_LOCAL_KEY]); } catch (e) { /* storage unavailable: fall through */ }
+  const chosen = (stored[BACKEND_KEY] || "").trim().replace(/\/+$/, "");
+  if (/^https?:\/\//.test(chosen)) return describe(chosen, "stored");
+  if (stored[ALLOW_LOCAL_KEY] === true) {
+    if (localProbe === null) {
+      localProbe = (async () => {
+        try {
+          const controller = new AbortController();
+          const timer = setTimeout(() => controller.abort(), 400);
+          const res = await fetch(`${LOCAL_BACKEND}/api/autofill/health`, { cache: "no-store", signal: controller.signal });
+          clearTimeout(timer);
+          return res.ok;
+        } catch (e) { return false; }
+      })();
+    }
+    if (await localProbe) return describe(LOCAL_BACKEND, "local");
   }
-  return (await localProbe) ? LOCAL_BACKEND : HOSTED_BACKEND;
+  return describe(HOSTED_BACKEND, "hosted");
+}
+
+function describe(url, how) {
+  let host = url;
+  try { host = new URL(url).host; } catch (e) { /* keep the text */ }
+  return { url, host, how };
+}
+
+/** The backend URL to send to right now (see resolveBackend). */
+export async function backendUrl() {
+  return (await resolveBackend()).url;
 }
 
 /**
