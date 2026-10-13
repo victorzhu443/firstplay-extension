@@ -1391,6 +1391,16 @@ presses from October 2026 to May 2028, one click, "05/01/2028", popper
 closed). Live re-check of TensorWave and Haven on 0.4.54 is owed once the
 extension is reloaded.
 
+*Closed the next day (0.4.55).* Rugged Robotics' "Spring Co-Op, Summer
+Internship, or Both" multi-select, measured on the live control: the plan
+had selected all three (the backend now takes "Both" alone when a menu
+offers it), and react-select's pick toggles on a multi-select, so the
+first value, picked once in the picks loop and again in the multi-value
+pass, came off while the read-back said filled; a held option is now left
+alone and counts as chosen. The education start date had never been asked
+— its two fields name derived keys with no registry row — so the backend
+now asks for the stored fact and the extension asks once, not per field.
+
 ### What the log says in one paragraph
 
 Two classes of defect account for nearly everything that ever went wrong on
