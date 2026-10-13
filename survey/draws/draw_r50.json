@@ -1,0 +1,823 @@
+{
+ "round": "R50",
+ "drawn": "2026-10-12",
+ "criteria": "Simplify Summer2027 active internships (engineering titles preferred) on Greenhouse boards / Ashby orgs with no result row yet, one posting per board, live-checked at draw time",
+ "postings": [
+  {
+   "ats": "greenhouse",
+   "board": "courierhealth",
+   "jobId": "5258913007",
+   "url": "https://job-boards.greenhouse.io/courierhealth/jobs/5258913007",
+   "title": "Software Engineer Intern",
+   "company": "Courier Health"
+  },
+  {
+   "ats": "greenhouse",
+   "board": "signifyd95",
+   "jobId": "8240551",
+   "url": "https://job-boards.greenhouse.io/signifyd95/jobs/8240551",
+   "title": "Engineering Intern",
+   "company": "Signifyd"
+  },
+  {
+   "ats": "greenhouse",
+   "board": "gleanwork",
+   "jobId": "4595665005",
+   "url": "https://job-boards.greenhouse.io/gleanwork/jobs/4595665005",
+   "title": "Software Engineer Intern",
+   "company": "Glean"
+  },
+  {
+   "ats": "greenhouse",
+   "board": "arcesiumllc",
+   "jobId": "5257176007",
+   "url": "https://job-boards.greenhouse.io/arcesiumllc/jobs/5257176007",
+   "title": "Software Engineer Intern",
+   "company": "Arcesium"
+  },
+  {
+   "ats": "greenhouse",
+   "board": "khanacademy",
+   "jobId": "8250259",
+   "url": "https://job-boards.greenhouse.io/khanacademy/jobs/8250259",
+   "title": "Software Engineer Intern",
+   "company": "Khan Academy"
+  },
+  {
+   "ats": "greenhouse",
+   "board": "affirm",
+   "jobId": "8008645003",
+   "url": "https://job-boards.greenhouse.io/affirm/jobs/8008645003",
+   "title": "Software Engineer Intern - Machine Learning",
+   "company": "Affirm"
+  },
+  {
+   "ats": "greenhouse",
+   "board": "bluestaq",
+   "jobId": "4420189009",
+   "url": "https://job-boards.greenhouse.io/bluestaq/jobs/4420189009",
+   "title": "Software Engineering Resident - Multiple Teams",
+   "company": "Bluestaq"
+  },
+  {
+   "ats": "greenhouse",
+   "board": "profluent",
+   "jobId": "5441955008",
+   "url": "https://job-boards.greenhouse.io/profluent/jobs/5441955008",
+   "title": "Software Engineer Intern",
+   "company": "Profluent"
+  },
+  {
+   "ats": "greenhouse",
+   "board": "muonspace",
+   "jobId": "5247725007",
+   "url": "https://job-boards.greenhouse.io/muonspace/jobs/5247725007",
+   "title": "Flight Software Engineer Intern",
+   "company": "Muon Space"
+  },
+  {
+   "ats": "greenhouse",
+   "board": "atoms",
+   "jobId": "8869105002",
+   "url": "https://job-boards.greenhouse.io/atoms/jobs/8869105002",
+   "title": "Machine Learning Engineer Intern",
+   "company": "Atoms"
+  },
+  {
+   "ats": "greenhouse",
+   "board": "sonyinteractiveentertainmentglobal",
+   "jobId": "6210692004",
+   "url": "https://job-boards.greenhouse.io/sonyinteractiveentertainmentglobal/jobs/6210692004",
+   "title": "Technical Designer Intern",
+   "company": "Sony Interactive Entertainment"
+  },
+  {
+   "ats": "greenhouse",
+   "board": "tenet3",
+   "jobId": "8878874002",
+   "url": "https://job-boards.greenhouse.io/tenet3/jobs/8878874002",
+   "title": "Software Developer Intern - Full Stack",
+   "company": "Tenet3"
+  },
+  {
+   "ats": "greenhouse",
+   "board": "purestorage",
+   "jobId": "8249749",
+   "url": "https://job-boards.greenhouse.io/purestorage/jobs/8249749",
+   "title": "Software Engineer Intern",
+   "company": "Pure Storage"
+  },
+  {
+   "ats": "greenhouse",
+   "board": "xai",
+   "jobId": "5255111007",
+   "url": "https://job-boards.greenhouse.io/xai/jobs/5255111007",
+   "title": "Software Engineer Intern/Co-op",
+   "company": "xAI"
+  },
+  {
+   "ats": "greenhouse",
+   "board": "gassouth",
+   "jobId": "8247622",
+   "url": "https://job-boards.greenhouse.io/gassouth/jobs/8247622",
+   "title": "Software Engineer Intern",
+   "company": "Gas South"
+  },
+  {
+   "ats": "greenhouse",
+   "board": "asteraearlycareer2027",
+   "jobId": "4728619005",
+   "url": "https://job-boards.greenhouse.io/asteraearlycareer2027/jobs/4728619005",
+   "title": "Packaging Engineer Intern",
+   "company": "Astera Labs"
+  },
+  {
+   "ats": "greenhouse",
+   "board": "stackadapt-confidential",
+   "jobId": "4386552009",
+   "url": "https://job-boards.greenhouse.io/stackadapt-confidential/jobs/4386552009",
+   "title": "Software Engineer Backend Intern",
+   "company": "StackAdapt"
+  },
+  {
+   "ats": "greenhouse",
+   "board": "capstoneinvestmentadvisors",
+   "jobId": "8859054002",
+   "url": "https://job-boards.greenhouse.io/capstoneinvestmentadvisors/jobs/8859054002",
+   "title": "Quant Intern",
+   "company": "Capstone Investment Advisors"
+  },
+  {
+   "ats": "greenhouse",
+   "board": "clenera",
+   "jobId": "5259423007",
+   "url": "https://job-boards.greenhouse.io/clenera/jobs/5259423007",
+   "title": "Data Engineer Intern",
+   "company": "Cl\u0113nera"
+  },
+  {
+   "ats": "greenhouse",
+   "board": "sigmacomputing",
+   "jobId": "7861424003",
+   "url": "https://job-boards.greenhouse.io/sigmacomputing/jobs/7861424003",
+   "title": "AI/ML PhD Intern",
+   "company": "Sigma Computing"
+  },
+  {
+   "ats": "greenhouse",
+   "board": "judihealth",
+   "jobId": "5418671008",
+   "url": "https://job-boards.greenhouse.io/judihealth/jobs/5418671008",
+   "title": "Data Engineer Intern",
+   "company": "Judi Health"
+  },
+  {
+   "ats": "greenhouse",
+   "board": "enova",
+   "jobId": "8239619",
+   "url": "https://job-boards.greenhouse.io/enova/jobs/8239619",
+   "title": "Software Engineer Intern",
+   "company": "Enova"
+  },
+  {
+   "ats": "greenhouse",
+   "board": "attentive",
+   "jobId": "4429880009",
+   "url": "https://job-boards.greenhouse.io/attentive/jobs/4429880009",
+   "title": "Product Management Intern - Agentic Integrations",
+   "company": "Attentive"
+  },
+  {
+   "ats": "greenhouse",
+   "board": "haven",
+   "jobId": "6210694004",
+   "url": "https://job-boards.greenhouse.io/haven/jobs/6210694004",
+   "title": "Technical Design Intern",
+   "company": "Haven Studios"
+  },
+  {
+   "ats": "greenhouse",
+   "board": "faire",
+   "jobId": "8870975002",
+   "url": "https://job-boards.greenhouse.io/faire/jobs/8870975002",
+   "title": "Applied AI/ML Scientist Intern",
+   "company": "Faire"
+  },
+  {
+   "ats": "greenhouse",
+   "board": "snorkelai",
+   "jobId": "6175199004",
+   "url": "https://job-boards.greenhouse.io/snorkelai/jobs/6175199004",
+   "title": "Research Fellow",
+   "company": "Snorkel AI"
+  },
+  {
+   "ats": "greenhouse",
+   "board": "memx",
+   "jobId": "5450442008",
+   "url": "https://job-boards.greenhouse.io/memx/jobs/5450442008",
+   "title": "Data Engineer Intern",
+   "company": "MEMX"
+  },
+  {
+   "ats": "greenhouse",
+   "board": "21shares",
+   "jobId": "6210735004",
+   "url": "https://job-boards.greenhouse.io/21shares/jobs/6210735004",
+   "title": "Front-Office Data Support Analyst Intern",
+   "company": "21Shares"
+  },
+  {
+   "ats": "greenhouse",
+   "board": "datacor",
+   "jobId": "5242412007",
+   "url": "https://job-boards.greenhouse.io/datacor/jobs/5242412007",
+   "title": "Data Science Intern - Summer 2027 - Program",
+   "company": "Datacor"
+  },
+  {
+   "ats": "greenhouse",
+   "board": "harbingermotors",
+   "jobId": "5255968007",
+   "url": "https://job-boards.greenhouse.io/harbingermotors/jobs/5255968007",
+   "title": "Test Engineering Intern",
+   "company": "Harbinger Motors"
+  },
+  {
+   "ats": "greenhouse",
+   "board": "amca",
+   "jobId": "4396690009",
+   "url": "https://job-boards.greenhouse.io/amca/jobs/4396690009",
+   "title": "Electrical Engineering Internship - Summer 2027",
+   "company": "AMCA"
+  },
+  {
+   "ats": "greenhouse",
+   "board": "iex-interns",
+   "jobId": "8171239",
+   "url": "https://job-boards.greenhouse.io/iex-interns/jobs/8171239",
+   "title": "Software Engineer Intern",
+   "company": "IEX"
+  },
+  {
+   "ats": "greenhouse",
+   "board": "ruggedrobotics",
+   "jobId": "4724214005",
+   "url": "https://job-boards.greenhouse.io/ruggedrobotics/jobs/4724214005",
+   "title": "Electrical Engineer Intern Co-op",
+   "company": "Rugged Robotics"
+  },
+  {
+   "ats": "greenhouse",
+   "board": "arcboatcompany",
+   "jobId": "5442853008",
+   "url": "https://job-boards.greenhouse.io/arcboatcompany/jobs/5442853008",
+   "title": "Electrical Hardware Engineering Intern",
+   "company": "Arc"
+  },
+  {
+   "ats": "greenhouse",
+   "board": "solutions",
+   "jobId": "4711210006",
+   "url": "https://job-boards.greenhouse.io/solutions/jobs/4711210006",
+   "title": "Software Engineer Intern",
+   "company": "Cadence Solutions"
+  },
+  {
+   "ats": "greenhouse",
+   "board": "foundenergy",
+   "jobId": "4719227006",
+   "url": "https://job-boards.greenhouse.io/foundenergy/jobs/4719227006",
+   "title": "Data Engineer Co-op",
+   "company": "Found Energy"
+  },
+  {
+   "ats": "greenhouse",
+   "board": "guidepointsecurity",
+   "jobId": "6218650004",
+   "url": "https://job-boards.greenhouse.io/guidepointsecurity/jobs/6218650004",
+   "title": "AI & Data Science Intern - GPSU",
+   "company": "GuidePoint Security"
+  },
+  {
+   "ats": "ashby",
+   "org": "rivet",
+   "postingId": "03fcb078-7371-4cfd-89a9-368e5b60d914",
+   "url": "https://jobs.ashbyhq.com/rivet/03fcb078-7371-4cfd-89a9-368e5b60d914/application",
+   "title": "Software Engineer Intern",
+   "company": "Rivet Industries"
+  },
+  {
+   "ats": "ashby",
+   "org": "helion",
+   "postingId": "d2a1f8af-a310-44af-a5bc-c68816ebb7f6",
+   "url": "https://jobs.ashbyhq.com/helion/d2a1f8af-a310-44af-a5bc-c68816ebb7f6/application",
+   "title": "Computational Plasma Research Intern",
+   "company": "Helion Energy"
+  },
+  {
+   "ats": "ashby",
+   "org": "vital-lyfe",
+   "postingId": "c39b72aa-9ad5-43e7-a3fd-8ef2e152ee4b",
+   "url": "https://jobs.ashbyhq.com/vital-lyfe/c39b72aa-9ad5-43e7-a3fd-8ef2e152ee4b/application",
+   "title": "Software Engineering Intern",
+   "company": "Vital Lyfe"
+  },
+  {
+   "ats": "ashby",
+   "org": "Verne%20Robotics",
+   "postingId": "bb78cdd4-449b-49f0-bd10-2c62fc85f83b",
+   "url": "https://jobs.ashbyhq.com/Verne%20Robotics/bb78cdd4-449b-49f0-bd10-2c62fc85f83b/application",
+   "title": "Engineering Intern",
+   "company": "Verne Robotics"
+  },
+  {
+   "ats": "ashby",
+   "org": "1password",
+   "postingId": "412c1aac-13ce-4cc9-9c81-90a9a7a2ee48",
+   "url": "https://jobs.ashbyhq.com/1password/412c1aac-13ce-4cc9-9c81-90a9a7a2ee48/application",
+   "title": "Data Intern - Product Analytics",
+   "company": "1Password"
+  },
+  {
+   "ats": "ashby",
+   "org": "Superhuman%20Platform%20Inc",
+   "postingId": "5f1f25ee-709d-4ae0-ada4-d1f243bde89c",
+   "url": "https://jobs.ashbyhq.com/Superhuman%20Platform%20Inc/5f1f25ee-709d-4ae0-ada4-d1f243bde89c/application",
+   "title": "Software Engineer Intern",
+   "company": "Superhuman"
+  },
+  {
+   "ats": "ashby",
+   "org": "modal",
+   "postingId": "38888294-6bc7-4dab-b072-6d0f0c2ed79a",
+   "url": "https://jobs.ashbyhq.com/modal/38888294-6bc7-4dab-b072-6d0f0c2ed79a/application",
+   "title": "Machine Learning Research Intern",
+   "company": "Modal"
+  },
+  {
+   "ats": "ashby",
+   "org": "heron-power",
+   "postingId": "7c3f30a6-f806-4bf5-a94c-cb4dece20cb2",
+   "url": "https://jobs.ashbyhq.com/heron-power/7c3f30a6-f806-4bf5-a94c-cb4dece20cb2/application",
+   "title": "Hardware Test Engineering Intern",
+   "company": "Heron Power"
+  },
+  {
+   "ats": "ashby",
+   "org": "pika",
+   "postingId": "e135acb1-2a0b-47b4-81b2-3cb0f787657a",
+   "url": "https://jobs.ashbyhq.com/pika/e135acb1-2a0b-47b4-81b2-3cb0f787657a/application",
+   "title": "Research Intern - BS/MS/PhD",
+   "company": "Pika"
+  },
+  {
+   "ats": "ashby",
+   "org": "Hippocratic%20AI",
+   "postingId": "af91b9bd-4452-42c0-93d5-e1943070618e",
+   "url": "https://jobs.ashbyhq.com/Hippocratic%20AI/af91b9bd-4452-42c0-93d5-e1943070618e/application",
+   "title": "Forward Deployment Engineer Resident - Residency Program",
+   "company": "Hippocratic AI"
+  },
+  {
+   "ats": "ashby",
+   "org": "eightsleep",
+   "postingId": "f8de63e3-605e-404a-98b4-5b58d9fe7bc5",
+   "url": "https://jobs.ashbyhq.com/eightsleep/f8de63e3-605e-404a-98b4-5b58d9fe7bc5/application",
+   "title": "Hardware Support & Test Intern",
+   "company": "Eight Sleep"
+  },
+  {
+   "ats": "ashby",
+   "org": "Serval",
+   "postingId": "d7fb089c-db8a-4877-a5f3-73a09e67f54b",
+   "url": "https://jobs.ashbyhq.com/Serval/d7fb089c-db8a-4877-a5f3-73a09e67f54b/application",
+   "title": "Software Engineer Intern",
+   "company": "Serval"
+  },
+  {
+   "ats": "ashby",
+   "org": "meter",
+   "postingId": "a5f1e4c3-2930-4933-ab38-8f600486494b",
+   "url": "https://jobs.ashbyhq.com/meter/a5f1e4c3-2930-4933-ab38-8f600486494b/application",
+   "title": "Hardware Engineer Intern",
+   "company": "Meter"
+  },
+  {
+   "ats": "ashby",
+   "org": "persona",
+   "postingId": "eb77c97c-fa9d-4bf0-9566-e5ba4453b7d3",
+   "url": "https://jobs.ashbyhq.com/persona/eb77c97c-fa9d-4bf0-9566-e5ba4453b7d3/application",
+   "title": "Software Engineer Intern",
+   "company": "Persona"
+  },
+  {
+   "ats": "ashby",
+   "org": "GovSignals",
+   "postingId": "e894290c-3263-424e-b7a4-8dcc32ca8ca9",
+   "url": "https://jobs.ashbyhq.com/GovSignals/e894290c-3263-424e-b7a4-8dcc32ca8ca9/application",
+   "title": "Engineering Intern",
+   "company": "GovSignals"
+  },
+  {
+   "ats": "ashby",
+   "org": "mach9",
+   "postingId": "6189f940-38ab-4235-80fb-1dda13966435",
+   "url": "https://jobs.ashbyhq.com/mach9/6189f940-38ab-4235-80fb-1dda13966435/application",
+   "title": "Perception Intern",
+   "company": "Mach9"
+  },
+  {
+   "ats": "ashby",
+   "org": "dandy",
+   "postingId": "d43558e9-8e51-4980-b00d-39275063f099",
+   "url": "https://jobs.ashbyhq.com/dandy/d43558e9-8e51-4980-b00d-39275063f099/application",
+   "title": "Software Engineering Intern",
+   "company": "Dandy"
+  },
+  {
+   "ats": "ashby",
+   "org": "bobyard",
+   "postingId": "ae7aa71b-5ed2-4066-b173-fc0618f2ed8f",
+   "url": "https://jobs.ashbyhq.com/bobyard/ae7aa71b-5ed2-4066-b173-fc0618f2ed8f/application",
+   "title": "Computer Vision Research Engineer Intern",
+   "company": "Bobyard"
+  },
+  {
+   "ats": "ashby",
+   "org": "exa",
+   "postingId": "a9e01521-66f1-481b-89da-ec01d4620f16",
+   "url": "https://jobs.ashbyhq.com/exa/a9e01521-66f1-481b-89da-ec01d4620f16/application",
+   "title": "Software Engineer Intern",
+   "company": "Exa"
+  },
+  {
+   "ats": "ashby",
+   "org": "decagon",
+   "postingId": "16529089-a048-4bc3-8456-3f197135e00b",
+   "url": "https://jobs.ashbyhq.com/decagon/16529089-a048-4bc3-8456-3f197135e00b/application",
+   "title": "Engineering Intern",
+   "company": "Decagon"
+  },
+  {
+   "ats": "ashby",
+   "org": "bracket-bot",
+   "postingId": "aecb5cb3-a96b-4ba8-863d-a1ad45414086",
+   "url": "https://jobs.ashbyhq.com/bracket-bot/aecb5cb3-a96b-4ba8-863d-a1ad45414086/application",
+   "title": "Robotics Engineering Intern",
+   "company": "Bracket Bot"
+  },
+  {
+   "ats": "ashby",
+   "org": "physicalintelligence",
+   "postingId": "0bcf909e-b38b-4276-91a1-e55c4c56a33a",
+   "url": "https://jobs.ashbyhq.com/physicalintelligence/0bcf909e-b38b-4276-91a1-e55c4c56a33a/application",
+   "title": "Mechatronics Intern",
+   "company": "Physical Intelligence"
+  },
+  {
+   "ats": "ashby",
+   "org": "base-power",
+   "postingId": "f22cee0e-55d9-42cd-806e-1c1fc7217770",
+   "url": "https://jobs.ashbyhq.com/base-power/f22cee0e-55d9-42cd-806e-1c1fc7217770/application",
+   "title": "Hardware Engineer Intern",
+   "company": "Base Power"
+  },
+  {
+   "ats": "ashby",
+   "org": "range",
+   "postingId": "5fe3697d-b5b3-4772-9de4-1551cb726718",
+   "url": "https://jobs.ashbyhq.com/range/5fe3697d-b5b3-4772-9de4-1551cb726718/application",
+   "title": "Software Engineer Intern",
+   "company": "Range"
+  },
+  {
+   "ats": "ashby",
+   "org": "skydio",
+   "postingId": "9ac944bc-89da-44bb-bf9c-3b9922e7cbee",
+   "url": "https://jobs.ashbyhq.com/skydio/9ac944bc-89da-44bb-bf9c-3b9922e7cbee/application",
+   "title": "Electrical Engineer Intern",
+   "company": "Skydio"
+  },
+  {
+   "ats": "ashby",
+   "org": "Perplexity",
+   "postingId": "71168628-1998-47d3-87a9-be7bc56a430d",
+   "url": "https://jobs.ashbyhq.com/Perplexity/71168628-1998-47d3-87a9-be7bc56a430d/application",
+   "title": "Intern - Search Machine Learning Engineer",
+   "company": "Perplexity AI"
+  },
+  {
+   "ats": "ashby",
+   "org": "reviserobotics",
+   "postingId": "7b0426d4-cf8c-4fdf-98a8-5a0360706633",
+   "url": "https://jobs.ashbyhq.com/reviserobotics/7b0426d4-cf8c-4fdf-98a8-5a0360706633/application",
+   "title": "Engineer Intern",
+   "company": "Revise Robotics"
+  },
+  {
+   "ats": "ashby",
+   "org": "incident",
+   "postingId": "470989ec-6ac5-4800-beb1-0ba1684ec1ee",
+   "url": "https://jobs.ashbyhq.com/incident/470989ec-6ac5-4800-beb1-0ba1684ec1ee/application",
+   "title": "Product Engineer Placement - 6 Months",
+   "company": "incident.io"
+  },
+  {
+   "ats": "ashby",
+   "org": "blp-digital",
+   "postingId": "7c93c32d-f2e6-40be-a02e-b3a9ff0ff40e",
+   "url": "https://jobs.ashbyhq.com/blp-digital/7c93c32d-f2e6-40be-a02e-b3a9ff0ff40e/application",
+   "title": "Engineering Intern",
+   "company": "blp"
+  },
+  {
+   "ats": "ashby",
+   "org": "seqholdings",
+   "postingId": "9dc9a7f3-198a-43c0-be75-a3aba228bf2c",
+   "url": "https://jobs.ashbyhq.com/seqholdings/9dc9a7f3-198a-43c0-be75-a3aba228bf2c/application",
+   "title": "Software Engineer Intern",
+   "company": "Sequence Holdings"
+  },
+  {
+   "ats": "ashby",
+   "org": "contoro",
+   "postingId": "7de98745-6a26-4a96-b82c-0cecf4900eb1",
+   "url": "https://jobs.ashbyhq.com/contoro/7de98745-6a26-4a96-b82c-0cecf4900eb1/application",
+   "title": "Robotics Test & Validation Intern",
+   "company": "Contoro"
+  },
+  {
+   "ats": "ashby",
+   "org": "happyrobot.ai",
+   "postingId": "875c5335-97a5-4408-a9ae-9fdefdd3b768",
+   "url": "https://jobs.ashbyhq.com/happyrobot.ai/875c5335-97a5-4408-a9ae-9fdefdd3b768/application",
+   "title": "Product Operations Engineer Intern",
+   "company": "Happyrobot"
+  },
+  {
+   "ats": "ashby",
+   "org": "plot",
+   "postingId": "5f8cfeaa-c368-480f-aaa5-de52452a63d0",
+   "url": "https://jobs.ashbyhq.com/plot/5f8cfeaa-c368-480f-aaa5-de52452a63d0/application",
+   "title": "Applied AI Co-op",
+   "company": "Plot Technologies"
+  },
+  {
+   "ats": "ashby",
+   "org": "claylabs",
+   "postingId": "5b7eced2-36bd-4265-a2a8-da0f786e47aa",
+   "url": "https://jobs.ashbyhq.com/claylabs/5b7eced2-36bd-4265-a2a8-da0f786e47aa/application",
+   "title": "Software Engineer Intern",
+   "company": "Clay"
+  },
+  {
+   "ats": "ashby",
+   "org": "pangramlabs",
+   "postingId": "2d00752c-b3f2-40e1-9c50-60147c858d0b",
+   "url": "https://jobs.ashbyhq.com/pangramlabs/2d00752c-b3f2-40e1-9c50-60147c858d0b/application",
+   "title": "AI Research Intern",
+   "company": "Pangram Labs"
+  },
+  {
+   "ats": "ashby",
+   "org": "flint",
+   "postingId": "39f9e665-7037-4dff-b77a-ff7039df2bfc",
+   "url": "https://jobs.ashbyhq.com/flint/39f9e665-7037-4dff-b77a-ff7039df2bfc/application",
+   "title": "Engineering Intern - Summer 2027",
+   "company": "Flint"
+  },
+  {
+   "ats": "ashby",
+   "org": "netic",
+   "postingId": "ffd6af1a-cebb-41f5-ac1d-e695adfd067c",
+   "url": "https://jobs.ashbyhq.com/netic/ffd6af1a-cebb-41f5-ac1d-e695adfd067c/application",
+   "title": "Forward Deployed Engineer Intern",
+   "company": "Cybernetic Labs"
+  },
+  {
+   "ats": "ashby",
+   "org": "harvey",
+   "postingId": "06d64648-b84b-48ae-94a2-d9c06dfdcb5d",
+   "url": "https://jobs.ashbyhq.com/harvey/06d64648-b84b-48ae-94a2-d9c06dfdcb5d/application",
+   "title": "Software Engineer Intern",
+   "company": "Harvey"
+  },
+  {
+   "ats": "ashby",
+   "org": "normalcomputing",
+   "postingId": "5d57d8b1-612d-4ee0-941e-78a032a1ada2",
+   "url": "https://jobs.ashbyhq.com/normalcomputing/5d57d8b1-612d-4ee0-941e-78a032a1ada2/application",
+   "title": "Thermodynamic Hardware Resident",
+   "company": "Normal Computing"
+  },
+  {
+   "ats": "ashby",
+   "org": "niantic-spatial",
+   "postingId": "898b2da7-03cd-486e-96e3-3430a148c8fd",
+   "url": "https://jobs.ashbyhq.com/niantic-spatial/898b2da7-03cd-486e-96e3-3430a148c8fd/application",
+   "title": "Software Engineer Intern",
+   "company": "Niantic Spatial"
+  },
+  {
+   "ats": "ashby",
+   "org": "lendable",
+   "postingId": "a2214edc-39e3-4c70-8a09-875bb991062f",
+   "url": "https://jobs.ashbyhq.com/lendable/a2214edc-39e3-4c70-8a09-875bb991062f/application",
+   "title": "Credit Analyst Intern",
+   "company": "Lendable"
+  },
+  {
+   "ats": "ashby",
+   "org": "cuspai",
+   "postingId": "d7b80299-ed98-4dfe-b306-729cd10d3f04",
+   "url": "https://jobs.ashbyhq.com/cuspai/d7b80299-ed98-4dfe-b306-729cd10d3f04/application",
+   "title": "Chemistry Intern - MLFF Distillation & GCMC Integration",
+   "company": "CuspAI"
+  },
+  {
+   "ats": "ashby",
+   "org": "dailypay",
+   "postingId": "fb66282a-d63a-4181-aedd-51d764617b58",
+   "url": "https://jobs.ashbyhq.com/dailypay/fb66282a-d63a-4181-aedd-51d764617b58/application",
+   "title": "Software Engineer Placement",
+   "company": "DailyPay"
+  },
+  {
+   "ats": "ashby",
+   "org": "tensorwave",
+   "postingId": "39091eeb-13fc-46a7-b7e5-0d4584ac53ab",
+   "url": "https://jobs.ashbyhq.com/tensorwave/39091eeb-13fc-46a7-b7e5-0d4584ac53ab/application",
+   "title": "Software Engineer Intern",
+   "company": "TensorWave"
+  },
+  {
+   "ats": "ashby",
+   "org": "conductorai",
+   "postingId": "d6a1b110-10ad-4b5e-83a0-88c5fd7bc891",
+   "url": "https://jobs.ashbyhq.com/conductorai/d6a1b110-10ad-4b5e-83a0-88c5fd7bc891/application",
+   "title": "Software Engineer Intern",
+   "company": "ConductorAI"
+  },
+  {
+   "ats": "ashby",
+   "org": "Perchwell",
+   "postingId": "194eec78-26db-4d8e-850f-a99ea2733e9f",
+   "url": "https://jobs.ashbyhq.com/Perchwell/194eec78-26db-4d8e-850f-a99ea2733e9f/application",
+   "title": "Software Engineer Intern",
+   "company": "Perchwell"
+  },
+  {
+   "ats": "ashby",
+   "org": "k-id",
+   "postingId": "18619df2-45d8-4732-8815-9a340d498d48",
+   "url": "https://jobs.ashbyhq.com/k-id/18619df2-45d8-4732-8815-9a340d498d48/application",
+   "title": "Engineering Intern - Program",
+   "company": "k-ID"
+  },
+  {
+   "ats": "greenhouse",
+   "board": "chicagotradingcampus",
+   "jobId": "4716932005",
+   "url": "https://job-boards.greenhouse.io/chicagotradingcampus/jobs/4716932005",
+   "title": "Software Engineer Intern",
+   "company": "Chicago Trading Company",
+   "revisit": "board first run in round 2"
+  },
+  {
+   "ats": "greenhouse",
+   "board": "tribalscale",
+   "jobId": "4687337006",
+   "url": "https://job-boards.greenhouse.io/tribalscale/jobs/4687337006",
+   "title": "Agile Software Engineer Co-op",
+   "company": "TribalScale",
+   "revisit": "board first run in round 2"
+  },
+  {
+   "ats": "greenhouse",
+   "board": "docugami",
+   "jobId": "4014838003",
+   "url": "https://job-boards.greenhouse.io/docugami/jobs/4014838003",
+   "title": "Software Engineer Intern",
+   "company": "Docugami",
+   "revisit": "board first run in round 2"
+  },
+  {
+   "ats": "greenhouse",
+   "board": "vercel",
+   "jobId": "6181759004",
+   "url": "https://job-boards.greenhouse.io/vercel/jobs/6181759004",
+   "title": "Software Engineer Intern - Summer",
+   "company": "Vercel",
+   "revisit": "board first run in round 2"
+  },
+  {
+   "ats": "greenhouse",
+   "board": "integra",
+   "jobId": "5406100008",
+   "url": "https://job-boards.greenhouse.io/integra/jobs/5406100008",
+   "title": "Data Analyst Intern",
+   "company": "Integra FEC",
+   "revisit": "board first run in round 2"
+  },
+  {
+   "ats": "greenhouse",
+   "board": "gardacp",
+   "jobId": "6146213004",
+   "url": "https://job-boards.greenhouse.io/gardacp/jobs/6146213004",
+   "title": "Software Engineer Intern",
+   "company": "Garda Capital Partners",
+   "revisit": "board first run in round 2"
+  },
+  {
+   "ats": "greenhouse",
+   "board": "clockworksystems",
+   "jobId": "6174230004",
+   "url": "https://job-boards.greenhouse.io/clockworksystems/jobs/6174230004",
+   "title": "Software Engineer Intern",
+   "company": "Clockwork Systems",
+   "revisit": "board first run in round 2"
+  },
+  {
+   "ats": "greenhouse",
+   "board": "testnisc",
+   "jobId": "8174090",
+   "url": "https://job-boards.greenhouse.io/testnisc/jobs/8174090",
+   "title": "Software Development Intern",
+   "company": "National Information Solutions Cooperative",
+   "revisit": "board first run in round 2"
+  },
+  {
+   "ats": "greenhouse",
+   "board": "internshiplist2000",
+   "jobId": "5361630008",
+   "url": "https://job-boards.greenhouse.io/internshiplist2000/jobs/5361630008",
+   "title": "Software Developer Intern",
+   "company": "Geotab",
+   "revisit": "board first run in round 2"
+  },
+  {
+   "ats": "greenhouse",
+   "board": "mill",
+   "jobId": "4724014005",
+   "url": "https://job-boards.greenhouse.io/mill/jobs/4724014005",
+   "title": "Electrical Engineer Intern",
+   "company": "Mill",
+   "revisit": "board first run in round 2"
+  },
+  {
+   "ats": "greenhouse",
+   "board": "verkada",
+   "jobId": "5211595007",
+   "url": "https://job-boards.greenhouse.io/verkada/jobs/5211595007",
+   "title": "Embedded Software Engineer Intern",
+   "company": "Verkada",
+   "revisit": "board first run in round 2"
+  },
+  {
+   "ats": "greenhouse",
+   "board": "aperaaiinc",
+   "jobId": "5239394007",
+   "url": "https://job-boards.greenhouse.io/aperaaiinc/jobs/5239394007",
+   "title": "Software Developer Co-op - C++",
+   "company": "Apera AI",
+   "revisit": "board first run in round 2"
+  },
+  {
+   "ats": "greenhouse",
+   "board": "prolificacademicltd",
+   "jobId": "4848668101",
+   "url": "https://job-boards.greenhouse.io/prolificacademicltd/jobs/4848668101",
+   "title": "AI Trainer - Advanced Indonesian Fluency - US",
+   "company": "Prolific",
+   "source": "draw_r48_2_gh (never run)"
+  },
+  {
+   "ats": "greenhouse",
+   "board": "maybellquantum",
+   "jobId": "5345023008",
+   "url": "https://job-boards.greenhouse.io/maybellquantum/jobs/5345023008",
+   "title": "Associate Product Engineer ",
+   "company": "Maybell Quantum Industries",
+   "source": "draw_r48_2_gh (never run)"
+  },
+  {
+   "ats": "greenhouse",
+   "board": "alarmcom",
+   "jobId": "8622530002",
+   "url": "https://job-boards.greenhouse.io/alarmcom/jobs/8622530002",
+   "title": "Embedded Software Engineer I ",
+   "company": "Alarm.com",
+   "source": "draw_r48_2_gh (never run)"
+  },
+  {
+   "ats": "greenhouse",
+   "board": "prolificacademicltd",
+   "jobId": "4891089101",
+   "url": "https://job-boards.greenhouse.io/prolificacademicltd/jobs/4891089101",
+   "title": "Fluent Gujarati Speaker (Freelance - Remote) - AI Trainer -  Toronto, Canada",
+   "company": "Prolific",
+   "source": "draw_r48_2_gh (never run)"
+  }
+ ]
+}
