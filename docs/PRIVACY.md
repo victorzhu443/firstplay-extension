@@ -70,16 +70,21 @@ as if you had typed it. Two things to know:
   submit, including self-identification answers you chose to store. That is
   Ashby's behaviour for any typing in its form; the extension's fill triggers
   it like typing does.
-- **Greenhouse validation check.** After the fill, on Greenhouse only, the
-  extension presses the form's Submit button with every way of sending
-  blocked for the attempt (fetch, XHR, beacon, form submission and the submit
-  event), to read the form's own list of what is still missing. Nothing is
-  sent. The run record notes what was blocked.
+- **The "still wants" check never presses Submit.** After the fill the
+  extension lists what the form still requires by reading the page: the
+  form definition's required flags and the form's own markers (`required`,
+  `aria-required`, the `*` on a label, any field the form has already marked
+  invalid), against what each field now holds. No button is pressed and no
+  request is attempted. (Until 0.4.52, on Greenhouse only, this was done by
+  pressing Submit inside a block on every way of sending; that click now
+  exists only behind a developer setting, `firstplay.dryRun.click`, off by
+  default, and even then a form that reads complete is never clicked.)
 
 ## What is never done
 
-- **No submission.** The extension never submits an application. You review
-  and you press Submit.
+- **No submission.** The extension never submits an application, and never
+  presses Submit — not even to check the form. You review and you press
+  Submit.
 - **No inference of protected characteristics.** The Hispanic/Latino question,
   race, gender, veteran and disability status are answered only from the
   exact answer you stored for that question, or left for you. Nothing is

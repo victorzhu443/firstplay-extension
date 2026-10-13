@@ -56,7 +56,9 @@ self-identification answers you *choose* to store. Two ways to make one:
 Open a Greenhouse or Ashby application. The extension fills what it can in
 under a second, outlines in green what it filled and in amber what it left to
 you, and attaches your résumé where the form takes one. Hover an amber field
-for the reason. **It never presses Submit** — you review and submit.
+for the reason. Afterwards it lists what the form still requires, read from
+the form's own required markers against what each field holds. **It never
+presses Submit — not even to check** — you review and submit.
 
 ### Running the backend yourself (optional)
 

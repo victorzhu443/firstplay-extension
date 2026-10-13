@@ -206,11 +206,17 @@ async function buildPlan({ posting, controls, page }) {
 }
 
 /**
- * Runs IN THE PAGE (main world): press Submit with every way of leaving the
- * page blocked, and read the form's own validation. Greenhouse validates
+ * DEVELOPER SETTING ONLY (firstplay.dryRun.click; off by default). Runs IN
+ * THE PAGE (main world): press Submit with every way of leaving the page
+ * blocked, and read the form's own validation. Greenhouse validates
  * client-side before posting, so the messages are the form's verdict on each
- * field. Nothing can be sent: fetch, XHR, sendBeacon, form.submit and the
- * submit event are all stopped for the duration, then restored.
+ * field. fetch, XHR, sendBeacon, form.submit and the submit event are
+ * stopped for the duration, then restored — but a page holding its own
+ * reference to fetch, or sending from another frame, is not stopped, and no
+ * run record ever showed the block firing (audit F4). So the default check
+ * reads the DOM instead (content.js domRequiredCheck); this exists to
+ * measure, live, what that check misses against the form's own validation.
+ * The content script never asks for it on a form that reads complete.
  */
 function dryRunSubmitInPage() {
   return new Promise((resolve) => {

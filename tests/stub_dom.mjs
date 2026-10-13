@@ -38,8 +38,10 @@ export function matches(node, selector) {
       if (!String(node.className || "").split(/\s+/).includes(m[1])) return false;
     }
     const attrOf = (attr) => (attr === "type" ? node.type : attr === "class" ? node.className : node.getAttribute(attr));
-    // Attribute values may be quoted either way ([class*='input-yesno'] in fill.js).
-    for (const m of part.matchAll(/\[([a-z-]+)(?:([*^$]?=)(?:"([^"]*)"|'([^']*)'))?\]/g)) {
+    // Attribute values may be quoted either way ([class*='input-yesno'] in fill.js);
+    // a [type="hidden"] inside :not(...) is a negative condition, not a positive one.
+    const positive = part.replace(/:not\([^)]*\)/g, "");
+    for (const m of positive.matchAll(/\[([a-z-]+)(?:([*^$]?=)(?:"([^"]*)"|'([^']*)'))?\]/g)) {
       const [, attr, op] = m;
       const val = m[3] !== undefined ? m[3] : m[4];
       const actual = attrOf(attr);
