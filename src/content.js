@@ -320,6 +320,9 @@
         let shown;
         try { shown = ns._learn.readValue(el).value; } catch (e) { continue; }
         if (shown === undefined || shown === null || shown === "" || (Array.isArray(shown) && !shown.length)) continue;  // not readable here; the check below still runs
+        // A date picker shows the date in its own format ("05/01/2028" for
+        // a stored "May 2028"); the same date is not drift.
+        if (ns._fill && ns._fill.isDatePicker && ns._fill.isDatePicker(el) && ns._learn.sameDate && ns._learn.sameDate(String(planned), String(shown))) continue;
         if (!same(shown, planned)) drifted.push(entry);
       }
       outcome.drift = drifted.length;
@@ -426,7 +429,9 @@
         "start-month--0": "educations[0].start_date.month", "start-year--0": "educations[0].start_date.year",
         "end-month--0": "educations[0].end_date.month", "end-year--0": "educations[0].end_date.year" };
       const rows = check.invalid.map((f) => {
-        const key = RENDERED_TO_KEY[f.id] || f.id;
+        // An option input's id names its question before `-labeled-…`.
+        const bare = String(f.id || "").replace(/-labeled-(?:checkbox|radio)(?:-\d+)?$/, "");
+        const key = RENDERED_TO_KEY[f.id] || (byKey.has(f.id) ? f.id : bare);
         const entry = byKey.get(key) || byKey.get(f.name) ||
           [...byKey.values()].find((e) => (e.label || "").toLowerCase().slice(0, 30) === f.label.replace(/\*$/, "").toLowerCase().slice(0, 30));
         return { form_says: f.message || "required", field: f.label, plan_said: state(entry) };
@@ -577,6 +582,9 @@
       return group ? group.querySelector("label, legend") : null;
     };
     const labelOf = (el, entry) => {
+      // An option input's own label is the option ("Summer Internship"); the
+      // question is the plan's label.
+      if (entry && entry.label && isChoice(el)) return String(entry.label).replace(/\s*\*\s*$/, "").slice(0, 60);
       const lab = labelElementOf(el);
       const raw = lab ? text(lab) : (entry && entry.label) || el.getAttribute("aria-label") || el.getAttribute("placeholder")
         || el.id || el.name || el.tagName;
@@ -602,10 +610,25 @@
       if (el.getAttribute("aria-invalid") === "true") signals.push("aria-invalid");
       return signals;
     };
+    // A checkbox or radio question is one control however many inputs it
+    // has: a group holds a value when any of its boxes is checked, and it
+    // is reported once, under the plan's key. Greenhouse renders the
+    // question `question_N` as `question_N-labeled-checkbox-0`, `-1`, …
+    // (R50: consents on Signifyd, Attentive and InternshipList were "not in
+    // plan" by their input id; Rugged Robotics' multi-checkbox group was
+    // "plan said FILL but form still wants" because only its first,
+    // unchecked box was read).
+    const isChoice = (el) => ["radio", "checkbox"].includes((el.type || "").toLowerCase());
+    const groupOf = (el) => {
+      if (!isChoice(el)) return [el];
+      try { return ns._learn.choiceGroup(el); } catch (e) { return [el]; }
+    };
+    const keyOfId = (id) => (String(id || "").match(/^(.*?)-labeled-(?:checkbox|radio)(?:-\d+)?$/) || [])[1] || id || "";
     const holds = (el) => {
       if ((el.type || "").toLowerCase() === "file") {
         return !!(el.files && el.files.length) || /\.(pdf|docx?|rtf|txt)\b/i.test(text(el.closest("div, fieldset")));
       }
+      if (isChoice(el)) return groupOf(el).some((c) => c.checked);
       let read;
       try { read = ns._learn.readValue(el).value; } catch (e) { return true; }   // unreadable here: not claimed missing
       if (read === undefined) return true;
@@ -615,12 +638,13 @@
     const consider = (el, entry) => {
       if (!el || seen.has(el)) return;
       seen.add(el);
+      if (isChoice(el)) for (const c of groupOf(el)) seen.add(c);
       const signals = signalsOf(el, entry);
       if (!signals.length) return;
       const flagged = signals.includes("aria-invalid");
       if (!flagged && holds(el)) return;
       invalid.push({
-        id: entry ? entry.field_key : (el.id || ""), name: entry ? entry.field_key : (el.name || ""),
+        id: entry ? entry.field_key : keyOfId(el.id), name: entry ? entry.field_key : (el.name || keyOfId(el.id)),
         label: labelOf(el, entry),
         message: flagged ? `invalid: ${messageOf(el) || "the form marked it"}` : `required (${signals.join(", ")})`,
       });
@@ -632,15 +656,18 @@
       try { el = ns.locate(entry); } catch (e) { el = null; }
       consider(el, entry);
     }
-    // Controls the plan did not know. A radio group is one question (its
-    // fieldset, or its first input); an invisible decoy input is nobody's.
+    // Controls the plan did not know. A radio or checkbox group is one
+    // question (its fieldset, or its first input, the rest marked seen);
+    // an invisible decoy input is nobody's.
     for (const el of document.querySelectorAll('input:not([type="hidden"]):not([type="submit"]):not([type="button"]), textarea, select')) {
       if (seen.has(el)) continue;
       const type = (el.type || "").toLowerCase();
       if (type === "radio" || type === "checkbox") {
         const group = el.closest("fieldset");
         if (group) { consider(group, null); seen.add(el); continue; }
-        if (type === "radio" && el.name && document.querySelector(`input[type="radio"][name="${CSS.escape(el.name)}"]`) !== el) { seen.add(el); continue; }
+        const members = groupOf(el);
+        if (members.some((m) => seen.has(m))) { for (const m of members) seen.add(m); continue; }
+        if (members[0] !== el) { seen.add(el); continue; }
       }
       if (el.tagName !== "FIELDSET" && el.offsetParent === null) { seen.add(el); continue; }
       // react-select's own internals: the typed input is judged through its

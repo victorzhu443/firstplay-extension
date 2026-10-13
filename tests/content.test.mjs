@@ -135,3 +135,64 @@ for (const r of check.invalid) assert.equal(JSON.stringify(Object.keys(r).sort()
 assert.equal(check.invalid.find((r) => r.id === "first_name").label, "First Name", "the * is stripped from the label");
 
 console.log("content.test.mjs (F4): all assertions passed");
+
+// --- choice groups in the DOM check: Greenhouse's `question_N-labeled-checkbox-K` inputs are the
+// plan's `question_N`, one control however many boxes, holding a value when any box is checked
+// (R50: consents "not in plan" on Signifyd, Attentive, InternshipList; Rugged Robotics' multi-
+// checkbox group "plan said FILL but form still wants").
+function choicePage() {
+  const consentLabel = "By checking this box, I consent to being contacted about this application";
+  const q7 = el("div", {}, [
+    el("label", { text: `${consentLabel} *` }),
+    el("input", { id: "question_7-labeled-checkbox-0", type: "checkbox", attrs: { "aria-required": "true" } }),
+    el("label", { text: "I consent", attrs: { for: "question_7-labeled-checkbox-0" } }),
+  ]);
+  const q8 = el("div", {}, [
+    el("label", { text: "Are you interested in a Spring Co-Op, Summer Internship, or Fall Co-Op? *" }),
+    el("input", { id: "question_8-labeled-checkbox-0", type: "checkbox", attrs: { "aria-required": "true" } }), el("label", { text: "Spring Co-Op", attrs: { for: "question_8-labeled-checkbox-0" } }),
+    el("input", { id: "question_8-labeled-checkbox-1", type: "checkbox", attrs: { "aria-required": "true" } }), el("label", { text: "Summer Internship", attrs: { for: "question_8-labeled-checkbox-1" } }),
+    el("input", { id: "question_8-labeled-checkbox-2", type: "checkbox", attrs: { "aria-required": "true" } }), el("label", { text: "Fall Co-Op", attrs: { for: "question_8-labeled-checkbox-2" } }),
+  ]);
+  const doc = documentOf([el("label", { text: "First Name *", attrs: { for: "first_name" } }), el("input", { id: "first_name", type: "text", value: "Ada" }), q7, q8]);
+  const plan = { entries: [
+    { field_key: "first_name", label: "First Name", value: "Ada", values: [], required: true },
+    { field_key: "question_7", label: consentLabel, value: "I consent", values: [], needs_review: false, required: true, source: "memory", reason: "consents.contact" },
+    { field_key: "question_8", label: "Are you interested in a Spring Co-Op, Summer Internship, or Fall Co-Op?", value: null, values: ["Summer Internship"], needs_review: false, required: true, source: "memory", reason: "stored as term_preference" },
+  ] };
+  return { doc, plan, boxes: (prefix) => doc.querySelectorAll(`input[id^="${prefix}-"]`) };
+}
+{
+  // Before any fill: both groups are wanted, once each, under the plan's keys and labels.
+  const page = choicePage();
+  const C = loadWithLearn(page.doc);
+  const before = C._content.domRequiredCheck(page.plan);
+  const ids = (check) => JSON.stringify(check.invalid.map((r) => r.id));
+  assert.equal(ids(before), '["question_7","question_8"]', JSON.stringify(before.invalid));
+  assert.equal(before.invalid[0].label.startsWith("By checking this box, I consent"), true, "the question, not the box's own 'I consent'");
+  assert.equal(before.invalid[1].label.startsWith("Are you interested in a Spring Co-Op"), true);
+  assert.equal(before.invalid.some((r) => /-labeled-/.test(r.id)), false, "no option-input id reaches the rows");
+  // The second box ticked by hand: the multi-checkbox group holds a value.
+  page.boxes("question_8")[1].checked = true;
+  assert.equal(ids(C._content.domRequiredCheck(page.plan)), '["question_7"]', "any checked box answers a group");
+}
+{
+  // The real fill: the lone consent box is ticked by its own label, the group by the option; then nothing is wanted.
+  const page = choicePage();
+  const C = loadWithLearn(page.doc);
+  const outcome = await C.applyPlan({ entries: page.plan.entries.slice(1) }, {});   // the stub has no native setter for the text field
+  assert.equal(outcome.filled, 2, JSON.stringify(outcome.details));
+  assert.equal(outcome.failed + outcome.missing, 0, JSON.stringify(outcome.details));
+  assert.equal(page.boxes("question_7")[0].checked, true);
+  assert.equal(JSON.stringify(Array.from(page.boxes("question_8")).map((b) => b.checked)), "[false,true,false]");
+  assert.equal(JSON.stringify(C._content.domRequiredCheck(page.plan).invalid), "[]", "a filled group is not 'plan said FILL but form still wants'");
+}
+{
+  // Groups the plan never knew: one row each, keyed by the question, never one per box.
+  const page = choicePage();
+  const C = loadWithLearn(page.doc);
+  const rows = C._content.domRequiredCheck({ entries: [page.plan.entries[0]] }).invalid;
+  assert.equal(JSON.stringify(rows.map((r) => r.id)), '["question_7","question_8"]', JSON.stringify(rows));
+  assert.equal(JSON.stringify(rows.map((r) => r.name)), '["question_7","question_8"]');
+}
+
+console.log("content.test.mjs (choice groups): all assertions passed");
