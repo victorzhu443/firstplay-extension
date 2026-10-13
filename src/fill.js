@@ -786,6 +786,17 @@ var FirstPlay = FirstPlay || {};
       };
     }
 
+    // On a multi-select, react-select's selectOption TOGGLES: picking an option
+    // that is already held removes it. Rugged Robotics (R50, 2026-10-12): the
+    // first value was picked in the picks loop and again by the multi-value
+    // pass, so it came off, and the record still said "filled". An option the
+    // widget already holds is left alone and counts as chosen.
+    const held = (instance.state && instance.state.selectValue) || [];
+    if (instance.props && instance.props.isMulti && Array.isArray(held)
+        && held.some((v) => normalise(optionText(v)) === normalise(optionText(chosen)))) {
+      return { ok: true, chose: optionText(chosen) };
+    }
+
     if (typeof instance.selectOption === "function") {
       instance.selectOption(chosen);
     } else if (typeof instance.props.onChange === "function") {
@@ -1788,6 +1799,8 @@ var FirstPlay = FirstPlay || {};
     for (const [i, item] of work["react-select"].entries()) {
       if (!selectInstanceOf(item.el)) await hydrated(item.el);
       record(item, await timed(item, () => guarded(() => fillReactSelect(item.el, item.value, prefetched[i], hintsOf(item.entry)))));
+      // The first value is already in; fillControl adds the rest (its own
+      // pick of values[0] is a no-op now that a held option is never toggled).
       if (item.entry.values.length > 1) await guarded(() => fillControl(item.el, item.entry, item.value));
     }
     // Date pickers are click sequences on a popper that covers the form, so

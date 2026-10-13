@@ -242,3 +242,29 @@ function datePickerPage({ dead = false, start = { month: 10, year: 2026 } } = {}
 }
 
 console.log("fill.test.mjs: all assertions passed");
+
+
+// --- a multi react-select never toggles an option it already holds
+// (Rugged Robotics, R50: the first value was picked twice and came off)
+{
+  const input = el("input", { id: "question_77[]", type: "text" });
+  const options = [{ label: "Spring 2027 Co-Op", value: "a" }, { label: "Summer 2027 Internship", value: "b" }, { label: "Both", value: "c" }];
+  const calls = [];
+  const instance = {
+    props: { isMulti: true, options, value: [] },
+    state: { selectValue: [] },
+    openMenu() {},
+    selectOption(o) { calls.push(o.label); this.state.selectValue = [...this.state.selectValue, o]; this.props.value = this.state.selectValue; },
+  };
+  input.__reactFiber$test = { stateNode: instance, return: null };
+  const M = load(documentOf([input]));
+  const first = await M.fillReactSelect(input, "Both");
+  const again = await M.fillReactSelect(input, "Both");
+  assert.equal(first.ok, true);
+  assert.equal(again.ok, true, "a held option counts as chosen");
+  assert.deepEqual(calls, ["Both"], "selectOption is called once; a second pick would toggle the option off");
+  assert.equal(instance.state.selectValue.length, 1);
+  const extra = await M.fillReactSelect(input, "Spring 2027 Co-Op");
+  assert.equal(extra.ok, true);
+  assert.deepEqual(calls, ["Both", "Spring 2027 Co-Op"], "a different option on a multi is added");
+}
