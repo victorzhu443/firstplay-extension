@@ -280,8 +280,12 @@
           note: (e.needs_fact.note || "").slice(0, 200), label: (e.label || "").slice(0, 120),
           required: !!e.required, where,
         }));
-      asksSent = asks.length;
-      if (asks.length) chrome.runtime.sendMessage({ kind: "asks", asks }).catch(() => {});
+      // One question per fact: a start date is asked once, not once for the
+      // month field and once for the year field.
+      const seenFact = new Set();
+      const unique = asks.filter((a) => { const k = a.section + "/" + a.key; if (seenFact.has(k)) return false; seenFact.add(k); return true; });
+      asksSent = unique.length;
+      if (unique.length) chrome.runtime.sendMessage({ kind: "asks", asks: unique }).catch(() => {});
     } catch (e) { /* asking is a convenience; never break the run */ }
 
     // "I keep getting that it knows what should be chosen but can't choose it."
