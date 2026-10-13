@@ -11,7 +11,7 @@
  *     backend per request. It is never injected into the page, so a script on
  *     the application site cannot reach it.
  */
-import { backendUrl, resolveBackend, installToken, PROFILE_KEY } from "./config.js";
+import { backendUrl, resolveBackend, installToken, atsOfUrl, PROFILE_KEY } from "./config.js";
 
 /** The applicant's profile, or an empty one on first run. */
 async function loadProfile() {
@@ -492,7 +492,22 @@ async function recordAsks(asks) {
   return { ok: true, pending: next.length };
 }
 
+/**
+ * The frame a message came from must be on an ATS origin before anything
+ * is injected into its page world, warmed, or clicked: the plan's values
+ * and the résumé bytes go only where the form is (audit F3). The content
+ * script already declines elsewhere; this is the worker's own check, and
+ * it does not rely on the page.
+ */
+function atsFrame(sender) {
+  return !!(sender && sender.tab && sender.tab.id !== undefined && atsOfUrl(sender.url));
+}
+
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+  if ((message.kind === "applyPlan" || message.kind === "warmLookups" || message.kind === "dryRunCheck") && !atsFrame(_sender)) {
+    sendResponse({ ok: false, why: `refused: ${message.kind} from a frame that is not on a Greenhouse or Ashby origin` });
+    return false;
+  }
   // The popup asks the worker where the profile goes, rather than deciding
   // for itself: one selector, one answer (audit F16).
   if (message.kind === "backend") {

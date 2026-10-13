@@ -114,21 +114,29 @@
   }
 
   async function run() {
-    const posting = ns.detectPosting();
+    // Only a document on an ATS origin is ever read for a plan or written
+    // to. An employer's own careers page that embeds a Greenhouse form has
+    // the form in a boards.greenhouse.io iframe; the copy of this script
+    // running there (all_frames in the manifest, allFrames from the popup)
+    // detects `/embed/job_app` and fills. This frame — the third-party
+    // document — hands off and is never filled, so nothing of the
+    // applicant's goes to it (audit F3). Measured on Lyft
+    // (app.careerpuck.com): the frame appears only after "Apply" is clicked.
+    const posting = ns.atsOfHost(window.location.host) ? ns.detectPosting() : null;
 
     if (!posting) {
+      const hint = ns.embeddedHint ? ns.embeddedHint() : null;
+      if (hint && hint.frame) {
+        console.log(`${TAG} the form is inside a Greenhouse frame (${hint.frame.board || "?"}/${hint.frame.jobId || "?"}); ` +
+          `the copy of this script in that frame fills it; nothing is filled on ${hint.host}`);
+        return { handedOff: true, host: hint.host, frame: hint.frame };
+      }
+      if (hint && hint.jobId) {
+        console.log(`${TAG} this page names Greenhouse job ${hint.jobId}${hint.board ? ` on board ${hint.board}` : ""} but holds no ` +
+          `Greenhouse form frame yet — click the employer's Apply button, then run again`);
+        return { handedOff: false, host: hint.host, jobId: hint.jobId, board: hint.board };
+      }
       console.log(`${TAG} not an application page I recognise`);
-      return;
-    }
-
-    // An employer page that carries the form in a Greenhouse iframe has no
-    // controls of its own; the copy of this script running inside that frame
-    // (all_frames) does the work, so the top frame steps aside without
-    // waiting the full settle period. Measured on Lyft (app.careerpuck.com):
-    // the frame appears only after "Apply" is clicked.
-    const frame = document.querySelector('iframe[src*="greenhouse.io/embed/job_app"]');
-    if (posting.embedded && frame && window === window.top) {
-      console.log(`${TAG} the form is inside a Greenhouse frame; running there instead`);
       return;
     }
 

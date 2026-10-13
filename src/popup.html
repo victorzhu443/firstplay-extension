@@ -57,14 +57,19 @@
     <div class="row" style="margin:0 0 4px"><button id="asksSaveAll">Save all</button><span id="asksNote" class="status"></span></div>
   </div>
 
-  <div class="row" style="margin:0 0 12px">
+  <div class="row" style="margin:0 0 6px">
     <button id="fill" style="font-weight:600">Fill this page</button>
     <span id="fillStatus" class="status"></span>
+  </div>
+  <div id="fillConfirm" hidden class="ask" style="margin:0 0 8px">
+    <div id="fillConfirmText" class="q"></div>
+    <div class="acts"><button id="fillConfirmGo" style="font-weight:600">Fill the embedded form</button><button id="fillConfirmCancel">Cancel</button></div>
   </div>
   <p>
     Runs automatically on job-boards.greenhouse.io and jobs.ashbyhq.com. For an
     application embedded on a company's own site, click the button — it acts on
-    this tab only, for this click only.
+    this tab only, for this click only, and only inside the Greenhouse frame:
+    the company's own page is never filled and receives nothing of yours.
   </p>
 
   <p style="margin-top:4px"><strong>Your resume</strong> — attached to every application for you.</p>

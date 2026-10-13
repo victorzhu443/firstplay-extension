@@ -84,6 +84,33 @@ export async function installToken() {
   return token;
 }
 
+/**
+ * Which ATS a host belongs to — exactly: the vendors' application hosts by
+ * name, plus proper subdomains of their apex domains (the EU boards). The
+ * same rule as extract.js's atsOfHost (content scripts are classic and
+ * cannot import this module); tests/extract.test.mjs holds the two to the
+ * same vectors. The worker uses it to refuse page-world injection, the warm
+ * step and the dry run for any frame that is not on an ATS origin (F3).
+ */
+const GREENHOUSE_HOSTS = ["job-boards.greenhouse.io", "boards.greenhouse.io"];
+const ASHBY_HOSTS = ["jobs.ashbyhq.com"];
+
+function hostIs(host, names, apex) {
+  host = String(host || "").toLowerCase();
+  return names.includes(host) || host.endsWith("." + apex);
+}
+
+export function atsOfHost(host) {
+  if (hostIs(host, GREENHOUSE_HOSTS, "greenhouse.io")) return "greenhouse";
+  if (hostIs(host, ASHBY_HOSTS, "ashbyhq.com")) return "ashby";
+  return null;
+}
+
+/** The ATS of a URL's host, or null; a malformed URL is nobody's. */
+export function atsOfUrl(url) {
+  try { return atsOfHost(new URL(url).host); } catch (e) { return null; }
+}
+
 // Storage keys. The profile's only stored copy is here (chrome.storage.local,
 // unencrypted); the backend is stateless by design and keeps none. It leaves
 // this machine in transit, with every request to the backend.
