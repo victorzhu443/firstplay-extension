@@ -114,21 +114,29 @@
   }
 
   async function run() {
-    const posting = ns.detectPosting();
+    // Only a document on an ATS origin is ever read for a plan or written
+    // to. An employer's own careers page that embeds a Greenhouse form has
+    // the form in a boards.greenhouse.io iframe; the copy of this script
+    // running there (all_frames in the manifest, allFrames from the popup)
+    // detects `/embed/job_app` and fills. This frame — the third-party
+    // document — hands off and is never filled, so nothing of the
+    // applicant's goes to it (audit F3). Measured on Lyft
+    // (app.careerpuck.com): the frame appears only after "Apply" is clicked.
+    const posting = ns.atsOfHost(window.location.host) ? ns.detectPosting() : null;
 
     if (!posting) {
+      const hint = ns.embeddedHint ? ns.embeddedHint() : null;
+      if (hint && hint.frame) {
+        console.log(`${TAG} the form is inside a Greenhouse frame (${hint.frame.board || "?"}/${hint.frame.jobId || "?"}); ` +
+          `the copy of this script in that frame fills it; nothing is filled on ${hint.host}`);
+        return { handedOff: true, host: hint.host, frame: hint.frame };
+      }
+      if (hint && hint.jobId) {
+        console.log(`${TAG} this page names Greenhouse job ${hint.jobId}${hint.board ? ` on board ${hint.board}` : ""} but holds no ` +
+          `Greenhouse form frame yet — click the employer's Apply button, then run again`);
+        return { handedOff: false, host: hint.host, jobId: hint.jobId, board: hint.board };
+      }
       console.log(`${TAG} not an application page I recognise`);
-      return;
-    }
-
-    // An employer page that carries the form in a Greenhouse iframe has no
-    // controls of its own; the copy of this script running inside that frame
-    // (all_frames) does the work, so the top frame steps aside without
-    // waiting the full settle period. Measured on Lyft (app.careerpuck.com):
-    // the frame appears only after "Apply" is clicked.
-    const frame = document.querySelector('iframe[src*="greenhouse.io/embed/job_app"]');
-    if (posting.embedded && frame && window === window.top) {
-      console.log(`${TAG} the form is inside a Greenhouse frame; running there instead`);
       return;
     }
 
@@ -140,9 +148,10 @@
     const earlyPlan = requestPlan(posting, []);
 
     const controls = await settledControls();
-    // Warm the education lookups with the last plan's terms while this
-    // plan is still being built (fill.js `warm`). Fire and forget.
-    if (posting.ats === "greenhouse" || posting.ats === "ashby") {
+    // Warm the Greenhouse education lookups with the last plan's terms while
+    // this plan is still being built (fill.js `warm`): loader reads only,
+    // nothing typed. Never on Ashby, which autosaves what is typed (F17).
+    if (posting.ats === "greenhouse") {
       chrome.runtime.sendMessage({ kind: "warmLookups" })
         .then((r) => { if (r && r.started && r.started.length) console.log(`${TAG} warming lookups: ${r.started.join(", ")}`); })
         .catch(() => {});
@@ -241,9 +250,11 @@
       inPage = await runInPage();
     }
     let outcome;
+    let world = "main";
     if (inPage && inPage.ok && inPage.outcome) {
       outcome = inPage.outcome;
     } else {
+      world = "isolated";
       console.warn(`${TAG} could not run the fill in the page's world (${(inPage && inPage.why) || "no result"}); ` +
         `falling back — dropdowns may not take values`);
       outcome = await ns.applyPlan(pagePlan, { resume: pageResume, transcript: pageTranscript });
@@ -279,11 +290,7 @@
       const misses = (outcome.details || []).filter((d) => d.state === "failed" || d.state === "mismatch");
       if (misses.length) {
         const where = `${location.host}${location.pathname}`.slice(0, 120);
-        const rows = misses.map((d) => ({
-          at: new Date().toISOString(), ats: posting.ats, where, title: (document.title || "").slice(0, 80),
-          label: (d.label || "").slice(0, 80), state: d.state, why: (d.why || "").slice(0, 160),
-          version: chrome.runtime.getManifest().version,
-        }));
+        const rows = misses.map((d) => missRow(d, posting, where));
         chrome.storage.local.get("firstplay.misses").then((stored) => {
           const kept = (stored["firstplay.misses"] || []).concat(rows).slice(-100);
           return chrome.storage.local.set({ "firstplay.misses": kept });
@@ -359,23 +366,54 @@
     );
     console.log(`${TAG} plan on window.__firstplayPlan, outcome on window.__firstplayOutcome`);
 
-    // The form's own verdict. A dry-run submit — every way of sending is
-    // blocked in the page for the attempt — makes the form mark what it still
-    // considers missing or invalid. That list is compared with the plan: a
-    // field the plan called FILL that the form calls missing is a filler
-    // defect; one the plan never knew is a coverage gap.
+    // What the form still wants, compared with the plan: a field the plan
+    // called FILL that is still empty is a filler defect; one the plan never
+    // knew is a coverage gap.
     // The form commits the last write a frame later; asking it before that
     // flags filled fields as required (0.4.24).
     if (document.hidden) await pause(150);
     else await new Promise((resolve) => requestAnimationFrame(() => setTimeout(resolve, 100)));
-    // Ashby validates only on its server: a click on Submit Application
-    // goes straight to the network (the dry run's block stopped it, and the
-    // page said "We couldn't submit your application"), and no field is
-    // ever marked invalid client-side. So Ashby is never clicked. The form
-    // definition says which fields are required; the check is local.
-    const check = posting.ats === "ashby"
-      ? localRequiredCheck(response.plan)
-      : await chrome.runtime.sendMessage({ kind: "dryRunCheck" }).catch(() => null);
+    // Never by pressing Submit. Until 0.4.52 Greenhouse was asked by a
+    // "dry-run" click on the real Submit button inside a four-second
+    // monkeypatch of fetch/XHR/beacon/form.submit; nothing ever showed the
+    // patch blocking anything, and a page holding its own reference to
+    // fetch would have posted the application (audit F4). Both vendors are
+    // now checked locally: the plan's required flags plus the DOM's own
+    // signals, against the page's current values. Ashby validates only on
+    // its server and was never clicked (§47). The click survives only as a
+    // developer setting, firstplay.dryRun.click, and even then a form that
+    // reads complete is not clicked — that click would be the submission.
+    let check;
+    let checkMode;
+    let dryRunBypassed = false;
+    let domRows = null;   // the local verdict, kept beside the click's when both ran
+    if (posting.ats === "ashby") {
+      check = localRequiredCheck(response.plan);
+      checkMode = "ashby-local";
+    } else {
+      check = domRequiredCheck(response.plan);
+      checkMode = "dom";
+      if (await devFlag("firstplay.dryRun.click")) {
+        if (!check.invalid.length) {
+          checkMode = "click-skipped";
+          console.warn(`${TAG} dryRun.click is on, but the form reads complete — a click would be a real submission attempt; not clicked`);
+        } else {
+          const clicked = await chrome.runtime.sendMessage({ kind: "dryRunCheck" }).catch(() => null);
+          if (clicked && clicked.ok) {
+            domRows = check.invalid;
+            check = clicked;
+            checkMode = "click";
+            // The form flagged nothing and the patch blocked nothing: either
+            // nothing happened or the send went around the patch. Not
+            // trusted either way; recorded as a bypass for the live check.
+            dryRunBypassed = !clicked.invalid.length && !(clicked.blocked || []).length;
+            if (dryRunBypassed) console.warn(`${TAG} dry-run click: the form marked nothing invalid and nothing was blocked — the result is not trusted (dry_run_bypassed)`);
+          } else {
+            console.log(`${TAG} dry-run click skipped: ${(clicked && clicked.why) || "no result"}`);
+          }
+        }
+      }
+    }
     let stillRequired = null;
     let wantRows = [];
     if (check && check.ok) {
@@ -407,16 +445,25 @@
     }
 
     // The run's record, on the document for anything that reads the page
-    // (the survey harness, a bug report): counts, tiers, what the form still
-    // wants, every field's source, confidence and result, and what the dry
-    // run blocked (method names only — a run where nothing was blocked and a
-    // run where the block was bypassed looked the same before, audit M3).
-    // No values, no profile.
+    // (the survey harness, a bug report) and in storage for the popup's
+    // "Copy diagnostics": counts, tiers, what the form still wants, every
+    // field's source, confidence and result, what the check did, and which
+    // engine, backend host and world served it with the model's flags
+    // (audit F21: a failed model path looked like no call at all). No
+    // values, no profile.
     try {
-      const blocked = check && check.ok && Array.isArray(check.blocked) ? check.blocked.map((b) => String(b).slice(0, 24)) : null;
-      document.documentElement.setAttribute("data-firstplay-outcome", JSON.stringify({
+      const blocked = checkMode === "click" && Array.isArray(check.blocked) ? check.blocked.map((b) => String(b).slice(0, 24)) : null;
+      const record = {
         version: chrome.runtime.getManifest().version,
         at: new Date().toISOString(),
+        ats: posting.ats, where: `${location.host}${location.pathname}`.slice(0, 120),
+        engine: response.engine || null,
+        backend: response.backend || null,
+        world,
+        cache_hit: !!response.cached,
+        model_skipped: !!response.model_skipped, model_degraded: !!response.model_degraded,
+        model_available: response.model_available === undefined ? null : !!response.model_available,
+        jev_calls: response.jev_calls || 0,
         filled: outcome.filled, attach: outcome.attach, review: outcome.review,
         failed: outcome.failed, missing: outcome.missing,
         fill_ms: outcome.timing && outcome.timing.total, tiers: outcome.timing || null,
@@ -428,10 +475,19 @@
         wants: wantRows.map((r) => ({ field: r.field.slice(0, 60), plan_said: r.plan_said, form_says: (r.form_says || "").slice(0, 60) })),
         failures: (outcome.details || []).filter((d) => d.state === "failed").map((d) => ({ label: (d.label || "").slice(0, 60), why: scrubReason(d.why) })),
         fields: (outcome.fields || []).slice(0, 200),
-        submit_clicked: !!(check && check.ok) && posting.ats !== "ashby",
+        check_mode: checkMode,
+        submit_clicked: checkMode === "click",
         blocked: blocked ? { count: blocked.length, methods: Array.from(new Set(blocked)) } : null,
+        dry_run_bypassed: dryRunBypassed,
+        dom_wants: domRows ? domRows.map((f) => ({ field: String(f.label || "").slice(0, 60), message: String(f.message || "").slice(0, 60) })) : null,
         check_skipped: check && !check.ok ? check.why : null,
-      }));
+      };
+      // Only when the backend says so (the fields are being added there);
+      // an older backend leaves them absent rather than false.
+      if (response.model_failed !== undefined) record.model_failed = !!response.model_failed;
+      if (response.model_error !== undefined && response.model_error !== null) record.model_error = String(response.model_error).slice(0, 120);
+      document.documentElement.setAttribute("data-firstplay-outcome", JSON.stringify(record));
+      chrome.storage.local.set({ "firstplay.lastRecord": record }).catch(() => {});
     } catch (_e) { /* the record is a convenience */ }
 
     // From here on the applicant edits; what they type, pick and correct is
@@ -463,6 +519,20 @@
       .slice(0, 80);
   }
 
+  /**
+   * One row of the misses log (`firstplay.misses`, shown and copied from the
+   * popup). The widget's reason quotes the value it refused ("no choice is
+   * exactly "…""), so it is scrubbed here the way the run record's is;
+   * docs/PRIVACY.md says the log holds no values (audit F6).
+   */
+  function missRow(d, posting, where) {
+    return {
+      at: new Date().toISOString(), ats: posting.ats, where, title: (document.title || "").slice(0, 80),
+      label: (d.label || "").slice(0, 80), state: d.state, why: scrubReason(d.why) || "",
+      version: chrome.runtime.getManifest().version,
+    };
+  }
+
   function pagePlanFor(plan) {
     const entries = (plan.entries || []).map((e) => {
       const writes = !e.needs_review && !e.skipped && !e.satisfied_by && (e.value !== null || (e.values && e.values.length));
@@ -471,6 +541,110 @@
       return writes ? e : { ...e, value: null, values: [], needs_fact: null, reason: scrubReason(e.reason) };
     });
     return { ...plan, entries };
+  }
+
+  /**
+   * What a Greenhouse form still wants, without pressing Submit. Required
+   * is any of: the plan's `required` (the board API's flag), the control's
+   * `required`, `aria-required="true"`, Greenhouse's label convention
+   * (the label text ends in "*"), or an `aria-invalid="true"` the form has
+   * already set (then the form's own message is reported). Empty is read
+   * the way the learning capture reads values: react-selects by their
+   * rendered value, radios and checkboxes by `checked`, files by `files`.
+   * First the plan's entries (by key), then every other control on the
+   * page that carries a required signal — a field the plan never knew is a
+   * coverage gap, as before. Same shape as the dry run, so the diff reads
+   * it unchanged.
+   *
+   * What this cannot see that the form's own validation can: format rules
+   * (an email or URL shape the form rejects), conditional requirements the
+   * form computes in script without marking the DOM, and the react-select
+   * wrapper-state defect of §44 (a widget that displays a value the form's
+   * state did not take). The live comparison against the click is the
+   * developer setting above.
+   */
+  function domRequiredCheck(plan) {
+    const invalid = [];
+    const seen = new Set();
+    const text = (el) => ((el && (el.innerText || el.textContent)) || "").replace(/\s+/g, " ").trim();
+    const labelElementOf = (el) => {
+      if (el.tagName === "FIELDSET") return el.querySelector("legend");
+      const byFor = el.id && document.querySelector(`label[for="${CSS.escape(el.id)}"]`);
+      if (byFor) return byFor;
+      const wrapping = el.closest("label");
+      if (wrapping) return wrapping;
+      const group = el.closest('[role="group"], fieldset');
+      return group ? group.querySelector("label, legend") : null;
+    };
+    const labelOf = (el, entry) => {
+      const lab = labelElementOf(el);
+      const raw = lab ? text(lab) : (entry && entry.label) || el.id || el.name || el.tagName;
+      return raw.replace(/\s*\*\s*$/, "").slice(0, 60);
+    };
+    const messageOf = (el) => {
+      const ids = (el.getAttribute("aria-describedby") || el.getAttribute("aria-errormessage") || "").split(/\s+/).filter(Boolean);
+      for (const id of ids) { const m = document.getElementById(id); if (m && text(m)) return text(m).slice(0, 80); }
+      const near = el.closest("div, fieldset");
+      const m = near && near.querySelector('[class*="error"], [role="alert"]');
+      return m ? text(m).slice(0, 80) : "";
+    };
+    const signalsOf = (el, entry) => {
+      const signals = [];
+      if (entry && entry.required) signals.push("plan");
+      const isSet = el.tagName === "FIELDSET"
+        ? !!el.querySelector('[required], [aria-required="true"]')
+        : (el.required === true || el.getAttribute("required") !== null);
+      if (isSet) signals.push("required");
+      if (el.getAttribute("aria-required") === "true") signals.push("aria-required");
+      const lab = labelElementOf(el);
+      if (lab && /\*\s*$/.test(text(lab))) signals.push("* label");
+      if (el.getAttribute("aria-invalid") === "true") signals.push("aria-invalid");
+      return signals;
+    };
+    const holds = (el) => {
+      if ((el.type || "").toLowerCase() === "file") {
+        return !!(el.files && el.files.length) || /\.(pdf|docx?|rtf|txt)\b/i.test(text(el.closest("div, fieldset")));
+      }
+      let read;
+      try { read = ns._learn.readValue(el).value; } catch (e) { return true; }   // unreadable here: not claimed missing
+      if (read === undefined) return true;
+      if (Array.isArray(read)) return read.length > 0;
+      return read !== null && String(read).trim() !== "";
+    };
+    const consider = (el, entry) => {
+      if (!el || seen.has(el)) return;
+      seen.add(el);
+      const signals = signalsOf(el, entry);
+      if (!signals.length) return;
+      const flagged = signals.includes("aria-invalid");
+      if (!flagged && holds(el)) return;
+      invalid.push({
+        id: entry ? entry.field_key : (el.id || ""), name: entry ? entry.field_key : (el.name || ""),
+        label: labelOf(el, entry),
+        message: flagged ? `invalid: ${messageOf(el) || "the form marked it"}` : `required (${signals.join(", ")})`,
+      });
+    };
+
+    for (const entry of plan.entries) {
+      if (entry.skipped || entry.satisfied_by) continue;
+      let el = null;
+      try { el = ns.locate(entry); } catch (e) { el = null; }
+      consider(el, entry);
+    }
+    // Controls the plan did not know. A radio group is one question (its
+    // fieldset, or its first input); an invisible decoy input is nobody's.
+    for (const el of document.querySelectorAll('input:not([type="hidden"]):not([type="submit"]):not([type="button"]), textarea, select')) {
+      if (seen.has(el)) continue;
+      const type = (el.type || "").toLowerCase();
+      if (type === "radio" || type === "checkbox") {
+        const group = el.closest("fieldset");
+        if (group) { consider(group, null); seen.add(el); continue; }
+        if (type === "radio" && el.name && document.querySelector(`input[type="radio"][name="${CSS.escape(el.name)}"]`) !== el) { seen.add(el); continue; }
+      }
+      if (el.tagName !== "FIELDSET" && el.offsetParent === null) { seen.add(el); continue; }
+      consider(el, null);
+    }
+    return { ok: true, invalid, blocked: [], submitButton: "(not clicked)" };
   }
 
   /**
@@ -497,6 +671,14 @@
       if (!holds) invalid.push({ id: entry.field_key, name: entry.field_key, label: entry.label || entry.field_key, message: "required (Ashby form definition)" });
     }
     return { ok: true, invalid, blocked: [], submitButton: "(not clicked — Ashby)" };
+  }
+
+  // Pure pieces, for the node tests.
+  ns._content = { missRow, scrubReason, pagePlanFor, domRequiredCheck, localRequiredCheck };
+
+  /** A developer setting in chrome.storage.local, true only when set to exactly true. */
+  async function devFlag(key) {
+    try { const v = await chrome.storage.local.get(key); return v[key] === true; } catch (e) { return false; }
   }
 
   let inFlight = null;

@@ -11,7 +11,7 @@
  *     backend per request. It is never injected into the page, so a script on
  *     the application site cannot reach it.
  */
-import { backendUrl, installToken, PROFILE_KEY } from "./config.js";
+import { backendUrl, resolveBackend, installToken, atsOfUrl, PROFILE_KEY } from "./config.js";
 
 /** The applicant's profile, or an empty one on first run. */
 async function loadProfile() {
@@ -127,12 +127,15 @@ async function buildPlan({ posting, controls, page }) {
   // and the profile (Ashby's form comes from its ApiJobPosting operation,
   // DECISIONS §46), so both are cached; a DOM-read Ashby plan is not.
   const cacheable = posting.ats === "greenhouse" || (posting.ats === "ashby" && !(controls && controls.length));
+  // Resolved once per plan and reported by host (never the path), so the
+  // run record says where this plan's request went (audit F16, F21).
+  const backend = await resolveBackend();
   const health = cacheable ? await backendHealth() : null;
   const cacheKey = health ? await planCacheKey(posting, profile, health.engine) : null;
   if (cacheKey) {
     const hit = (await chrome.storage.session.get(cacheKey))[cacheKey];
     if (hit && Date.now() - hit.at < 6 * 60 * 60 * 1000) {
-      return { ok: true, profileAnswers: answers, cached: true, ...hit.payload };
+      return { ok: true, profileAnswers: answers, cached: true, backend: backend.host, ...hit.payload };
     }
   }
 
@@ -178,7 +181,7 @@ async function buildPlan({ posting, controls, page }) {
         };
   }
 
-  const response = await fetch(`${await backendUrl()}/api/autofill/plan`, {
+  const response = await fetch(`${backend.url}/api/autofill/plan`, {
     method: "POST",
     headers: { "Content-Type": "application/json", "X-FirstPlay-Install": await installToken() },
     body: JSON.stringify(body),
@@ -199,15 +202,21 @@ async function buildPlan({ posting, controls, page }) {
   // Reported so an empty profile is distinguishable from a broken resolver.
   // Without it, "0 to fill, 19 need you" looks identical to a bug, and the
   // actual cause — nothing saved in this browser — is invisible.
-  return { ok: true, profileAnswers: answers, ...payload };
+  return { ok: true, profileAnswers: answers, backend: backend.host, ...payload };
 }
 
 /**
- * Runs IN THE PAGE (main world): press Submit with every way of leaving the
- * page blocked, and read the form's own validation. Greenhouse validates
+ * DEVELOPER SETTING ONLY (firstplay.dryRun.click; off by default). Runs IN
+ * THE PAGE (main world): press Submit with every way of leaving the page
+ * blocked, and read the form's own validation. Greenhouse validates
  * client-side before posting, so the messages are the form's verdict on each
- * field. Nothing can be sent: fetch, XHR, sendBeacon, form.submit and the
- * submit event are all stopped for the duration, then restored.
+ * field. fetch, XHR, sendBeacon, form.submit and the submit event are
+ * stopped for the duration, then restored — but a page holding its own
+ * reference to fetch, or sending from another frame, is not stopped, and no
+ * run record ever showed the block firing (audit F4). So the default check
+ * reads the DOM instead (content.js domRequiredCheck); this exists to
+ * measure, live, what that check misses against the form's own validation.
+ * The content script never asks for it on a form that reads complete.
  */
 function dryRunSubmitInPage() {
   return new Promise((resolve) => {
@@ -332,12 +341,16 @@ async function fetchAshbyPosting(org, postingId) {
   return jobPosting;
 }
 
-/** The education terms this plan will look up; the next board warms them before its plan arrives. */
+/**
+ * The Greenhouse education terms this plan will look up; the next board
+ * warms them (loader reads, nothing written) before its plan arrives. Ashby's
+ * location is not here: warming it meant typing into the form before the
+ * plan existed (audit F17).
+ */
 const TERM_CONTROLS = [
   [/^educations\[0\]\.school_name_id$/, "school--0"],
   [/^educations\[0\]\.degree_id$/, "degree--0"],
   [/^educations\[0\]\.discipline_id$/, "discipline--0"],
-  [/^_systemfield_location$/, "_systemfield_location"],   // Ashby's geocoder
 ];
 
 function rememberLookupTerms(payload) {
@@ -485,7 +498,28 @@ async function recordAsks(asks) {
   return { ok: true, pending: next.length };
 }
 
+/**
+ * The frame a message came from must be on an ATS origin before anything
+ * is injected into its page world, warmed, or clicked: the plan's values
+ * and the résumé bytes go only where the form is (audit F3). The content
+ * script already declines elsewhere; this is the worker's own check, and
+ * it does not rely on the page.
+ */
+function atsFrame(sender) {
+  return !!(sender && sender.tab && sender.tab.id !== undefined && atsOfUrl(sender.url));
+}
+
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+  if ((message.kind === "applyPlan" || message.kind === "warmLookups" || message.kind === "dryRunCheck") && !atsFrame(_sender)) {
+    sendResponse({ ok: false, why: `refused: ${message.kind} from a frame that is not on a Greenhouse or Ashby origin` });
+    return false;
+  }
+  // The popup asks the worker where the profile goes, rather than deciding
+  // for itself: one selector, one answer (audit F16).
+  if (message.kind === "backend") {
+    resolveBackend().then(sendResponse).catch((e) => sendResponse({ ok: false, why: e.message }));
+    return true;
+  }
   if (message.kind === "asks") {
     recordAsks(message.asks).then(sendResponse).catch((e) => sendResponse({ ok: false, why: e.message }));
     return true;

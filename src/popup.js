@@ -10,24 +10,51 @@
  * may go on to the model provider for bounded yes/no and option decisions;
  * protected answers and consents never do. docs/PRIVACY.md says the same.
  *
- * Classic script (popup scripts may be modules, but keeping every non-worker
- * script classic removes one way to get the manifest wrong).
+ * A module, so it shares config.js with the service worker: the backend the
+ * popup describes is the one the worker sends the profile to (audit F16).
+ * Content scripts stay classic (see extract.js); this page is loaded by
+ * popup.html, not by the manifest, so a module is safe here.
  */
+import { resolveBackend, atsOfHost, BACKEND_KEY, ALLOW_LOCAL_KEY } from "./config.js";
+
 (function () {
   "use strict";
 
   const PROFILE_KEY = "firstplay.profile";
-  const HOSTED_BACKEND = "https://firstplay-backend.onrender.com";
-  const BACKEND_KEY = "firstplay.backend";
   const backendField = document.getElementById("backendUrl");
-  async function backendUrl() {
-    const stored = await chrome.storage.local.get(BACKEND_KEY);
-    const chosen = (stored[BACKEND_KEY] || "").trim().replace(/\/+$/, "");
-    return /^https?:\/\//.test(chosen) ? chosen : HOSTED_BACKEND;
+  const backendLine = document.getElementById("backendLine");
+  const allowLocal = document.getElementById("allowLocal");
+
+  // The worker's answer first (it holds the probe result that decides where
+  // requests actually go); the same resolver here if the worker is asleep.
+  async function resolvedBackend() {
+    try {
+      const r = await chrome.runtime.sendMessage({ kind: "backend" });
+      if (r && r.url) return r;
+    } catch (e) { /* worker not reachable: resolve here */ }
+    return resolveBackend();
   }
-  chrome.storage.local.get(BACKEND_KEY).then((v) => { backendField.value = v[BACKEND_KEY] || ""; });
+  async function backendUrl() { return (await resolvedBackend()).url; }
+
+  function showBackend(b) {
+    const how = b.how === "stored" ? "the address you entered"
+      : b.how === "local" ? "a backend on this machine, plain HTTP"
+      : "the hosted backend, HTTPS";
+    backendLine.textContent = `Your profile goes to ${b.host} (${how}) with every plan and learn request, and nowhere else.`;
+    backendLine.className = "status" + (b.how === "local" ? " warn" : "");
+  }
+  resolvedBackend().then(showBackend).catch(() => { backendLine.textContent = "Could not resolve the backend."; });
+
+  chrome.storage.local.get([BACKEND_KEY, ALLOW_LOCAL_KEY]).then((v) => {
+    backendField.value = v[BACKEND_KEY] || "";
+    allowLocal.checked = v[ALLOW_LOCAL_KEY] === true;
+  });
   backendField.addEventListener("change", async () => {
     await chrome.storage.local.set({ [BACKEND_KEY]: backendField.value.trim() });
+    location.reload();
+  });
+  allowLocal.addEventListener("change", async () => {
+    await chrome.storage.local.set({ [ALLOW_LOCAL_KEY]: allowLocal.checked });
     location.reload();
   });
 
@@ -79,22 +106,23 @@
   // let the extension read every page visited, which is exactly the posture
   // this project keeps refusing.
   //
-  // allFrames matters: Greenhouse's embed can render inside an iframe from
+  // allFrames matters: Greenhouse's embed renders inside an iframe from
   // boards.greenhouse.io, where host permission already applies, so injecting
-  // into every frame reaches the form wherever it lives.
-  document.getElementById("fill").addEventListener("click", async () => {
-    const status = document.getElementById("fillStatus");
-    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  // into every frame reaches the form where it lives — and ONLY there: the
+  // content script fills nothing on a document that is not on an ATS origin,
+  // and the worker refuses to inject the page-world filler into such a frame
+  // (audit F3). On a page that is not an ATS origin the popup first says what
+  // will happen and waits for a second click.
+  const fillButton = document.getElementById("fill");
+  const fillStatus = document.getElementById("fillStatus");
+  const confirmBox = document.getElementById("fillConfirm");
+  const confirmText = document.getElementById("fillConfirmText");
+  let pendingFill = null;   // the tab a confirmation is waiting on
 
-    if (!tab || !tab.id) {
-      status.textContent = "No active tab.";
-      status.className = "status warn";
-      return;
-    }
+  function say(text, cls) { fillStatus.textContent = text; fillStatus.className = "status" + (cls ? ` ${cls}` : ""); }
 
-    status.textContent = "Running…";
-    status.className = "status";
-
+  async function runFill(tab) {
+    say("Running…");
     try {
       await chrome.scripting.executeScript({
         target: { tabId: tab.id, allFrames: true },
@@ -107,24 +135,81 @@
         target: { tabId: tab.id, allFrames: true },
         func: async () => (window.FirstPlay ? await window.FirstPlay.run() : null),
       });
-      // One frame holds the form; the others report nothing.
-      const summary = (results || []).map((r) => r && r.result).find((r) => r && typeof r === "object");
+      // One frame holds the form; a top frame that handed off reports so.
+      const outcomes = (results || []).map((r) => r && r.result).filter((r) => r && typeof r === "object");
+      const summary = outcomes.find((r) => "filled" in r);
+      const handed = outcomes.find((r) => r.handedOff !== undefined);
       if (summary) {
         const parts = [`${summary.filled} filled in ${(summary.seconds || 0).toFixed(1)}s`];
         if (summary.failed) parts.push(`${summary.failed} known but not enterable — see orange notes on the page`);
         if (summary.review) parts.push(`${summary.review} need you (amber)`);
         if (summary.attach) parts.push(`${summary.attach} file(s) to attach`);
         if (summary.still_required != null) parts.push(`form still wants ${summary.still_required}`);
-        status.textContent = parts.join(" · ");
-        status.className = summary.failed ? "status warn" : "status ok";
+        say(parts.join(" · "), summary.failed ? "warn" : "ok");
+      } else if (handed && handed.handedOff) {
+        say(`The Greenhouse frame on ${handed.host} reported nothing — if the form is not open yet, click Apply and try again (details in the console, ⌥⌘J).`, "warn");
+      } else if (handed) {
+        say(`No Greenhouse form frame on ${handed.host} yet — click the employer's Apply button, then try again. Nothing was filled.`, "warn");
       } else {
-        status.textContent = "Ran, but found no form to fill on this page (details in the console, ⌥⌘J).";
-        status.className = "status warn";
+        say("Ran, but found no form to fill on this page (details in the console, ⌥⌘J).", "warn");
       }
     } catch (e) {
-      status.textContent = `Could not run here: ${e.message}`;
-      status.className = "status warn";
+      say(`Could not run here: ${e.message}`, "warn");
     }
+  }
+
+  /**
+   * On a page that is not an ATS origin: read (never write) what the page
+   * says about an embedded posting — the Greenhouse frame's own URL first,
+   * the page's gh_jid and embed script as description — and ask.
+   */
+  async function describeAndConfirm(tab, host) {
+    say("Looking at this page…");
+    let results;
+    try {
+      await chrome.scripting.executeScript({ target: { tabId: tab.id, allFrames: true }, files: ["src/extract.js"] });
+      results = await chrome.scripting.executeScript({
+        target: { tabId: tab.id, allFrames: true },
+        func: () => (window.FirstPlay ? (window.FirstPlay.detectPosting() || window.FirstPlay.embeddedHint()) : null),
+      });
+    } catch (e) {
+      say(`Could not look at this page: ${e.message}`, "warn");
+      return;
+    }
+    const frames = (results || []).filter((r) => r && r.result && r.result.ats === "greenhouse" && r.result.embedded && r.frameId !== 0);
+    const top = ((results || []).find((r) => r && r.frameId === 0) || {}).result || null;
+    if (frames.length) {
+      const f = frames[0].result;
+      confirmText.textContent = `FirstPlay will fill the Greenhouse form embedded on ${host} for ${f.board}/${f.jobId}; ` +
+        `nothing is sent to ${host} itself. Your answers and résumé go into that Greenhouse frame only, for you to review there.`;
+      confirmBox.hidden = false;
+      pendingFill = tab;
+      say("");
+      return;
+    }
+    const named = top && top.jobId
+      ? ` This page names Greenhouse job ${top.jobId}${top.board ? ` on board ${top.board}` : ""}; click the employer's Apply button, then try again.`
+      : " FirstPlay fills Greenhouse and Ashby application forms only.";
+    say(`No Greenhouse form frame on ${host} yet — nothing was filled.${named}`, "warn");
+  }
+
+  fillButton.addEventListener("click", async () => {
+    confirmBox.hidden = true; pendingFill = null;
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+
+    if (!tab || !tab.id) { say("No active tab.", "warn"); return; }
+
+    let host = "";
+    try { host = new URL(tab.url || "").host; } catch (e) { host = ""; }
+    if (atsOfHost(host)) { await runFill(tab); return; }
+    await describeAndConfirm(tab, host || "this page");
+  });
+  document.getElementById("fillConfirmGo").addEventListener("click", async () => {
+    const tab = pendingFill; pendingFill = null; confirmBox.hidden = true;
+    if (tab) await runFill(tab);
+  });
+  document.getElementById("fillConfirmCancel").addEventListener("click", () => {
+    pendingFill = null; confirmBox.hidden = true; say("Nothing was filled.");
   });
 
   // ----- resume: picked once here, stored as bytes in this browser only -----
@@ -247,6 +332,24 @@
   });
   document.getElementById("clearMisses").addEventListener("click", async () => {
     await chrome.storage.local.set({ [MISSES_KEY]: [] }); renderMisses();
+  });
+
+  // The last run's record, as content.js stored it: values are already
+  // absent (fieldRecord and scrubReason), so it can be pasted anywhere.
+  const LAST_RECORD_KEY = "firstplay.lastRecord";
+  const diagnosticsNote = document.getElementById("diagnosticsNote");
+  chrome.storage.local.get(LAST_RECORD_KEY).then((v) => {
+    const r = v[LAST_RECORD_KEY];
+    diagnosticsNote.textContent = r ? `last run ${(r.at || "").slice(0, 16)} on ${r.where || "?"}` : "no run recorded yet";
+  });
+  document.getElementById("copyDiagnostics").addEventListener("click", async () => {
+    const stored = await chrome.storage.local.get(LAST_RECORD_KEY);
+    const record = stored[LAST_RECORD_KEY];
+    if (!record) { diagnosticsNote.textContent = "no run recorded yet"; return; }
+    try {
+      await navigator.clipboard.writeText(JSON.stringify(record, null, 1));
+      diagnosticsNote.textContent = "copied";
+    } catch (e) { diagnosticsNote.textContent = "could not copy"; }
   });
 
   // Opt-in, off until the applicant turns it on: learning is a change in how

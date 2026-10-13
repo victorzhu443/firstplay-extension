@@ -24,6 +24,14 @@
   const PROTECTED_KEY = /_systemfield_eeoc|^demographic_answers\.|^(veteran_status|disability|disability_status|race|gender|hispanic_ethnicity)$/i;
   const PROTECTED_REASON = /answer once during onboarding/i;
   const CONSENT_REASON = /only ever answered by you|consents\.|you decline |could not tell which option means/i;
+  //: A custom-keyed protected question (Greenhouse `question_N`, an Ashby
+  //: custom field) carries a vendor-neutral key, so the plan's reason is the
+  //: tell: it names the profile key the answer came from or was matched
+  //: against ("stored as race_ethnicity", "… for veteran_status"). Pronouns
+  //: are a CORE fact and stay observable (audit F7).
+  const PROTECTED_PROFILE_KEY = /\b(race_ethnicity|gender|veteran_status|disability_status|hispanic_latino|hispanic_ethnicity|sexual_orientation|transgender)\b/i;
+  //: Classes the backend may stamp on an entry; neither is ever observed.
+  const NEVER_OBSERVED_CLASS = /^(legal|consent)$/i;
 
   function normalise(value) {
     const text = Array.isArray(value) ? value.join(" | ") : String(value == null ? "" : value);
@@ -46,8 +54,13 @@
   function observable(entry) {
     if (!entry || !entry.field_key || entry.attach || entry.satisfied_by) return false;
     if (PROTECTED_KEY.test(entry.field_key)) return false;
+    // Forward compatible: a backend that classifies its entries says so
+    // directly, and that word is final whatever the key or reason says.
+    if (entry.protected === true) return false;
+    if (typeof entry.field_class === "string" && NEVER_OBSERVED_CLASS.test(entry.field_class)) return false;
     const reason = entry.reason || "";
     if (PROTECTED_REASON.test(reason) || CONSENT_REASON.test(reason)) return false;
+    if (PROTECTED_PROFILE_KEY.test(reason)) return false;
     return true;
   }
 

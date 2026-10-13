@@ -207,21 +207,55 @@ var FirstPlay = FirstPlay || {};
   }
 
   /**
-   * Which ATS this page belongs to, and how to identify the posting.
+   * Which ATS a host belongs to — exactly. The two vendors' application
+   * hosts by name, plus proper subdomains of their apex domains (the EU
+   * boards: job-boards.eu.greenhouse.io, boards.eu.greenhouse.io). A host
+   * that merely *ends with* the apex text (evilgreenhouse.io,
+   * notashbyhq.com) is nobody's ATS; until 0.4.52 it was accepted, and a
+   * page on it could be filled from the real board's schema (audit F3).
+   * The service worker keeps the same rule in config.js (atsOfHost); the
+   * node tests hold the two to the same vectors.
+   */
+  const GREENHOUSE_HOSTS = ["job-boards.greenhouse.io", "boards.greenhouse.io"];
+  const ASHBY_HOSTS = ["jobs.ashbyhq.com"];
+
+  function hostIs(host, names, apex) {
+    host = String(host || "").toLowerCase();
+    return names.includes(host) || host.endsWith("." + apex);
+  }
+
+  function atsOfHost(host) {
+    if (hostIs(host, GREENHOUSE_HOSTS, "greenhouse.io")) return "greenhouse";
+    if (hostIs(host, ASHBY_HOSTS, "ashbyhq.com")) return "ashby";
+    return null;
+  }
+
+  /**
+   * Which ATS this page belongs to, and how to identify the posting — or
+   * null when this document is not on an ATS origin, whatever it carries.
    *
-   * Greenhouse is reported with its board and job id because the backend can then
-   * fetch the authoritative form schema from the public board API — field names,
-   * types, required flags and option label/value pairs, none of which have to be
-   * inferred from the DOM. Ashby has no such API, so its DOM extract is the only
-   * source.
+   * Greenhouse is reported with its board and job id because the backend can
+   * then fetch the authoritative form schema from the public board API —
+   * field names, types, required flags and option label/value pairs, none of
+   * which have to be inferred from the DOM. Ashby's form comes from its own
+   * ApiJobPosting operation (background.js), with the DOM extract as the
+   * fallback.
+   *
+   * An employer's own careers page that embeds a Greenhouse form is NOT a
+   * posting here: the form lives in a boards.greenhouse.io iframe, where the
+   * copy of this script running there (all_frames) sees `/embed/job_app`
+   * and fills. The third-party document itself is never filled, and nothing
+   * of the applicant's goes to it (audit F3). See `embeddedHint` for what
+   * the popup may say about such a page.
    *
    * @returns {object|null}
    */
   function detectPosting() {
   const { host, pathname } = window.location;
   const params = new URLSearchParams(window.location.search);
+  const ats = atsOfHost(host);
 
-  if (host.endsWith("greenhouse.io")) {
+  if (ats === "greenhouse") {
     const match = pathname.match(/^\/([^/]+)\/jobs\/(\d+)/);
     if (match) return { ats: "greenhouse", board: match[1], jobId: match[2] };
 
@@ -237,26 +271,7 @@ var FirstPlay = FirstPlay || {};
     return null;
   }
 
-  // An employer's own careers page carrying a Greenhouse job:
-  //   www.samsara.com/company/careers/roles/8082091?gh_jid=8082091
-  // The URL names the job but not the board. The embed script the page loads
-  // names it exactly (`/embed/job_board/js?for=<board>`); failing that, the
-  // employer's second-level domain is the usual token. A guess is marked so
-  // the service worker can verify it against the board API before trusting it.
-  const ghJid = params.get("gh_jid");
-  if (ghJid) {
-    const embedScript = document.querySelector('script[src*="greenhouse.io/embed/job_board"]');
-    const fromScript = embedScript
-      ? new URL(embedScript.src).searchParams.get("for")
-      : null;
-    if (fromScript) return { ats: "greenhouse", board: fromScript, jobId: ghJid, embedded: true };
-
-    const labels = host.split(".").filter((l) => l && l !== "www");
-    const guess = labels.length >= 2 ? labels[labels.length - 2] : labels[0];
-    return { ats: "greenhouse", board: guess, boardGuessed: true, jobId: ghJid, embedded: true };
-  }
-
-  if (host.endsWith("ashbyhq.com")) {
+  if (ats === "ashby") {
     const match = pathname.match(/^\/([^/]+)\/([0-9a-f-]{36})/i);
     if (match) return { ats: "ashby", org: match[1], postingId: match[2] };
     return null;
@@ -265,6 +280,45 @@ var FirstPlay = FirstPlay || {};
   return null;
   }
 
+  /** The Greenhouse embed frame on this page, if any, by its own URL: {board, jobId} or null. */
+  function embedFrameOn(doc) {
+  for (const frame of doc.querySelectorAll("iframe[src]")) {
+    let url;
+    try { url = new URL(frame.getAttribute("src"), window.location.href); } catch (e) { continue; }
+    if (atsOfHost(url.host) !== "greenhouse" || !url.pathname.startsWith("/embed/job_app")) continue;
+    return { board: url.searchParams.get("for"), jobId: url.searchParams.get("token") };
+  }
+  return null;
+  }
+
+  /**
+   * What a non-ATS page says about a Greenhouse posting it hosts — for the
+   * popup to DESCRIBE before the applicant confirms a fill, never to fill
+   * from. An employer page names the job in `?gh_jid=` and the board in the
+   * embed script it loads (`/embed/job_board/js?for=<board>`); the form
+   * itself, when present, is the `/embed/job_app` iframe. Nothing is
+   * guessed: a board the page does not name stays null.
+   *
+   * @returns {{host: string, jobId: string|null, board: string|null, frame: object|null}|null}
+   *   null on an ATS origin (detectPosting applies there).
+   */
+  function embeddedHint() {
+  const { host } = window.location;
+  if (atsOfHost(host)) return null;
+  const params = new URLSearchParams(window.location.search);
+  const embedScript = document.querySelector('script[src*="greenhouse.io/embed/job_board"]');
+  let board = null;
+  if (embedScript) {
+    try {
+      const url = new URL(embedScript.src, window.location.href);
+      if (atsOfHost(url.host) === "greenhouse") board = url.searchParams.get("for");
+    } catch (e) { /* not a URL */ }
+  }
+  return { host, jobId: params.get("gh_jid") || null, board, frame: embedFrameOn(document) };
+  }
+
   ns.extractControls = extractControls;
   ns.detectPosting = detectPosting;
+  ns.embeddedHint = embeddedHint;
+  ns.atsOfHost = atsOfHost;
 })(FirstPlay);

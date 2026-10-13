@@ -1,6 +1,6 @@
 # FirstPlay Autofill — privacy
 
-Plain language, written to match what the code does as of extension 0.4.51.
+Plain language, written to match what the code does as of extension 0.4.52.
 Where the code changes, this file changes in the same commit.
 
 ## What the extension holds, and where
@@ -16,7 +16,11 @@ Everything the extension keeps is in **this browser's extension storage**
   proposes;
 - the questions pages asked that your profile could not answer (label, page);
 - a log of fields it knew but could not enter (page, label, the widget's
-  reason — no values);
+  reason with any quoted value blanked — no values; until 0.4.52 the reason
+  was stored as the widget wrote it, value included);
+- the last run's record (counts, timings, each field's key, label, source and
+  result, what the form still wanted, which backend host and engine
+  answered — no values), which *Copy diagnostics* in the popup exports;
 - a random install token used for rate limiting, not tied to you.
 
 Plans the backend returned are kept in session storage until the browser
@@ -28,7 +32,12 @@ No account exists, and no server holds a copy of your profile.
 
 **1. The backend** — `https://firstplay-backend.onrender.com` by default
 (hosted on Render), or a backend you run yourself (`http://localhost:8000`),
-chosen in the popup under *Advanced: backend*.
+chosen in the popup under *Advanced: backend*. The popup shows, in one
+line, which one is in use right now. A local backend is used only if you
+typed its address there, or if you turned on *Use a backend running on this
+machine* (off by default); until then nothing is ever sent to a local port.
+(Before 0.4.52 the extension probed port 8000 on its own and used whatever
+answered, over plain HTTP, without saying so.)
 
 - With **every plan request**: your **whole profile**, including
   self-identification answers and consents, together with the form's
@@ -69,17 +78,31 @@ as if you had typed it. Two things to know:
 - **Ashby saves a draft on the employer's server as you fill**, before any
   submit, including self-identification answers you chose to store. That is
   Ashby's behaviour for any typing in its form; the extension's fill triggers
-  it like typing does.
-- **Greenhouse validation check.** After the fill, on Greenhouse only, the
-  extension presses the form's Submit button with every way of sending
-  blocked for the attempt (fetch, XHR, beacon, form submission and the submit
-  event), to read the form's own list of what is still missing. Nothing is
-  sent. The run record notes what was blocked.
+  it like typing does. Nothing is typed before the page's plan has arrived
+  (until 0.4.52 the previous page's stored location was typed into the
+  location field early, to warm its lookup; it no longer is).
+- **A company's own careers page is never filled.** When an employer embeds
+  a Greenhouse form on its site, the form lives in a Greenhouse frame and
+  only that frame is filled; the company's page receives none of your
+  answers and not your résumé. The extension acts only on
+  `job-boards.greenhouse.io`, `boards.greenhouse.io`, `jobs.ashbyhq.com` and
+  their vendors' own subdomains; *Fill this page* on any other site first
+  says what it will do and waits for a second click.
+- **The "still wants" check never presses Submit.** After the fill the
+  extension lists what the form still requires by reading the page: the
+  form definition's required flags and the form's own markers (`required`,
+  `aria-required`, the `*` on a label, any field the form has already marked
+  invalid), against what each field now holds. No button is pressed and no
+  request is attempted. (Until 0.4.52, on Greenhouse only, this was done by
+  pressing Submit inside a block on every way of sending; that click now
+  exists only behind a developer setting, `firstplay.dryRun.click`, off by
+  default, and even then a form that reads complete is never clicked.)
 
 ## What is never done
 
-- **No submission.** The extension never submits an application. You review
-  and you press Submit.
+- **No submission.** The extension never submits an application, and never
+  presses Submit — not even to check the form. You review and you press
+  Submit.
 - **No inference of protected characteristics.** The Hispanic/Latino question,
   race, gender, veteran and disability status are answered only from the
   exact answer you stored for that question, or left for you. Nothing is
