@@ -32,9 +32,10 @@ changed, how it was verified — and section 4 is how the work was run.
 
 That is all. The extension talks to the hosted backend by default. The backend
 is stateless: your profile is sent with each request so the plan can be made,
-and it is stored nowhere but your own browser. If a backend is running on your
-machine on port 8000 the extension uses that instead, and the popup's
-*Advanced: backend* field pins either one explicitly.
+and it is stored nowhere but your own browser. The popup's *Advanced: backend*
+section shows which backend is in use; its field pins one explicitly, and its
+*Use a backend running on this machine* toggle (off by default) lets a backend
+on port 8000 be used when one answers.
 What leaves your machine, to whom, and how to delete it: [docs/PRIVACY.md](docs/PRIVACY.md).
 
 ### Your profile
@@ -67,8 +68,10 @@ cd firstplay-backend
 .venv/bin/python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
 ```
 
-With it running, the extension uses it automatically and no request leaves
-your machine. The model behind the bounded decisions needs `OPENROUTER_API_KEY`
+Then, in the popup under *Advanced: backend*, either enter
+`http://localhost:8000` or turn on *Use a backend running on this machine*;
+after that no request leaves your machine, and the popup's backend line says
+so. The model behind the bounded decisions needs `OPENROUTER_API_KEY`
 in the environment; without it the engine is deterministic only.
 
 ## 2. What it fills
