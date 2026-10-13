@@ -85,6 +85,8 @@ function loadWithLearn(doc) {
   return sandbox.FirstPlay;
 }
 const decoy = el("input", { id: "decoy", type: "text", attrs: { "aria-required": "true" } }); decoy.offsetParent = null;
+// react-select's required decoy: visible to offsetParent, opacity 0, tabindex -1, no label, `required` set.
+const rsDecoy = el("input", { type: "text", className: "remix-css-1a0ro4n-requiredInput", attrs: { required: "", tabindex: "-1" } }); rsDecoy.tabIndex = -1;
 const gh = documentOf([
   el("label", { text: "First Name*", attrs: { for: "first_name" } }), el("input", { id: "first_name", type: "text" }),
   el("label", { text: "Email*", attrs: { for: "email" } }), el("input", { id: "email", type: "email", value: "ada@example.com", attrs: { required: "" } }),
@@ -100,6 +102,7 @@ const gh = documentOf([
     el("input", { id: "o2", type: "radio", name: "question_9", attrs: { "aria-required": "true" } }), el("label", { text: "Remote", attrs: { for: "o2" } }),
   ]),
   decoy,
+  rsDecoy,
 ]);
 const G = loadWithLearn(gh);
 const check = G._content.domRequiredCheck({ entries: [
@@ -123,6 +126,8 @@ assert.equal(wanted.gender, "invalid: Please select an option", "an aria-invalid
 assert.match(wanted.resume, /required \(plan, \* label\)/, "a file input with no file");
 assert.match(wanted.question_9, /required \(required, \* label\)/, "a radio group the plan did not know, once");
 assert.equal(check.invalid.filter((r) => r.id === "question_9").length, 1);
+assert.equal(check.invalid.some((r) => /^INPUT$/.test(r.label || "") || r.id === ""), false,
+  "react-select's required decoy is not a wanted field (live: General Matter x3, Bitmovin x1 on 0.4.52)");
 assert.equal("decoy" in wanted, false, "an invisible input is nobody's");
 assert.equal("cover_letter" in wanted, false, "a skipped entry is not wanted");
 assert.equal(check.invalid.length, 5, JSON.stringify(check.invalid));

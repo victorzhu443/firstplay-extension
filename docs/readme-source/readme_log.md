@@ -1200,15 +1200,19 @@ audit's p02 against 0.4.52 prints `null` three times, and its p03 shows
 the misses row scrubbed. The backend half of the round (DECISIONS §57)
 adds `field_class` to every plan entry, so the capture's protected filter
 no longer depends on reason wording, and takes the backend suite 829 →
-1,210. Owed live, with the window on screen, before the next entry: fresh
-Greenhouse boards and Ashby orgs with `check_mode: "dom"` and
-`submit_clicked: false` in every record; the developer click mode turned
-on for one run each on a handful of boards to diff `wants` against
-`dom_wants` (which classes the DOM check misses: format rules,
-conditional requirements, wrapper state); an employer-hosted embed filled
-inside the frame after the popup's confirmation with the top document
-holding none of the plan's values; and the instant tier's timing against
-0.4.51.
+1,210. Live the same evening on 0.4.52 against the hosted
+backend, window on screen: Together AI (EEO block) 22 filled / 0 failed /
+8 review in 1,026 ms and General Matter 25 / 0 / 8 in 906 ms, both
+`check_mode: "dom"`, `submit_clicked: false`, and nothing on the wire but
+the lookup GETs and Greenhouse's own analytics beacon; Forus (Ashby) 4 / 0
+/ 2 in 107 ms, `ashby-local`; Bitmovin's own careers page filled 12 / 0 /
+2 inside its Greenhouse frame while the top document's inputs held none
+of the plan's values. The instant tier stayed at 30–36 ms. One defect
+found and fixed in 0.4.53: react-select's hidden `required` decoy input
+surfaced in the DOM check as "INPUT · not in plan" (three rows on General
+Matter, one on Bitmovin). Still unmeasured: the `wants` versus
+`dom_wants` fidelity diff (the click mode is set from the extension's
+console) and whether Ashby's autosave carries replayed protected answers.
 
 ### What the log says in one paragraph
 

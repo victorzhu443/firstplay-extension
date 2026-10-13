@@ -578,7 +578,8 @@
     };
     const labelOf = (el, entry) => {
       const lab = labelElementOf(el);
-      const raw = lab ? text(lab) : (entry && entry.label) || el.id || el.name || el.tagName;
+      const raw = lab ? text(lab) : (entry && entry.label) || el.getAttribute("aria-label") || el.getAttribute("placeholder")
+        || el.id || el.name || el.tagName;
       return raw.replace(/\s*\*\s*$/, "").slice(0, 60);
     };
     const messageOf = (el) => {
@@ -642,6 +643,13 @@
         if (type === "radio" && el.name && document.querySelector(`input[type="radio"][name="${CSS.escape(el.name)}"]`) !== el) { seen.add(el); continue; }
       }
       if (el.tagName !== "FIELDSET" && el.offsetParent === null) { seen.add(el); continue; }
+      // react-select's own internals: the typed input is judged through its
+      // plan entry, and the `required` decoy beside it (`…-requiredInput`,
+      // opacity 0, tabindex -1) has no label and no value by design. Live on
+      // General Matter and Bitmovin (0.4.52) each surfaced as "INPUT · not in
+      // plan" and inflated still_required.
+      if (/requiredInput|select__input/.test(el.className || "") || el.getAttribute("aria-hidden") === "true"
+          || (el.tabIndex < 0 && el.closest(".select__container"))) { seen.add(el); continue; }
       consider(el, null);
     }
     return { ok: true, invalid, blocked: [], submitButton: "(not clicked)" };
