@@ -250,9 +250,11 @@
       inPage = await runInPage();
     }
     let outcome;
+    let world = "main";
     if (inPage && inPage.ok && inPage.outcome) {
       outcome = inPage.outcome;
     } else {
+      world = "isolated";
       console.warn(`${TAG} could not run the fill in the page's world (${(inPage && inPage.why) || "no result"}); ` +
         `falling back — dropdowns may not take values`);
       outcome = await ns.applyPlan(pagePlan, { resume: pageResume, transcript: pageTranscript });
@@ -443,16 +445,25 @@
     }
 
     // The run's record, on the document for anything that reads the page
-    // (the survey harness, a bug report): counts, tiers, what the form still
-    // wants, every field's source, confidence and result, and what the dry
-    // run blocked (method names only — a run where nothing was blocked and a
-    // run where the block was bypassed looked the same before, audit M3).
-    // No values, no profile.
+    // (the survey harness, a bug report) and in storage for the popup's
+    // "Copy diagnostics": counts, tiers, what the form still wants, every
+    // field's source, confidence and result, what the check did, and which
+    // engine, backend host and world served it with the model's flags
+    // (audit F21: a failed model path looked like no call at all). No
+    // values, no profile.
     try {
       const blocked = checkMode === "click" && Array.isArray(check.blocked) ? check.blocked.map((b) => String(b).slice(0, 24)) : null;
-      document.documentElement.setAttribute("data-firstplay-outcome", JSON.stringify({
+      const record = {
         version: chrome.runtime.getManifest().version,
         at: new Date().toISOString(),
+        ats: posting.ats, where: `${location.host}${location.pathname}`.slice(0, 120),
+        engine: response.engine || null,
+        backend: response.backend || null,
+        world,
+        cache_hit: !!response.cached,
+        model_skipped: !!response.model_skipped, model_degraded: !!response.model_degraded,
+        model_available: response.model_available === undefined ? null : !!response.model_available,
+        jev_calls: response.jev_calls || 0,
         filled: outcome.filled, attach: outcome.attach, review: outcome.review,
         failed: outcome.failed, missing: outcome.missing,
         fill_ms: outcome.timing && outcome.timing.total, tiers: outcome.timing || null,
@@ -470,7 +481,13 @@
         dry_run_bypassed: dryRunBypassed,
         dom_wants: domRows ? domRows.map((f) => ({ field: String(f.label || "").slice(0, 60), message: String(f.message || "").slice(0, 60) })) : null,
         check_skipped: check && !check.ok ? check.why : null,
-      }));
+      };
+      // Only when the backend says so (the fields are being added there);
+      // an older backend leaves them absent rather than false.
+      if (response.model_failed !== undefined) record.model_failed = !!response.model_failed;
+      if (response.model_error !== undefined && response.model_error !== null) record.model_error = String(response.model_error).slice(0, 120);
+      document.documentElement.setAttribute("data-firstplay-outcome", JSON.stringify(record));
+      chrome.storage.local.set({ "firstplay.lastRecord": record }).catch(() => {});
     } catch (_e) { /* the record is a convenience */ }
 
     // From here on the applicant edits; what they type, pick and correct is

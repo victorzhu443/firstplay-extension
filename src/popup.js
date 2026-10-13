@@ -334,6 +334,24 @@ import { resolveBackend, atsOfHost, BACKEND_KEY, ALLOW_LOCAL_KEY } from "./confi
     await chrome.storage.local.set({ [MISSES_KEY]: [] }); renderMisses();
   });
 
+  // The last run's record, as content.js stored it: values are already
+  // absent (fieldRecord and scrubReason), so it can be pasted anywhere.
+  const LAST_RECORD_KEY = "firstplay.lastRecord";
+  const diagnosticsNote = document.getElementById("diagnosticsNote");
+  chrome.storage.local.get(LAST_RECORD_KEY).then((v) => {
+    const r = v[LAST_RECORD_KEY];
+    diagnosticsNote.textContent = r ? `last run ${(r.at || "").slice(0, 16)} on ${r.where || "?"}` : "no run recorded yet";
+  });
+  document.getElementById("copyDiagnostics").addEventListener("click", async () => {
+    const stored = await chrome.storage.local.get(LAST_RECORD_KEY);
+    const record = stored[LAST_RECORD_KEY];
+    if (!record) { diagnosticsNote.textContent = "no run recorded yet"; return; }
+    try {
+      await navigator.clipboard.writeText(JSON.stringify(record, null, 1));
+      diagnosticsNote.textContent = "copied";
+    } catch (e) { diagnosticsNote.textContent = "could not copy"; }
+  });
+
   // Opt-in, off until the applicant turns it on: learning is a change in how
   // their data is handled after install, so it is disclosed and chosen here
   // (Chrome Web Store Limited Use; docs/research/learning-agents.md §4).

@@ -97,6 +97,8 @@
     <p style="font-size:12px;margin:4px 0">The last 100, newest first, with the page and the widget's reason. Copy and paste them to whoever is debugging.</p>
     <div class="row" style="margin:0 0 6px"><button id="copyMisses">Copy as text</button><button id="clearMisses">Clear</button></div>
     <pre id="missesList" style="font-size:11px;max-height:180px;overflow:auto;white-space:pre-wrap;margin:0"></pre>
+    <p style="font-size:12px;margin:8px 0 4px">The last run's record — counts, timings, each field's key, label, source and result, what the form still wanted, which backend and engine answered. No values, no profile.</p>
+    <div class="row" style="margin:0"><button id="copyDiagnostics">Copy diagnostics</button><span id="diagnosticsNote" class="status"></span></div>
   </details>
   <details style="margin:0 0 12px"><summary style="font-size:12px;cursor:pointer">Advanced: backend</summary>
     <p id="backendLine" class="status" style="margin:4px 0 6px">Resolving the backend…</p>
