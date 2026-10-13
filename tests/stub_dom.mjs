@@ -15,6 +15,11 @@ export function el(tag, props = {}, children = []) {
     closest(sel) { let n = this; while (n) { if (n.tagName !== "DOCUMENT" && matches(n, sel)) return n; n = n.parentElement; } return null; },
     contains(x) { return all(this).includes(x); },
     matches(sel) { return matches(this, sel); },
+    // The drivers click and dispatch; a test overrides `click` on the nodes
+    // whose click should do something (a day cell, a nav button).
+    focus() {}, blur() {},
+    dispatchEvent() { return true; },
+    click() { if (this.type === "checkbox") this.checked = !this.checked; else if (this.type === "radio") this.checked = true; },
   };
   if (props.role) node.attributes.role = props.role;
   if (props.id) node.attributes.id = props.id;
@@ -30,7 +35,7 @@ export function matches(node, selector) {
   // just enough: comma lists of  tag[type="x"], [attr="x"], [attr*="x"], [attr^="x"], [attr$="x"], tag:not([type="hidden"])
   return selector.split(",").some((part) => {
     part = part.trim();
-    const tag = (part.match(/^[a-z]+/i) || [""])[0];
+    const tag = (part.match(/^[a-z][a-z0-9]*/i) || [""])[0];
     if (tag && node.tagName !== tag.toUpperCase()) return false;
     // Class selectors match on className, not on everything (a bare ".select__input"
     // once matched every element, which would call every input a react-select).

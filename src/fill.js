@@ -85,7 +85,59 @@ var FirstPlay = FirstPlay || {};
    * exactly one option has it. Anything else is nobody's answer: the filler
    * must select what the menu provides, or leave the field and say so.
    */
-  function pickOption(options, textOf, value) {
+  function pickOption(options, textOf, value, hints) {
+    return pickOptionWithReason(options, textOf, value, hints).option;
+  }
+
+  /** Text with its diacritics folded away: "États-Unis" reads "etats unis". */
+  function fold(text) {
+    return normalise(String(text || "").normalize("NFD").replace(/[̀-ͯ]/g, ""));
+  }
+
+  /**
+   * How a localised Greenhouse board names the three countries the stored
+   * profiles name in English — French, Spanish, German, Portuguese. Haven
+   * Interactive (R50, French) offered "États-Unis +1" for "United States".
+   * Folded (no accents), so the lookup is on `fold()` of both sides.
+   */
+  const COUNTRY_ALIASES = {
+    "united states": ["etats unis", "estados unidos", "vereinigte staaten", "estados unidos da america", "etats unis d amerique", "estados unidos de america", "vereinigte staaten von amerika", "usa"],
+    "canada": ["canada", "kanada"],
+    "united kingdom": ["royaume uni", "reino unido", "vereinigtes konigreich", "grossbritannien", "großbritannien", "gran bretana", "grande bretagne"],
+  };
+
+  /** The dial code an option's text ends in ("United States +1" -> "1"), or null. */
+  function dialCodeOf(text) {
+    const m = String(text || "").trim().match(/\+\s?(\d[\d\s-]*)$/);
+    return m ? m[1].replace(/\D/g, "") : null;
+  }
+
+  /** A two-letter country code an option object exposes, if any. */
+  function isoOf(option) {
+    if (!option || typeof option !== "object") return null;
+    for (const key of ["iso2", "iso", "countryCode", "country_code", "code", "country", "value"]) {
+      const v = option[key];
+      if (typeof v === "string" && /^[A-Za-z]{2}$/.test(v.trim())) return v.trim().toUpperCase();
+    }
+    if (typeof option.getAttribute === "function") {
+      for (const attr of ["data-iso2", "data-country-code", "data-country", "data-value"]) {
+        const v = option.getAttribute(attr);
+        if (typeof v === "string" && /^[A-Za-z]{2}$/.test(v.trim())) return v.trim().toUpperCase();
+      }
+    }
+    return null;
+  }
+
+  /**
+   * `pickOption` with the reason it refused. The exact/prefix rule first;
+   * then, on a phone-country list ("<name> +<digits>", Greenhouse's phone
+   * widget), the plan's `dial_code` when exactly one option carries it, or
+   * the one whose exposed ISO code is the plan's `iso2` when several share
+   * it (+1 is United States, Canada, Puerto Rico and more); then the
+   * localisation table. Anything else is refused with a reason that names
+   * what stood in the way.
+   */
+  function pickOptionWithReason(options, textOf, value, hints) {
     const wanted = normalise(value);
     const wantedPlace = expandPlaces(wanted);
     const texts = options.map((o) => normalise(textOf(o)));
@@ -98,11 +150,44 @@ var FirstPlay = FirstPlay || {};
       return distinct.size === 1 ? hits[0] : null;
     };
 
+    // An ambiguous exact or prefix match is refused without a reason of its
+    // own: the caller lists what the menu offered, which is the useful part.
     let hits = options.filter((o, i) => texts[i] === wanted || texts[i] === wantedPlace);
-    if (hits.length) return unique(hits);
+    if (hits.length) return { option: unique(hits), why: null };
 
     hits = options.filter((o, i) => texts[i].startsWith(wanted) || texts[i].startsWith(wantedPlace));
-    return hits.length ? unique(hits) : null;
+    if (hits.length) return { option: unique(hits), why: null };
+
+    // A phone-country list: most options end in a dial code.
+    const dials = options.map((o) => dialCodeOf(textOf(o)));
+    const isDialList = options.length >= 3 && dials.filter(Boolean).length * 2 >= options.length;
+    let shared = null;
+    const h = hints || {};
+    if (isDialList && h.dial_code) {
+      const code = String(h.dial_code).replace(/\D/g, "");
+      const byDial = options.filter((o, i) => dials[i] === code);
+      if (byDial.length === 1) return { option: byDial[0], why: null };
+      if (byDial.length > 1) {
+        const iso = h.iso2 ? String(h.iso2).trim().toUpperCase() : null;
+        const byIso = iso ? byDial.filter((o) => isoOf(o) === iso) : [];
+        if (byIso.length === 1) return { option: byIso[0], why: null };
+        shared = `several countries share +${code}; pick yours`;
+      }
+    }
+
+    // Last resort: the country under a localised name.
+    const aliases = COUNTRY_ALIASES[fold(value)] || COUNTRY_ALIASES[expandPlaces(fold(value))];
+    if (aliases) {
+      const folded = options.map((o) => fold(textOf(o)));
+      for (const alias of aliases) {
+        const exact = options.filter((o, i) => folded[i] === alias);
+        if (exact.length) return { option: unique(exact), why: unique(exact) ? null : "several options read the same" };
+        const prefix = options.filter((o, i) => folded[i].startsWith(alias + " "));
+        if (prefix.length === 1) return { option: prefix[0], why: null };
+      }
+    }
+
+    return { option: null, why: shared };
   }
 
   /**
@@ -206,6 +291,18 @@ var FirstPlay = FirstPlay || {};
     // An Ashby option group is keyed by the id prefix its options share.
     if (key && /-labeled-(checkbox|radio)$/.test(key)) {
       const first = document.querySelector(`[id^="${CSS.escape(key)}-"]`);
+      if (first) return first;
+    }
+    // Greenhouse renders a checkbox or radio question whose API name is
+    // `question_N` as inputs `question_N-labeled-checkbox-0`, `-1`, … (one
+    // box for a consent question). R50: Signifyd, Attentive and
+    // InternshipList's consents were "not in plan" to the DOM check for
+    // want of this line. The first input stands for the group;
+    // choiceCandidates finds the rest by the same prefix.
+    if (key) {
+      const first = document.querySelector(
+        `[id^="${CSS.escape(key)}-labeled-checkbox-"], [id^="${CSS.escape(key)}-labeled-radio-"]`
+      );
       if (first) return first;
     }
 
@@ -662,7 +759,11 @@ var FirstPlay = FirstPlay || {};
     return options;
   }
 
-  async function fillReactSelect(el, value, prefetched = null) {
+  /**
+   * @param {object} [hints]  the plan entry's `dial_code` / `iso2`, for the
+   *   phone-country widget on a localised board (see pickOptionWithReason)
+   */
+  async function fillReactSelect(el, value, prefetched = null, hints = null) {
     const instance = selectInstanceOf(el);
 
     if (!instance) return { ok: false, why: "not a react-select instance" };
@@ -674,12 +775,13 @@ var FirstPlay = FirstPlay || {};
       return { ok: false, why: `the form's lookup returned nothing for ${JSON.stringify(value)} — try again` };
     }
     if (!options.length) options = await typedOptions(el, instance, value);
-    const chosen = pickOption(options, optionText, value);
+    const picked = pickOptionWithReason(options, optionText, value, hints);
+    const chosen = picked.option;
 
     if (!chosen) {
       return {
         ok: false,
-        why: `no option matching ${JSON.stringify(value)} among ` +
+        why: picked.why || `no option matching ${JSON.stringify(value)} among ` +
           options.slice(0, 6).map(optionText).join(" | "),
       };
     }
@@ -924,6 +1026,196 @@ var FirstPlay = FirstPlay || {};
     return { ok: true, chose: chosenText.join(", ") };
   }
 
+  /** The plan entry's matching hints for a select, if the backend sent any (country: dial_code, iso2). */
+  function hintsOf(entry) {
+    if (!entry || (!entry.dial_code && !entry.iso2)) return null;
+    return { dial_code: entry.dial_code || null, iso2: entry.iso2 || null };
+  }
+
+  const MONTHS = ["january", "february", "march", "april", "may", "june", "july", "august", "september", "october", "november", "december"];
+  const MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+
+  function monthIndex(word) {
+    const w = String(word || "").toLowerCase().replace(/\.$/, "");
+    if (!w) return -1;
+    if (w === "sept") return 8;
+    return MONTHS.findIndex((m) => m === w || (w.length >= 3 && m.startsWith(w)));
+  }
+
+  /**
+   * A stored date as { year, month (1–12), day (1–31 or null), note }.
+   * Takes "May 2028", "May 15, 2028", "15 May 2028", "2028-05-15",
+   * "2028-05", "05/15/2028", "05/2028" and a bare "2028". A month-year
+   * takes the 1st and a bare year January 1st, and `note` says so, so the
+   * tooltip can tell the applicant what was chosen for them. Null when the
+   * text is not a date.
+   */
+  function parseDate(value) {
+    const text = String(value === null || value === undefined ? "" : value).trim();
+    if (!text) return null;
+    let m;
+    if ((m = text.match(/^(\d{4})-(\d{1,2})(?:-(\d{1,2}))?$/))) {
+      return dateParts(+m[1], +m[2], m[3] ? +m[3] : null);
+    }
+    if ((m = text.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/))) return dateParts(+m[3], +m[1], +m[2]);
+    if ((m = text.match(/^(\d{1,2})\/(\d{4})$/))) return dateParts(+m[2], +m[1], null);
+    if ((m = text.match(/^(\d{4})$/))) {
+      const parts = dateParts(+m[1], 1, null);
+      if (parts) parts.note = "FirstPlay chose January 1st of your stored year";
+      return parts;
+    }
+    if ((m = text.match(/^([A-Za-z]+)\.?\s+(\d{1,2})(?:st|nd|rd|th)?,?\s+(\d{4})$/))) {
+      return dateParts(+m[3], monthIndex(m[1]) + 1, +m[2]);
+    }
+    if ((m = text.match(/^(\d{1,2})(?:st|nd|rd|th)?\s+([A-Za-z]+)\.?,?\s+(\d{4})$/))) {
+      return dateParts(+m[3], monthIndex(m[2]) + 1, +m[1]);
+    }
+    if ((m = text.match(/^([A-Za-z]+)\.?,?\s+(\d{4})$/))) return dateParts(+m[2], monthIndex(m[1]) + 1, null);
+    return null;
+  }
+
+  function dateParts(year, month, day) {
+    if (!(year >= 1900 && year <= 2200) || !(month >= 1 && month <= 12)) return null;
+    if (day !== null && !(day >= 1 && day <= 31)) return null;
+    const parts = { year, month, day: day === null ? 1 : day, note: null };
+    if (day === null) parts.note = "FirstPlay chose the 1st of your stored month";
+    return parts;
+  }
+
+  function ordinal(day) {
+    const rest = day % 100;
+    if (rest >= 11 && rest <= 13) return `${day}th`;
+    return day + (["th", "st", "nd", "rd"][day % 10] || "th");
+  }
+
+  function hasClass(el, name) {
+    return String((el && el.className) || "").split(/\s+/).includes(name);
+  }
+
+  function isDatePicker(el) {
+    return el.tagName === "INPUT" && !!el.closest(".react-datepicker-wrapper");
+  }
+
+  /**
+   * Drive a react-datepicker (Ashby's Date field: "Graduation Date", "When
+   * can you start?"). Nine of R50's ten Ashby entry failures were this one
+   * widget: the native setter put the text in the input, the display showed
+   * it, but the picker's selected date stayed null and Ashby's form state
+   * was empty; typed key events did not reach it either (TensorWave,
+   * measured live). What does reach it is what a person does: click the
+   * input, the popper opens on a month, previous/next step the header, a
+   * click on a day cell fires onChange. So: open, step to the stored
+   * month, click the day, read the input back.
+   *
+   * Measured popper (Ashby's custom header): `div.react-datepicker-popper >
+   * div.react-datepicker`, `.react-datepicker__header` with an `h4`
+   * reading "May 2028" and two buttons (previous, next; no selects), then
+   * 35 day cells `div.react-datepicker__day.react-datepicker__day--015`
+   * with `aria-label="Choose Monday, May 15th, 2028"`; the adjacent months'
+   * cells carry `--outside-month`. The stock header's
+   * `.react-datepicker__current-month` and `--previous/--next` buttons
+   * are read too.
+   */
+  async function fillDatePicker(el, value) {
+    const target = parseDate(value);
+    if (!target) return { ok: false, why: `date picker: ${JSON.stringify(String(value).slice(0, 30))} is not a date it can pick` };
+    const monthYear = `${MONTH_NAMES[target.month - 1]} ${target.year}`;
+    const dayText = `${MONTH_NAMES[target.month - 1]} ${target.day}, ${target.year}`;
+
+    const scope = el.closest("[data-field-path]") || (el.closest(".react-datepicker-wrapper") || el).parentElement || document;
+    const popper = () => (scope && scope.querySelector(".react-datepicker-popper")) || document.querySelector(".react-datepicker-popper");
+    const headerText = () => {
+      const pop = popper();
+      const header = pop && (pop.querySelector(".react-datepicker__current-month") ||
+        (pop.querySelector(".react-datepicker__header") || pop).querySelector("h4, h3, h2"));
+      return header ? String(header.textContent || "").replace(/\s+/g, " ").trim() : "";
+    };
+    const shownMonth = () => {
+      const m = headerText().match(/([A-Za-z]+)\.?\s+(\d{4})/);
+      const month = m ? monthIndex(m[1]) : -1;
+      return m && month >= 0 ? { month: month + 1, year: +m[2] } : null;
+    };
+
+    // Open. A real click on the input first; focus plus the pointer
+    // sequence if the popper has not appeared.
+    el.focus();
+    try { el.click(); } catch (e) { /* the fallback below */ }
+    for (let i = 0; i < 25 && !popper(); i += 1) await sleep(20);
+    if (!popper()) {
+      el.dispatchEvent(new FocusEvent("focusin", { bubbles: true }));
+      for (const type of ["mousedown", "mouseup", "click"]) el.dispatchEvent(new MouseEvent(type, { bubbles: true, cancelable: true }));
+      for (let i = 0; i < 25 && !popper(); i += 1) await sleep(20);
+    }
+    if (!popper()) return { ok: false, why: "date picker: the calendar did not open" };
+    if (!shownMonth()) return { ok: false, why: `date picker: could not read the calendar's month (${JSON.stringify(headerText().slice(0, 30))})` };
+
+    // Step to the month. Buttons are re-read each step: the header
+    // re-renders. Bounded at 120 months.
+    const navButton = (direction) => {
+      const pop = popper();
+      if (!pop) return null;
+      const stock = pop.querySelector(`.react-datepicker__navigation--${direction}`);
+      if (stock) return stock;
+      const header = pop.querySelector(".react-datepicker__header") || pop;
+      const buttons = Array.from(header.querySelectorAll("button"));
+      const byLabel = buttons.find((b) => new RegExp(direction === "previous" ? "prev|back|earlier" : "next|forward|later", "i")
+        .test(`${b.getAttribute("aria-label") || ""} ${b.getAttribute("title") || ""}`));
+      if (byLabel) return byLabel;
+      if (buttons.length < 2) return null;
+      return direction === "previous" ? buttons[0] : buttons[buttons.length - 1];
+    };
+    let steps = 0;
+    for (;;) {
+      const shown = shownMonth();
+      if (!shown) return { ok: false, why: `date picker: lost the calendar's month after ${steps} step(s)` };
+      const distance = (target.year - shown.year) * 12 + (target.month - shown.month);
+      if (distance === 0) break;
+      if (steps >= 120) return { ok: false, why: `date picker: could not reach ${monthYear} in 120 steps` };
+      const button = navButton(distance < 0 ? "previous" : "next");
+      if (!button) return { ok: false, why: `date picker: no ${distance < 0 ? "previous" : "next"} button to reach ${monthYear}` };
+      const before = headerText();
+      button.click();
+      steps += 1;
+      for (let i = 0; i < 25 && headerText() === before; i += 1) await sleep(20);
+      if (headerText() === before) return { ok: false, why: `date picker: could not reach ${monthYear} (the calendar stayed on ${before.slice(0, 20)})` };
+    }
+
+    // The day: by aria-label, never a cell of an adjacent month.
+    const pop = popper();
+    const cells = Array.from(pop.querySelectorAll(".react-datepicker__day")).filter((c) => !hasClass(c, "react-datepicker__day--outside-month"));
+    const labelRe = new RegExp(`\\b${MONTH_NAMES[target.month - 1]}\\s+${ordinal(target.day)},?\\s+${target.year}\\b`, "i");
+    const padded = String(target.day).padStart(3, "0");
+    const cell = cells.find((c) => labelRe.test(c.getAttribute("aria-label") || "")) ||
+      cells.find((c) => hasClass(c, `react-datepicker__day--${padded}`));
+    if (!cell) return { ok: false, why: `date picker: no day cell for ${dayText}` };
+    if (cell.getAttribute("aria-disabled") === "true" || hasClass(cell, "react-datepicker__day--disabled")) {
+      return { ok: false, why: `date picker: ${dayText} is not selectable on this calendar` };
+    }
+    cell.click();
+
+    // Read back: the input holds a date with the target year, and the
+    // popper has closed (Escape it if it has not).
+    const holdsYear = () => {
+      const v = String(el.value || "").trim();
+      return v !== "" && (v.includes(String(target.year)) || new RegExp(`(^|\\D)${String(target.year).slice(2)}$`).test(v));
+    };
+    for (let i = 0; i < 50 && !holdsYear(); i += 1) await sleep(20);
+    if (!holdsYear()) {
+      return { ok: false, why: `date picker: clicked ${dayText} but the field reads ${JSON.stringify(String(el.value || "").slice(0, 20))}` };
+    }
+    if (popper()) {
+      el.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", code: "Escape", keyCode: 27, bubbles: true, cancelable: true }));
+      for (let i = 0; i < 25 && popper(); i += 1) await sleep(20);
+      if (popper()) {
+        el.blur();
+        el.dispatchEvent(new FocusEvent("focusout", { bubbles: true }));
+        for (let i = 0; i < 25 && popper(); i += 1) await sleep(20);
+      }
+      if (popper()) return { ok: false, why: `date picker: picked ${dayText} but the calendar would not close` };
+    }
+    return { ok: true, chose: dayText, note: target.note };
+  }
+
   /** Write one value into one located control, whatever kind it is. */
   async function fillControl(el, entry, value) {
     let result;
@@ -969,8 +1261,10 @@ var FirstPlay = FirstPlay || {};
         el.matches('button[aria-haspopup="listbox"]')) {
       result = await fillListbox(el, value, extras);
       return result;
+    } else if (isDatePicker(el)) {
+      result = await fillDatePicker(el, value);
     } else if (isReactSelect(el) && selectInstanceOf(el)) {
-      result = await fillReactSelect(el, value);
+      result = await fillReactSelect(el, value, null, hintsOf(entry));
     } else if (el.getAttribute("role") === "combobox" ||
                (el.tagName === "INPUT" && el.getAttribute("aria-haspopup") === "listbox") ||
                el.dataset.firstplayAutocomplete === "1") {
@@ -1123,6 +1417,7 @@ var FirstPlay = FirstPlay || {};
   function widgetKind(el) {
     if ((el.tagName === "FIELDSET" || el.hasAttribute("data-field-path")) && el.querySelector('input[type="radio"], input[type="checkbox"]')) return "instant";
     if (!["INPUT", "TEXTAREA", "SELECT"].includes(el.tagName) || el.matches('button[aria-haspopup="listbox"]')) return "listbox";
+    if (isDatePicker(el)) return "datepicker";
     if ((isReactSelect(el) && selectInstanceOf(el)) || looksLikeReactSelect(el)) return "react-select";
     if (el.getAttribute("role") === "combobox" ||
         (el.tagName === "INPUT" && el.getAttribute("aria-haspopup") === "listbox") ||
@@ -1135,6 +1430,7 @@ var FirstPlay = FirstPlay || {};
    *
    *   instant       text, checkboxes, radios, native selects, the résumé: no waits
    *   react-select  every option lookup (network) fires at once; picks are synchronous
+   *   datepicker    react-datepicker poppers, clicked through one at a time after the picks
    *   autocomplete  every search is started first; then each list is picked from
    *   listbox       local menus, one after another (opening one may close another)
    *
@@ -1268,7 +1564,7 @@ var FirstPlay = FirstPlay || {};
   async function applyPlan(plan, context = {}) {
     const outcome = { filled: 0, attach: 0, review: 0, failed: 0, missing: 0, details: [], fields: [], timing: {}, slow: [] };
     const note = (entry, state, ok, why) => outcome.fields.push(fieldRecord(entry, state, ok, why));
-    const work = { instant: [], "react-select": [], autocomplete: [], listbox: [] };
+    const work = { instant: [], "react-select": [], datepicker: [], autocomplete: [], listbox: [] };
 
     // Where the fill's time goes, per tier, and the slowest controls: the
     // applicant's target is a fill under one second, and a number per tier is
@@ -1416,7 +1712,9 @@ var FirstPlay = FirstPlay || {};
         try { result = result.verify(); } catch (e) { result = { ok: false, why: `read-back threw ${e && e.message}` }; }
       }
       if (result.ok) {
-        outline(el, OUTLINE_FILLED, `FirstPlay: ${entry.reason || entry.source}`);
+        // A driver that chose something on the applicant's behalf (the 1st
+        // of a stored month) says so where they will see it.
+        outline(el, OUTLINE_FILLED, `FirstPlay: ${entry.reason || entry.source}${result.note ? ` — ${result.note}` : ""}`);
         outcome.filled += 1;
         note(entry, "filled", true);
       } else if (result.mismatch) {
@@ -1489,8 +1787,13 @@ var FirstPlay = FirstPlay || {};
     // thirteen selects cost about a quarter of a second, not 581 ms.
     for (const [i, item] of work["react-select"].entries()) {
       if (!selectInstanceOf(item.el)) await hydrated(item.el);
-      record(item, await timed(item, () => guarded(() => fillReactSelect(item.el, item.value, prefetched[i]))));
+      record(item, await timed(item, () => guarded(() => fillReactSelect(item.el, item.value, prefetched[i], hintsOf(item.entry)))));
       if (item.entry.values.length > 1) await guarded(() => fillControl(item.el, item.entry, item.value));
+    }
+    // Date pickers are click sequences on a popper that covers the form, so
+    // they sit in the picks tier, one after another, never two at once.
+    for (const item of work.datepicker) {
+      record(item, await timed(item, () => guarded(() => fillDatePicker(item.el, item.value))));
     }
     // One frame for the form to commit the last pick before anyone reads it.
     await frame();
@@ -1518,5 +1821,6 @@ var FirstPlay = FirstPlay || {};
   ns.setNativeValue = setNativeValue;
   ns.fillReactSelect = fillReactSelect;
   // Pure pieces, for the node tests.
-  ns._fill = { normalise, pickOption, textHolds, hispanicAnswerFrom, fieldRecord, locateWithReason, scrubWhy };
+  ns._fill = { normalise, pickOption, pickOptionWithReason, textHolds, hispanicAnswerFrom, fieldRecord, locateWithReason, scrubWhy,
+    parseDate, fillDatePicker, widgetKind, isDatePicker };
 })(FirstPlay);

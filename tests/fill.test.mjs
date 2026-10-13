@@ -6,10 +6,13 @@ import vm from "node:vm";
 import assert from "node:assert/strict";
 import { el, documentOf } from "./stub_dom.mjs";
 
+class Ev { constructor(type, init) { this.type = type; Object.assign(this, init || {}); } }
 function load(doc) {
   const sandbox = {
     document: doc, console, CSS: { escape: (s) => s }, setTimeout, clearTimeout, performance,
     MessageChannel, requestAnimationFrame: (f) => setTimeout(f, 0), Map, Set, Promise,
+    Event: Ev, MouseEvent: Ev, KeyboardEvent: Ev, FocusEvent: Ev,
+    HTMLInputElement: function () {}, HTMLTextAreaElement: function () {},
   };
   vm.runInNewContext(readFileSync(new URL("../src/fill.js", import.meta.url), "utf8"), sandbox);
   return sandbox.FirstPlay;
@@ -98,5 +101,144 @@ const twice = load(documentOf([
   el("label", { text: "City", attrs: { for: "c" } }), el("label", { text: "City", attrs: { for: "c" } }), el("input", { id: "c", type: "text" }),
 ]));
 assert.equal(twice.locate({ field_key: "q", label: "City" }).id, "c");
+
+// --- pickOptionWithReason: a localised phone-country list (Haven Interactive, R50)
+const fr = ["États-Unis +1", "Canada +1", "Porto Rico +1", "Afghanistan +93", "Royaume-Uni +44", "France +33"];
+assert.equal(F.pickOption(fr, texts, "United States"), "États-Unis +1", "the localisation table, even with no hints from the backend");
+assert.equal(F.pickOption(fr, texts, "United States", { dial_code: "+1", iso2: "US" }), "États-Unis +1", "+1 is shared, no ISO on the texts: the table decides");
+assert.equal(F.pickOption(fr, texts, "Canada", { dial_code: "+1", iso2: "CA" }), "Canada +1", "the prefix rule still comes first");
+assert.equal(F.pickOption(fr, texts, "United Kingdom"), "Royaume-Uni +44");
+assert.equal(F.pickOption(fr, texts, "USA"), "États-Unis +1", "US/USA expand to United States first");
+assert.equal(F.pickOption(fr, texts, "Germany", { dial_code: "+49" }), null, "a country the list lacks is nobody's answer");
+const ja = [{ label: "アメリカ合衆国 +1", value: "US" }, { label: "カナダ +1", value: "CA" }, { label: "日本 +81", value: "JP" }, { label: "ドイツ +49", value: "DE" }];
+const labelOf = (o) => o.label;
+assert.equal(F.pickOption(ja, labelOf, "Japan", { dial_code: "+81" }).value, "JP", "a dial code one option carries is that option");
+assert.equal(F.pickOption(ja, labelOf, "United States", { dial_code: "+1", iso2: "US" }).value, "US", "several share +1: the exposed ISO code decides");
+const shared = F.pickOptionWithReason(ja, labelOf, "United States", { dial_code: "+1" });
+assert.equal(shared.option, null, "several share +1 and nothing tells them apart: refused");
+assert.equal(shared.why, "several countries share +1; pick yours");
+assert.equal(F.pickOptionWithReason(ja, labelOf, "United States", { dial_code: "1", iso2: "us" }).option.value, "US", "hint shapes are forgiven");
+assert.equal(F.pickOption(["Yes", "No", "Maybe"], texts, "Sometimes", { dial_code: "+1" }), null, "hints never touch a list that is not a phone-country list");
+assert.equal(F.pickOptionWithReason(["Yes", "No"], texts, "Sometimes", { dial_code: "+1" }).why, null, "and leave the generic reason to the caller");
+
+// --- parseDate: what a stored date can look like
+const P = F.parseDate;
+const d = (o) => o && [o.year, o.month, o.day, o.note].join("|");
+const FIRST = "FirstPlay chose the 1st of your stored month";
+assert.equal(d(P("May 2028")), `2028|5|1|${FIRST}`);
+assert.equal(d(P("May 15, 2028")), "2028|5|15|");
+assert.equal(d(P("May 15 2028")), "2028|5|15|");
+assert.equal(d(P("15 May 2028")), "2028|5|15|");
+assert.equal(d(P("2028-05-15")), "2028|5|15|");
+assert.equal(d(P("2028-05")), `2028|5|1|${FIRST}`);
+assert.equal(d(P("05/15/2028")), "2028|5|15|");
+assert.equal(d(P("05/2028")), `2028|5|1|${FIRST}`);
+assert.equal(d(P("2028")), "2028|1|1|FirstPlay chose January 1st of your stored year");
+assert.equal(d(P("Sept. 2027")), `2027|9|1|${FIRST}`);
+assert.equal(d(P("Dec 2027")), `2027|12|1|${FIRST}`);
+assert.equal(P("Spring 2028"), null, "a season is not a month");
+assert.equal(P("13/40/2028"), null);
+assert.equal(P(""), null);
+assert.equal(P("as soon as possible"), null);
+
+// --- fillDatePicker: the react-datepicker popper as measured on Ashby (TensorWave, R50)
+const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+const ord = (n) => n + (n % 100 >= 11 && n % 100 <= 13 ? "th" : ["th", "st", "nd", "rd"][n % 10] || "th");
+const pad = (n) => String(n).padStart(3, "0");
+function datePickerPage({ dead = false, start = { month: 10, year: 2026 } } = {}) {
+  const input = el("input", { type: "text", attrs: { placeholder: "Pick date..." } });
+  const wrapper = el("div", { className: "react-datepicker-wrapper" }, [el("div", { className: "react-datepicker__input-container" }, [input])]);
+  const field = el("div", { attrs: { "data-field-path": "grad_date" } }, [wrapper]);
+  const doc = documentOf([field]);
+  const state = { ...start, open: false, nav: 0, clicks: [] };
+  const close = () => { state.open = false; render(); };
+  const build = () => {
+    const h4 = el("h4", { text: `${MONTHS[state.month - 1]} ${state.year}` });
+    const prev = el("button", { attrs: { "aria-label": "Previous month" } }); prev.click = () => step(-1);
+    const next = el("button", { attrs: { "aria-label": "Next month" } }); next.click = () => step(1);
+    const header = el("div", { className: "react-datepicker__header" }, [h4, prev, next]);
+    const cell = (m, y, day, outside) => {
+      const c = el("div", { className: `react-datepicker__day react-datepicker__day--${pad(day)}${outside ? " react-datepicker__day--outside-month" : ""}`,
+        attrs: { "aria-label": `Choose Someday, ${MONTHS[m - 1]} ${ord(day)}, ${y}` } });
+      c.click = () => { state.clicks.push({ label: c.getAttribute("aria-label"), outside }); input.value = `${String(m).padStart(2, "0")}/${String(day).padStart(2, "0")}/${y}`; close(); };
+      return c;
+    };
+    const days = [];
+    for (let day = 1; day <= new Date(state.year, state.month, 0).getDate(); day += 1) days.push(cell(state.month, state.year, day, false));
+    const nm = state.month === 12 ? 1 : state.month + 1, ny = state.month === 12 ? state.year + 1 : state.year;
+    for (let day = 1; day <= 6; day += 1) days.push(cell(nm, ny, day, true));   // the next month's first days, greyed
+    return el("div", { className: "react-datepicker-popper" }, [el("div", { className: "react-datepicker" }, [header, el("div", { className: "react-datepicker__month" }, days)])]);
+  };
+  const render = () => {
+    field.children = field.children.filter((c) => c.className !== "react-datepicker-popper");
+    if (state.open) { const p = build(); p.parentElement = field; field.children.push(p); }
+  };
+  const step = (n) => { state.nav += 1; state.month += n; if (state.month < 1) { state.month = 12; state.year -= 1; } if (state.month > 12) { state.month = 1; state.year += 1; } render(); };
+  input.click = () => { if (dead) return; state.open = true; render(); };
+  return { doc, input, state };
+}
+
+{
+  const page = datePickerPage();
+  const D = load(page.doc)._fill;
+  assert.equal(D.widgetKind(page.input), "datepicker", "an input inside .react-datepicker-wrapper is the picker's");
+  const r = await D.fillDatePicker(page.input, "May 2028");
+  assert.equal(r.ok, true, JSON.stringify(r));
+  assert.equal(r.chose, "May 1, 2028");
+  assert.equal(r.note, FIRST);
+  assert.equal(page.state.nav, 19, "October 2026 to May 2028 is nineteen clicks on next");
+  assert.equal(page.state.clicks.length, 1);
+  assert.equal(page.state.clicks[0].outside, false, "the greyed May 1st in April's grid is never the one clicked");
+  assert.match(page.state.clicks[0].label, /May 1st, 2028/);
+  assert.equal(page.input.value, "05/01/2028");
+  assert.equal(page.state.open, false, "the popper closed");
+}
+{
+  const page = datePickerPage();
+  const r = await load(page.doc)._fill.fillDatePicker(page.input, "2026-10-15");
+  assert.equal(r.ok, true, JSON.stringify(r));
+  assert.equal(r.chose, "October 15, 2026");
+  assert.equal(r.note, null, "a full date needs no note");
+  assert.equal(page.state.nav, 0);
+}
+{
+  const page = datePickerPage();
+  const r = await load(page.doc)._fill.fillDatePicker(page.input, "March 2026");
+  assert.equal(r.ok, true, JSON.stringify(r));
+  assert.equal(page.state.nav, 7, "backwards works too");
+  assert.match(page.state.clicks[0].label, /March 1st, 2026/);
+}
+{
+  const page = datePickerPage();
+  const r = await load(page.doc)._fill.fillDatePicker(page.input, "January 2040");
+  assert.equal(r.ok, false);
+  assert.equal(r.why, "date picker: could not reach January 2040 in 120 steps");
+  assert.equal(page.state.clicks.length, 0, "nothing was picked");
+}
+{
+  const page = datePickerPage({ dead: true });
+  const r = await load(page.doc)._fill.fillDatePicker(page.input, "May 2028");
+  assert.equal(r.ok, false);
+  assert.equal(r.why, "date picker: the calendar did not open");
+}
+{
+  const page = datePickerPage();
+  const r = await load(page.doc)._fill.fillDatePicker(page.input, "as soon as possible");
+  assert.equal(r.ok, false);
+  assert.match(r.why, /is not a date it can pick/);
+  assert.equal(page.state.open, false, "nothing was opened for a value that is not a date");
+}
+// Through applyPlan: the picks tier, the record, and the tooltip that says what was chosen.
+{
+  const page = datePickerPage();
+  const outcome = await load(page.doc).applyPlan({ entries: [
+    { field_key: "grad_date", label: "Expected Graduation Date", value: "May 2028", values: [], needs_review: false, source: "memory", reason: "stored as graduation_date" },
+  ] }, {});
+  assert.equal(outcome.filled, 1, JSON.stringify(outcome.details));
+  assert.equal(outcome.failed, 0);
+  assert.equal(outcome.fields[0].state, "filled");
+  assert.equal(page.input.value, "05/01/2028");
+  assert.match(page.input.title, /stored as graduation_date — FirstPlay chose the 1st of your stored month/);
+}
 
 console.log("fill.test.mjs: all assertions passed");

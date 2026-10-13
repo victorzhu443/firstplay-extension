@@ -50,7 +50,8 @@ const sandbox = {
   console, CSS: { escape: (s) => s }, chrome: { runtime: { sendMessage: async () => ({ ok: true }) } },
   setTimeout, clearTimeout, performance,
 };
-vm.runInNewContext(readFileSync(new URL("../src/learn.js", import.meta.url), "utf8"), sandbox);
+// fill.js first, for its parseDate: a date picker's rendering of the plan's date is the plan's own fill.
+for (const f of ["fill.js", "learn.js"]) vm.runInNewContext(readFileSync(new URL(`../src/${f}`, import.meta.url), "utf8"), sandbox);
 const L = sandbox.FirstPlay._learn;
 // Objects cross the vm realm with a different prototype; compare by shape.
 const same = (a, b, msg) => assert.equal(JSON.stringify(a), JSON.stringify(b), msg);
@@ -63,6 +64,14 @@ assert.deepEqual(L.decide(review, "Open to the posted range", undefined).emit, t
 assert.equal(L.decide(review, "   ", undefined).emit, false, "an empty value is not");
 assert.equal(L.decide(filled, "301-555-0100", undefined).emit, false, "the plan's own value is not an observation");
 assert.equal(L.decide(filled, "(301) 555-0199", undefined).emit, true, "a correction is");
+const dated = { field_key: "q9", label: "Expected Graduation Date", value: "May 2028", values: [], needs_review: false, reason: "stored as graduation_date", source: "memory" };
+assert.equal(L.decide(dated, "05/01/2028", undefined).emit, false, "the picker's rendering of the stored month (the 1st) is the plan's own fill");
+assert.equal(L.decide(dated, "May 1, 2028", undefined).emit, false);
+assert.equal(L.decide(dated, "05/15/2028", undefined).emit, false, "a day inside the stored month is still that month");
+assert.equal(L.decide(dated, "06/01/2028", undefined).emit, true, "another month is a correction");
+assert.equal(L.decide({ ...dated, value: "May 15, 2028" }, "05/01/2028", undefined).emit, true, "a stored day that was changed is a correction");
+assert.equal(L.sameDate("May 2028", "05/01/2028"), true);
+assert.equal(L.sameDate("not a date", "05/01/2028"), false);
 assert.equal(L.decide(skipped, "https://ada.dev", undefined).emit, true, "an answer to a skipped field is");
 assert.equal(L.decide(review, "Open to the posted range", "open to the posted range").emit, false, "sent once, not again");
 assert.equal(L.decide({ ...review, field_key: "demographic_answers.1" }, "x").emit, false, "protected keys never");

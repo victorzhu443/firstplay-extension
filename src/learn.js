@@ -80,7 +80,20 @@
     // "United States") is the plan's own fill, by the same rule pickOption
     // selects it.
     if (!wasForApplicant(entry) && (plan === user || (plan && user.startsWith(plan)))) return { emit: false, why: "same as plan" };
+    // A date picker shows the date it was given in its own format
+    // ("05/01/2028" for a stored "May 2028"): the same date is the plan's
+    // own fill, not a correction to store (§54: a widget's rendering is
+    // never the applicant's words).
+    if (!wasForApplicant(entry) && plan && sameDate(plan, user)) return { emit: false, why: "same as plan" };
     return { emit: true, why: wasForApplicant(entry) ? "applicant answered" : "applicant corrected" };
+  }
+
+  /** Two texts naming one date — the same year and month, and the same day where the plan has one. */
+  function sameDate(planText, userText) {
+    const parse = ns._fill && ns._fill.parseDate;
+    if (!parse) return false;
+    const p = parse(planText), u = parse(userText);
+    return !!(p && u && p.year === u.year && p.month === u.month && (p.note ? true : p.day === u.day));
   }
 
   // ----- reading the page ---------------------------------------------------
@@ -93,6 +106,26 @@
 
   function isYesNoContainer(el) {
     return !!el.querySelector && !!el.querySelector('button[aria-pressed]');
+  }
+
+  /**
+   * The inputs that together form one choice question, the way fill.js's
+   * choiceCandidates finds them: Greenhouse and Ashby option ids share a
+   * `<key>-labeled-(checkbox|radio)-` prefix (one box or many, with no
+   * shared name); otherwise the inputs that share a name. A multi-checkbox
+   * group read box by box said "empty" over its first, unchecked box while
+   * its second was ticked (Rugged Robotics, R50: "plan said FILL but form
+   * still wants").
+   */
+  function choiceGroup(el) {
+    const type = (el.type || "").toLowerCase();
+    const prefix = ((el.id || "").match(/^(.*-labeled-(?:checkbox|radio))-\d+$/) || [])[1];
+    if (prefix) {
+      const byPrefix = Array.from(document.querySelectorAll(`input[id^="${CSS.escape(prefix)}-"]`)).filter((i) => (i.type || "").toLowerCase() === type);
+      if (byPrefix.length) return byPrefix;
+    }
+    if (el.name) return Array.from(document.querySelectorAll(`input[type="${type}"][name="${CSS.escape(el.name)}"]`));
+    return [el];
   }
 
   /** The applicant's current value for a located control, the way the dry run reads values back. */
@@ -134,12 +167,12 @@
         return { value: undefined, kind: null, options: [] };
       }
       if (type === "radio") {
-        const group = el.name ? Array.from(document.querySelectorAll(`input[type="radio"][name="${CSS.escape(el.name)}"]`)) : [el];
+        const group = choiceGroup(el);
         const on = group.find((r) => r.checked);
         return { value: on ? labelText(on) : null, kind: "single_select", options: group.map(labelText) };
       }
       if (type === "checkbox") {
-        const group = el.name ? Array.from(document.querySelectorAll(`input[type="checkbox"][name="${CSS.escape(el.name)}"]`)) : [el];
+        const group = choiceGroup(el);
         if (group.length > 1) return { value: group.filter((b) => b.checked).map(labelText), kind: "multi_select", options: group.map(labelText) };
         return { value: el.checked ? "Yes" : null, kind: "boolean", options: ["Yes", "No"] };
       }
@@ -281,5 +314,5 @@
   ns.watchForLearning = watchForLearning;
   ns.flushLearning = () => flush(true);
   // Pure pieces, for tests.
-  ns._learn = { decide, observable, planValue, wasForApplicant, normalise, readValue };
+  ns._learn = { decide, observable, planValue, wasForApplicant, normalise, readValue, sameDate, choiceGroup };
 })(FirstPlay);
